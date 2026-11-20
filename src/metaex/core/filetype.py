@@ -124,7 +124,35 @@ _MAGIC_AT_START: tuple[tuple[bytes, FileType], ...] = (
 
 
 def detect(data: bytes | bytearray | memoryview, filename: str | os.PathLike[str] | None = None) -> FileType:
-    """Identify the format of ``data``. Never raises for any input bytes."""
+    """Identify the format of ``data``. Never raises for any input bytes.
+
+    The result is based on content only. If ``filename`` is given and its
+    extension doesn't fit the detected type, a warning is added.
+    """
+    filetype = _detect_content(data)
+    if filename is not None:
+        warning = extension_mismatch(filetype, filename)
+        if warning is not None:
+            filetype = _with_warning(filetype, warning)
+    return filetype
+
+
+def extension_mismatch(filetype: FileType, filename: str | os.PathLike[str]) -> str | None:
+    """Return a warning if the file's extension doesn't match its content.
+
+    Comparison is case-insensitive, and all of a type's usual extensions
+    count as equivalent (.jpg/.jpeg/.jpe, .tif/.tiff, ...). Files without an
+    extension and files of unknown type produce no warning.
+    """
+    if filetype.key == UNKNOWN.key:
+        return None
+    ext = os.path.splitext(os.path.basename(os.fspath(filename)))[1]
+    if not ext or ext.lower() in filetype.extensions:
+        return None
+    return f"extension {ext} but content is {filetype.name}"
+
+
+def _detect_content(data: bytes | bytearray | memoryview) -> FileType:
     head = bytes(data[:SVG_SNIFF_LIMIT])
 
     # TAR first: its header checksum makes it the least ambiguous check,

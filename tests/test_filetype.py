@@ -141,3 +141,38 @@ def test_single_mpeg_frame_header_is_not_enough():
 def test_unknown_never_raises():
     assert detect(b"\x00" * 1000) == ft.UNKNOWN
     assert detect(b"PK\x03\x04garbage") .key == "zip"
+
+
+# --- extension mismatch -------------------------------------------------------
+
+PNG_DATA = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR"
+JPEG_DATA = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00"
+
+
+def test_mismatch_warning():
+    result = detect(PNG_DATA, "photo.jpg")
+    assert result.key == "png"
+    assert result.warnings == ("extension .jpg but content is PNG",)
+
+
+def test_matching_extension_has_no_warning():
+    assert detect(PNG_DATA, "image.png").warnings == ()
+
+
+@pytest.mark.parametrize("name", ["a.jpg", "a.jpeg", "a.jpe", "a.JPG", "a.JpEg", "dir/a.jpg"])
+def test_equivalent_extensions_and_case(name):
+    assert detect(JPEG_DATA, name).warnings == ()
+
+
+@pytest.mark.parametrize("name", ["scan.tif", "scan.tiff", "SCAN.TIFF"])
+def test_tiff_extensions(name):
+    assert detect(b"II*\x00\x08\x00\x00\x00", name).warnings == ()
+
+
+def test_no_filename_or_no_extension_means_no_warning():
+    assert detect(PNG_DATA).warnings == ()
+    assert detect(PNG_DATA, "photo").warnings == ()
+
+
+def test_unknown_content_has_no_mismatch_warning():
+    assert detect(b"plain text", "notes.jpg").warnings == ()
