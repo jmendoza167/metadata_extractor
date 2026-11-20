@@ -1,14 +1,18 @@
 import io
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from metaex import __version__
 from metaex.core.report import (
     MAX_VALUE_LINES,
     Report,
     format_value,
+    render_json,
     render_text,
     sanitize,
+    to_jsonable,
     write_text,
 )
 from metaex.core.result import Section
@@ -147,3 +151,76 @@ def test_write_text_utf8_passes_through():
     stream = io.TextIOWrapper(raw, encoding="utf-8", newline="\n")
     write_text("\u6f22\u5b57\n", stream)
     assert raw.getvalue().decode("utf-8") == "\u6f22\u5b57\n"
+
+
+# --- JSON -----------------------------------------------------------------------
+
+
+def test_json_structure():
+    data = json.loads(render_json(make_report(warnings=["w1"])))
+    assert list(data) == ["metaex_version", "subject", "warnings", "sections"]
+    assert data["metaex_version"] == __version__
+    assert data["subject"] == "photo.jpg"
+    assert data["warnings"] == ["w1"]
+    assert list(data["sections"]) == ["file_system", "origin"]
+    size = data["sections"]["file_system"]["fields"]["size_bytes"]
+    assert size == {"label": "Size (bytes)", "value": 2048, "sensitive": False, "note": None}
+    assert data["sections"]["origin"]["fields"]["url"]["sensitive"] is True
+
+
+def test_json_datetime_is_iso_string():
+    data = json.loads(render_json(make_report()))
+    assert data["sections"]["file_system"]["fields"]["modified"]["value"] == "2026-01-02T03:04:05-05:00"
+
+
+def test_json_bytes_have_length_and_hex_preview():
+    blob = bytes(range(100))
+    assert to_jsonable(blob) == {"length": 100, "hex_preview": blob[:32].hex()}
+    assert to_jsonable(memoryview(b"ab")) == {"length": 2, "hex_preview": "6162"}
+    assert to_jsonable(bytearray()) == {"length": 0, "hex_preview": ""}
+
+
+def test_json_key_order_is_stable():
+    assert render_json(make_report()) == render_json(make_report())
+
+
+def test_json_is_ascii_and_round_trips_unicode():
+    s = Section("a", "A")
+    value = "Jos" + chr(0xE9) + " " + chr(0x6F22) + chr(0x202E) + chr(0x1B)
+    s.add("k", "Key", value)
+    text = render_json(Report("x", [s]))
+    assert text.isascii()
+    assert json.loads(text)["sections"]["a"]["fields"]["k"]["value"] == value
+
+
+def test_json_duplicate_keys_are_not_lost():
+    s = Section("a", "A")
+    s.add("k", "Key", 1)
+    s.add("k", "Key", 2)
+    s.add("k", "Key", 3)
+    fields = json.loads(render_json(Report("x", [s, Section("a", "Again")])))["sections"]
+    assert [f["value"] for f in fields["a"]["fields"].values()] == [1, 2, 3]
+    assert list(fields["a"]["fields"]) == ["k", "k_2", "k_3"]
+    assert "a_2" in fields
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (float("nan"), "nan"),
+        (float("inf"), "inf"),
+        (1.5, 1.5),
+        ((1, b"x"), [1, {"length": 1, "hex_preview": "78"}]),
+        ({"a": {1: None}}, {"a": {"1": None}}),
+        (object, str(object)),
+    ],
+)
+def test_to_jsonable(value, expected):
+    assert to_jsonable(value) == expected
+
+
+def test_to_jsonable_caps_nesting():
+    value = []
+    for _ in range(100):
+        value = [value]
+    json.dumps(to_jsonable(value))

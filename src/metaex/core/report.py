@@ -7,6 +7,8 @@ to move the cursor, recolor the terminal or reverse text direction.
 
 from __future__ import annotations
 
+import json
+import math
 import shutil
 import sys
 import textwrap
@@ -15,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from typing import Any, TextIO
 
+from metaex import __version__
 from metaex.core.result import Section
 
 DEFAULT_WIDTH = 100
@@ -22,6 +25,8 @@ MIN_WIDTH = 60
 MAX_WIDTH = 160
 MAX_LABEL_WIDTH = 24
 MAX_VALUE_LINES = 6
+JSON_HEX_PREVIEW_BYTES = 32
+JSON_MAX_DEPTH = 32
 SENSITIVE_MARK = "*"
 
 
@@ -160,3 +165,74 @@ def _clamp_width(width: int | None) -> int:
     if width is None:
         width = shutil.get_terminal_size((DEFAULT_WIDTH, 24)).columns
     return max(MIN_WIDTH, min(MAX_WIDTH, width))
+
+
+# -- JSON ------------------------------------------------------------------------
+
+
+def render_json(report: Report) -> str:
+    """Render the report as JSON text, ending with a newline.
+
+    Key order is deterministic (report order, not alphabetical), datetimes
+    become ISO 8601 strings and binary values become
+    {"length": N, "hex_preview": "<first 32 bytes as hex>"}. Output is
+    pure ASCII, so it can't be mangled by a console's encoding.
+    """
+    return json.dumps(report_to_data(report), indent=2, ensure_ascii=True,
+                      allow_nan=False) + "\n"
+
+
+def report_to_data(report: Report) -> dict[str, Any]:
+    sections: dict[str, Any] = {}
+    for section in report.sections:
+        fields: dict[str, Any] = {}
+        for f in section.fields:
+            fields[_unique_key(fields, f.key)] = {
+                "label": f.label,
+                "value": to_jsonable(f.value),
+                "sensitive": f.sensitive,
+                "note": f.note,
+            }
+        sections[_unique_key(sections, section.key)] = {
+            "title": section.title,
+            "fields": fields,
+        }
+    return {
+        "metaex_version": __version__,
+        "subject": report.subject,
+        "warnings": list(report.warnings),
+        "sections": sections,
+    }
+
+
+def to_jsonable(value: Any, _depth: int = 0) -> Any:
+    """Convert a field value into plain JSON types."""
+    if _depth > JSON_MAX_DEPTH:
+        return "<nested too deeply>"
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        view = memoryview(value).cast("B")
+        return {
+            "length": len(view),
+            "hex_preview": view[:JSON_HEX_PREVIEW_BYTES].hex(),
+        }
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else str(value)
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, (list, tuple)):
+        return [to_jsonable(v, _depth + 1) for v in value]
+    if isinstance(value, dict):
+        return {str(k): to_jsonable(v, _depth + 1) for k, v in value.items()}
+    return str(value)
+
+
+def _unique_key(existing: dict[str, Any], key: str) -> str:
+    """Never drop data because two fields share a key: add _2, _3, ..."""
+    if key not in existing:
+        return key
+    n = 2
+    while f"{key}_{n}" in existing:
+        n += 1
+    return f"{key}_{n}"
