@@ -16,11 +16,11 @@ from metaex.core.report import render_json, render_text, sanitize, write_text
 EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_USAGE = 2
+EXIT_NOT_CLEAN = 3
 
 # Subcommand name -> one-line help text for commands not implemented yet.
 PLACEHOLDERS = {
     "risk": "summarize the privacy risk of a file's metadata",
-    "verify": "check that a cleaned file contains no metadata",
 }
 
 
@@ -87,6 +87,16 @@ def build_parser() -> argparse.ArgumentParser:
     strip.add_argument("--json", action="store_true", help="print the summary as JSON")
     _add_common_options(strip)
     strip.set_defaults(handler=_cmd_strip)
+
+    verify_help = ("check that a cleaned file contains no metadata "
+                   "(exit 0 = clean, 3 = not clean, 1 = error)")
+    verify = subparsers.add_parser("verify", help=verify_help, description=verify_help)
+    verify.add_argument("path", help="cleaned file to check")
+    verify.add_argument("--original", metavar="PATH",
+                        help="original file, to confirm the image data is unchanged")
+    verify.add_argument("--json", action="store_true", help="print the result as JSON")
+    _add_common_options(verify)
+    verify.set_defaults(handler=_cmd_verify)
 
     for name, help_text in PLACEHOLDERS.items():
         sub = subparsers.add_parser(name, help=help_text, description=help_text)
@@ -164,6 +174,20 @@ def _cmd_strip(args: argparse.Namespace) -> int:
     else:
         write_text("\n".join(sanitize(line) for line in summary_lines(outcome)) + "\n")
     return EXIT_OK
+
+
+def _cmd_verify(args: argparse.Namespace) -> int:
+    import json
+
+    from metaex.commands.verify import result_lines, result_to_dict, verify_file
+
+    result = verify_file(args.path, args.original, max_size=args.max_size)
+    if args.json:
+        write_text(json.dumps(result_to_dict(args.path, result), indent=2,
+                              ensure_ascii=True) + "\n")
+    else:
+        write_text("\n".join(sanitize(line) for line in result_lines(args.path, result)) + "\n")
+    return EXIT_OK if result.clean else EXIT_NOT_CLEAN
 
 
 def _confirm_overwrite(path: str) -> None:

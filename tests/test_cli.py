@@ -36,7 +36,7 @@ def test_no_arguments_prints_help():
         assert command in result.stdout
 
 
-@pytest.mark.parametrize("command", ["risk", "verify"])
+@pytest.mark.parametrize("command", ["risk"])
 def test_placeholder_subcommands_exit_with_code_1(command):
     result = run_cli(command)
     assert result.returncode == 1
