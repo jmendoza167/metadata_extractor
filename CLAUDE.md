@@ -88,7 +88,7 @@ pytest
 - Parser tests should include malformed/truncated/oversized inputs, not just
   happy paths.
 
-## Commit rules
+## Git workflow and commit rules
 
 - Small, focused commits; only stage the files that belong to the change.
 - Use conventional-style messages (`feat:`, `fix:`, `test:`, `docs:`,
@@ -96,3 +96,26 @@ pytest
 - Run `pytest` before committing; don't commit with failing tests.
 - **Commit messages must not contain `Co-Authored-By` lines or any
   Claude/AI attribution.**
+- **Claude Code commits but NEVER pushes.** Javier pushes himself.
+- At the end of each milestone:
+  1. run `git log -i --grep="co-authored-by" --oneline` (must print nothing),
+  2. run the full-history gitleaks scan with `--redact` (see "Secrets"),
+  3. if both are clean, report that the milestone is ready to push.
+
+## Secrets
+
+- This project needs **no tokens or API keys**. Never add code that uses,
+  requests or stores them.
+- **Never read, print or copy credential files**: `.env` files,
+  `~/.config/gh`, `~/.pypirc`, SSH keys, the Windows credential store, or
+  anything similar. Never run `gh auth token` or any other command that
+  prints a token.
+- **Never put real tokens** in tests, docs, examples or commit messages.
+  Fake tokens in tests must be built at runtime (e.g. by joining pieces),
+  so that no literal token pattern exists anywhere in the source.
+- gitleaks runs before every commit (pre-commit hook, installed with
+  `python scripts/install_hooks.py`) and in CI.
+- **Before every push**: run gitleaks on the full history with `--redact`;
+  if anything is found, don't push.
+- **If a secret is ever found** in the repo or its history: stop and tell
+  Javier immediately. Don't try to rewrite or fix history yourself.
