@@ -51,6 +51,45 @@ def test_kitchen_sink_loses_every_metadata_section():
     assert set(section_keys(cleaned)) <= {"jfif", "adobe"}
 
 
+def photo_with_orientation(value, order="<"):
+    from helpers.tiff import ASCII, SHORT, build_tiff, exif_payload
+
+    entries = [(0x010F, ASCII, "Cam")]
+    if value is not None:
+        entries.append((0x0112, SHORT, value))
+    return make_jpeg(app(1, exif_payload(build_tiff(entries, exif=[(0x9003, ASCII, "2024:01:01 00:00:00")],
+                                                    order=order))))
+
+
+@pytest.mark.parametrize("value", [2, 3, 4, 5, 6, 7, 8])
+@pytest.mark.parametrize("order", ["<", ">"])
+def test_orientation_2_to_8_is_kept_alone(value, order):
+    cleaned = jpeg.strip(photo_with_orientation(value, order))
+    (section,) = jpeg.parse(cleaned)["sections"]
+    assert section.key == "exif"
+    assert [f.label for f in section.fields] == ["Byte order", "Orientation"]
+    exif_seg = [s for s in jpeg.walk_segments(cleaned).segments if s.marker == 0xE1]
+    assert len(exif_seg) == 1
+    assert exif_seg[0].payload == jpeg.minimal_orientation_exif(value)[4:]
+    assert len(exif_seg[0].payload) == 6 + 26
+
+
+@pytest.mark.parametrize("value", [1, None, 0, 9, 300])
+def test_no_exif_when_orientation_is_normal_missing_or_invalid(value):
+    assert section_keys(jpeg.strip(photo_with_orientation(value))) == []
+
+
+def test_keep_orientation_false_drops_it():
+    assert section_keys(jpeg.strip(photo_with_orientation(6), keep_orientation=False)) == []
+
+
+def test_orientation_follows_jfif():
+    original = photo_with_orientation(6)
+    with_jfif = original[:2] + app(0, JFIF_WITH_THUMB) + original[2:]
+    names = [s.name for s in jpeg.walk_segments(jpeg.strip(with_jfif)).segments]
+    assert names[:3] == ["SOI", "APP0", "APP1"]
+
+
 @pytest.mark.parametrize(
     "data",
     [

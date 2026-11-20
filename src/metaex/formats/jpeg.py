@@ -680,13 +680,43 @@ def _minimal_adobe(seg: Segment) -> bytes:
     return _make_segment(APP14, ADOBE_ID + p[5:12])
 
 
-def strip(data: bytes | bytearray | memoryview) -> bytes:
+ORIENTATION_TAG = 0x0112
+
+
+def original_orientation(structure: JpegStructure) -> int | None:
+    """EXIF Orientation (1-8) from the first EXIF segment, or None."""
+    seg = _first_app(structure, APP1, exif.EXIF_APP1_PREFIX)
+    if seg is None:
+        return None
+    try:
+        ifd0 = exif.parse_exif(seg.payload).ifd("IFD0")
+    except MalformedFileError:
+        return None
+    value = ifd0.value(ORIENTATION_TAG) if ifd0 is not None else None
+    if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 8:
+        return value
+    return None
+
+
+def minimal_orientation_exif(orientation: int) -> bytes:
+    """A new EXIF APP1 containing only IFD0 with the Orientation tag."""
+    tiff = (b"MM\x00\x2a" + (8).to_bytes(4, "big")
+            + (1).to_bytes(2, "big")
+            + struct.pack(">HHIHH", ORIENTATION_TAG, exif.SHORT, 1, orientation, 0)
+            + (0).to_bytes(4, "big"))
+    return _make_segment(APP1, b"Exif\x00\x00" + tiff)
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True) -> bytes:
     """Return a copy of the JPEG with all metadata removed (whitelist).
 
     Kept: SOI, frame headers (SOFn), DHT, DAC, DQT, DRI, DNL, SOS with its
     scan data, EOI, all copied byte-for-byte; a newly written minimal JFIF
-    APP0 (if the original had one) and APP14 Adobe. Everything else is
-    dropped: every other APPn segment, comments, and any data after EOI.
+    APP0 (if the original had one) and APP14 Adobe. If the original EXIF
+    Orientation is 2-8 (the image is displayed rotated or mirrored), a new
+    minimal EXIF with only that tag is written unless ``keep_orientation``
+    is False. Everything else is dropped: every other APPn segment,
+    comments, and any data after EOI.
 
     Raises MalformedFileError for malformed, truncated or unsupported
     input; nothing is ever partly stripped.
@@ -697,6 +727,9 @@ def strip(data: bytes | bytearray | memoryview) -> bytes:
     jfif = _first_app(structure, APP0, JFIF_ID)
     if jfif is not None:
         out += _minimal_jfif(jfif)
+    orientation = original_orientation(structure)
+    if keep_orientation and orientation is not None and orientation != 1:
+        out += minimal_orientation_exif(orientation)
     adobe = _first_app(structure, APP14, ADOBE_ID)
     if adobe is not None:
         out += _minimal_adobe(adobe)
