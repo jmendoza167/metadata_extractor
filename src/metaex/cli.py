@@ -80,6 +80,8 @@ def build_parser() -> argparse.ArgumentParser:
                             "(colors may shift)")
     strip.add_argument("--no-orientation", action="store_true",
                        help="don't keep the EXIF Orientation tag (the image may display rotated)")
+    strip.add_argument("--fixed-time", action="store_true",
+                       help="set the output's modified/accessed time to 2000-01-01T00:00:00Z")
     strip.add_argument("--json", action="store_true", help="print the summary as JSON")
     _add_common_options(strip)
     strip.set_defaults(handler=_cmd_strip)
@@ -153,7 +155,7 @@ def _cmd_strip(args: argparse.Namespace) -> int:
         _confirm_overwrite(args.path)
     outcome = strip_file(args.path, args.output, paranoid=args.paranoid,
                          keep_orientation=not args.no_orientation, max_size=args.max_size,
-                         in_place=args.in_place)
+                         in_place=args.in_place, fixed_time=args.fixed_time)
     if args.json:
         write_text(json.dumps(outcome.to_dict(), indent=2, ensure_ascii=True) + "\n")
     else:

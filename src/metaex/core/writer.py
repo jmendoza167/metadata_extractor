@@ -33,7 +33,8 @@ def write_new_file(path: str | os.PathLike[str], data: bytes) -> None:
 
 
 def write_verified(dest: str | os.PathLike[str], data: bytes, check: Callable[[bytes], T], *,
-                   overwrite: bool = False, mode: int | None = None) -> T:
+                   overwrite: bool = False, mode: int | None = None,
+                   times: tuple[float, float] | None = None) -> T:
     """Write ``data`` to ``dest`` through a verified temp file.
 
     1. The data is written to a temp file in the destination folder and
@@ -44,7 +45,9 @@ def write_verified(dest: str | os.PathLike[str], data: bytes, check: Callable[[b
        os.replace(), otherwise without ever replacing an existing file.
 
     On any failure the temp file is deleted, so nothing is left behind.
-    ``mode`` sets the permission bits (default: as for any new file).
+    ``mode`` sets the permission bits (default: as for any new file);
+    ``times`` sets (accessed, modified) as POSIX timestamps (default: the
+    time of writing; the original file's times are never copied).
     Returns whatever ``check`` returned.
     """
     target = os.fspath(dest)
@@ -70,6 +73,8 @@ def write_verified(dest: str | os.PathLike[str], data: bytes, check: Callable[[b
         if on_disk != data:
             raise FileAccessError(f"{target}: data read back from disk differs; nothing written")
         result = check(on_disk)
+        if times is not None:
+            os.utime(tmp, times)  # after the read-back, so it can't bump the access time
         if overwrite:
             os.replace(tmp, target)
         else:

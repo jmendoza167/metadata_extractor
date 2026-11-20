@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import os
 import stat
+import sys
 from dataclasses import dataclass, field
 from typing import Any
 
 from metaex.core import filetype as ft
 from metaex.core.errors import MalformedFileError, MetaexError, UnsupportedFormatError
+from metaex.core.generic import mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, format_size, load_file
 from metaex.core.registry import can_strip, format_module
 from metaex.core.verify import Finding, VerifyResult, verify
@@ -27,6 +29,10 @@ class StripOutcome:
     kept_by_design: list[Finding] = field(default_factory=list)
     verify: VerifyResult | None = None
     notes: list[str] = field(default_factory=list)
+    timestamps: str = ""
+    """How the output's file times were set."""
+    zone_identifier: str | None = None
+    """Windows only: whether the output has a Zone.Identifier stream."""
 
     def to_dict(self) -> dict[str, Any]:
         v = self.verify
@@ -49,6 +55,8 @@ class StripOutcome:
                 "image_sha256": v.image_sha256,
                 "original_image_sha256": v.original_image_sha256,
             },
+            "timestamps": self.timestamps,
+            "zone_identifier": self.zone_identifier,
             "notes": self.notes,
         }
 
@@ -62,14 +70,21 @@ def default_output_path(path: str, filetype: ft.FileType) -> str:
     return os.path.join(directory, f"{stem}_clean{ext}")
 
 
+FIXED_TIME = 946684800.0  # 2000-01-01T00:00:00Z
+FIXED_TIME_TEXT = "2000-01-01T00:00:00Z"
+
+
 def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | None = None, *,
                paranoid: bool = False, keep_orientation: bool = True,
-               max_size: int = DEFAULT_MAX_SIZE, in_place: bool = False) -> StripOutcome:
+               max_size: int = DEFAULT_MAX_SIZE, in_place: bool = False,
+               fixed_time: bool = False) -> StripOutcome:
     """load -> detect -> strip -> temp file -> verify -> move into place.
 
     With ``in_place`` the original is replaced (still via a verified temp
     file and os.replace, keeping its permission bits); the caller is
-    responsible for asking the user first.
+    responsible for asking the user first. The output never gets the
+    original's timestamps; with ``fixed_time`` its modified and accessed
+    times are set to 2000-01-01T00:00:00Z.
 
     Raises (and writes nothing) for unsupported types, malformed input, an
     existing output file, or a failed verification.
@@ -106,15 +121,28 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
                               + "; ".join(reasons[:3]) + "); no file written")
         return result
 
+    times = (FIXED_TIME, FIXED_TIME) if fixed_time else None
     if in_place:
         mode = stat.S_IMODE(os.stat(source).st_mode)
-        result = write_verified(target, cleaned, check, overwrite=True, mode=mode)
+        result = write_verified(target, cleaned, check, overwrite=True, mode=mode, times=times)
     else:
-        result = write_verified(target, cleaned, check)
+        result = write_verified(target, cleaned, check, times=times)
     outcome = StripOutcome(source, target, detected, len(data), len(cleaned),
                            kept_by_design=result.kept_by_design, verify=result)
     outcome.removed = removed_groups(module.parse(data), result.kept_by_design)
     outcome.notes.extend(detected.warnings)
+    if fixed_time:
+        outcome.timestamps = (f"modified and accessed set to {FIXED_TIME_TEXT}; "
+                              "creation time is set by the operating system")
+    else:
+        outcome.timestamps = "new (not copied from the original)"
+    if sys.platform == "win32":
+        if mark_of_the_web_section(target) is None:
+            outcome.zone_identifier = "none (no download origin attached)"
+        else:
+            outcome.zone_identifier = "PRESENT"
+            outcome.notes.append("the output has a Zone.Identifier stream; this should not "
+                                 "happen, please report it")
     return outcome
 
 
@@ -206,6 +234,10 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
         lines.append(f"Verification: {status}")
         if v.image_data_match:
             lines.append(f"  Image data unchanged (SHA-256 {v.image_sha256})")
+    lines.append("")
+    lines.append(f"File timestamps: {outcome.timestamps}")
+    if outcome.zone_identifier is not None:
+        lines.append(f"Windows Zone.Identifier stream: {outcome.zone_identifier}")
     for note in outcome.notes:
         lines.append(f"Note: {note}")
     return lines

@@ -167,6 +167,54 @@ def test_in_place_keeps_permissions(photo):
     assert (os.stat(photo).st_mode & 0o777) == 0o640
 
 
+# --- timestamps and Zone.Identifier ---------------------------------------------------
+
+def test_output_does_not_copy_original_timestamps(photo):
+    os.utime(photo, (1_000_000_000, 1_000_000_000))
+    data = json.loads(run("strip", str(photo), "--json").stdout)
+    out = photo.with_name("photo_clean.jpg")
+    assert os.stat(out).st_mtime > 1_000_000_000 + 10 * 365 * 86400
+    assert data["timestamps"] == "new (not copied from the original)"
+
+
+def test_fixed_time(photo):
+    result = run("strip", str(photo), "--fixed-time", "--json")
+    out = photo.with_name("photo_clean.jpg")
+    st = os.stat(out)
+    assert st.st_mtime == 946684800
+    assert st.st_atime == 946684800
+    assert json.loads(result.stdout)["timestamps"].startswith(
+        "modified and accessed set to 2000-01-01T00:00:00Z")
+
+
+def test_fixed_time_in_place(photo):
+    assert run("strip", str(photo), "--in-place", "--yes", "--fixed-time").returncode == 0
+    assert os.stat(photo).st_mtime == 946684800
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="NTFS alternate data streams")
+def test_output_has_no_zone_identifier_on_windows(photo):
+    try:
+        with open(f"{photo}:Zone.Identifier", "wb") as f:
+            f.write(b"[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=https://example.com/x.jpg\r\n")
+    except OSError as exc:
+        pytest.skip(f"no alternate data streams here: {exc}")
+    result = run("strip", str(photo), "--json")
+    data = json.loads(result.stdout)
+    assert data["zone_identifier"].startswith("none")
+    out = photo.with_name("photo_clean.jpg")
+    with pytest.raises(OSError):
+        open(f"{out}:Zone.Identifier", "rb").close()
+    assert "Windows Zone.Identifier stream: none" in run(
+        "strip", str(photo), "-o", str(photo.with_name("second.jpg"))).stdout
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Zone.Identifier is Windows-only")
+def test_zone_identifier_not_reported_elsewhere(photo):
+    data = json.loads(run("strip", str(photo), "--json").stdout)
+    assert data["zone_identifier"] is None
+
+
 # --- write_verified -----------------------------------------------------------------
 
 def test_failed_check_leaves_nothing(tmp_path):
