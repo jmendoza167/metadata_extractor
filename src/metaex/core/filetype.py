@@ -10,14 +10,25 @@ mean a parser for it already exists.
 
 from __future__ import annotations
 
+import dataclasses
+import io
 import os
 import re
+import struct
+import zipfile
 from dataclasses import dataclass
 
-# How far into a file we look for an SVG root element.
+from metaex.core.errors import MalformedFileError
+from metaex.core.reader import ByteReader
+
+# How far into a file we look for an SVG root element (and other headers).
 SVG_SNIFF_LIMIT = 4096
 # Upper bound on ftyp compatible brands we examine.
 FTYP_MAX_BRANDS = 64
+# ZIPs with more central directory entries than this are not inspected.
+ZIP_MAX_ENTRIES = 100_000
+# The ODF/EPUB "mimetype" entry is a short ASCII string.
+ZIP_MIMETYPE_MAX_SIZE = 256
 
 
 @dataclass(frozen=True)
@@ -30,12 +41,15 @@ class FileType:
     extensions: tuple[str, ...]
     """Usual extensions, lowercase with dot; the first is the canonical one."""
     supported: bool
+    warnings: tuple[str, ...] = ()
+    """Problems noticed during detection, for display to the user."""
 
 
 def _t(key: str, name: str, mime: str, exts: str, supported: bool) -> FileType:
     return FileType(key, name, mime, tuple(exts.split()), supported)
 
 
+# Images
 JPEG = _t("jpeg", "JPEG", "image/jpeg", ".jpg .jpeg .jpe .jfif", True)
 PNG = _t("png", "PNG", "image/png", ".png", True)
 GIF = _t("gif", "GIF", "image/gif", ".gif", True)
@@ -46,28 +60,97 @@ HEIC = _t("heic", "HEIC", "image/heic", ".heic .heif .hif", False)
 HEIF = _t("heif", "HEIF", "image/heif", ".heif .heic .hif", False)
 AVIF = _t("avif", "AVIF", "image/avif", ".avif", False)
 
+# Documents
+PDF = _t("pdf", "PDF", "application/pdf", ".pdf", False)
+DOCX = _t(
+    "docx", "DOCX",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".docx .docm .dotx .dotm", True,
+)
+XLSX = _t(
+    "xlsx", "XLSX",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xlsx .xlsm .xltx .xltm", True,
+)
+PPTX = _t(
+    "pptx", "PPTX",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".pptx .pptm .potx .potm .ppsx .ppsm", True,
+)
+ODT = _t("odt", "ODT", "application/vnd.oasis.opendocument.text", ".odt .ott", True)
+ODS = _t("ods", "ODS", "application/vnd.oasis.opendocument.spreadsheet", ".ods .ots", False)
+ODP = _t("odp", "ODP", "application/vnd.oasis.opendocument.presentation", ".odp .otp", False)
+EPUB = _t("epub", "EPUB", "application/epub+zip", ".epub", False)
+OLE2 = _t(
+    "ole2", "Legacy Office (OLE2)", "application/x-ole-storage",
+    ".doc .xls .ppt .dot .xlt .pot .msg .msi", False,
+)
+
+# Audio / video
+MP3 = _t("mp3", "MP3", "audio/mpeg", ".mp3", True)
+WAV = _t("wav", "WAV", "audio/wav", ".wav .wave", True)
+FLAC = _t("flac", "FLAC", "audio/flac", ".flac", True)
+OGG = _t("ogg", "Ogg", "audio/ogg", ".ogg .oga .ogv .opus .spx .ogx", False)
+MP4 = _t("mp4", "MP4", "video/mp4", ".mp4 .m4v", False)
+MOV = _t("mov", "QuickTime", "video/quicktime", ".mov .qt", False)
+M4A = _t("m4a", "M4A", "audio/mp4", ".m4a .m4b .m4p", False)
+
+# Archives
+ZIP = _t("zip", "ZIP", "application/zip", ".zip", True)
+TAR = _t("tar", "TAR", "application/x-tar", ".tar", True)
+GZIP = _t("gzip", "gzip", "application/gzip", ".gz .tgz", False)
+SEVEN_ZIP = _t("7z", "7-Zip", "application/x-7z-compressed", ".7z", False)
+RAR = _t("rar", "RAR", "application/vnd.rar", ".rar", False)
+
 UNKNOWN = _t("unknown", "unknown", "application/octet-stream", "", False)
+
+# Fixed signatures at offset 0, checked in order.
+_MAGIC_AT_START: tuple[tuple[bytes, FileType], ...] = (
+    (b"\xff\xd8\xff", JPEG),
+    (b"\x89PNG\r\n\x1a\n", PNG),
+    (b"GIF87a", GIF),
+    (b"GIF89a", GIF),
+    (b"II*\x00", TIFF),
+    (b"MM\x00*", TIFF),
+    (b"%PDF-", PDF),
+    (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", OLE2),
+    (b"fLaC", FLAC),
+    (b"OggS", OGG),
+    (b"\x1f\x8b\x08", GZIP),
+    (b"7z\xbc\xaf\x27\x1c", SEVEN_ZIP),
+    (b"Rar!\x1a\x07\x00", RAR),
+    (b"Rar!\x1a\x07\x01\x00", RAR),
+)
 
 
 def detect(data: bytes | bytearray | memoryview, filename: str | os.PathLike[str] | None = None) -> FileType:
     """Identify the format of ``data``. Never raises for any input bytes."""
     head = bytes(data[:SVG_SNIFF_LIMIT])
 
-    if head.startswith(b"\xff\xd8\xff"):
-        return JPEG
-    if head.startswith(b"\x89PNG\r\n\x1a\n"):
-        return PNG
-    if head.startswith((b"GIF87a", b"GIF89a")):
-        return GIF
+    # TAR first: its header checksum makes it the least ambiguous check,
+    # and a TAR's first bytes are a member name that could be anything.
+    if _is_tar(head):
+        return TAR
+    for magic, filetype in _MAGIC_AT_START:
+        if head.startswith(magic):
+            return filetype
     if head.startswith(b"RIFF") and len(head) >= 12:
         if head[8:12] == b"WEBP":
             return WEBP
-    if head.startswith((b"II*\x00", b"MM\x00*")):
-        return TIFF
+        if head[8:12] == b"WAVE":
+            return WAV
+    if head.startswith((b"PK\x03\x04", b"PK\x05\x06")):
+        return _detect_zip(data)
+    if head.startswith(b"ID3"):
+        found = _detect_id3(head)
+        if found is not None:
+            return found
     if head[4:8] == b"ftyp":
         found = _detect_ftyp(head)
         if found is not None:
             return found
+    if _is_mpeg_audio(head):
+        return MP3
     if _looks_like_svg(head):
         return SVG
     return UNKNOWN
@@ -78,6 +161,21 @@ def detect(data: bytes | bytearray | memoryview, filename: str | os.PathLike[str
 _AVIF_BRANDS = {b"avif", b"avis"}
 _HEIC_BRANDS = {b"heic", b"heix", b"heim", b"heis", b"hevc", b"hevx", b"hevm", b"hevs"}
 _HEIF_BRANDS = {b"mif1", b"msf1"}
+_M4A_BRANDS = {b"M4A ", b"M4B ", b"M4P "}
+_MOV_BRANDS = {b"qt  "}
+_MP4_BRANDS = {
+    b"isom", b"iso2", b"iso3", b"iso4", b"iso5", b"iso6", b"mp41", b"mp42",
+    b"avc1", b"dash", b"M4V ", b"M4VH", b"M4VP", b"f4v ", b"mmp4",
+}
+# Checked against the major brand first, then the compatible brands.
+# HEIF (mif1/msf1) is a generic container brand and only used as a fallback.
+_FTYP_TABLE = (
+    (_AVIF_BRANDS, AVIF),
+    (_HEIC_BRANDS, HEIC),
+    (_M4A_BRANDS, M4A),
+    (_MOV_BRANDS, MOV),
+    (_MP4_BRANDS, MP4),
+)
 
 
 def _ftyp_brands(head: bytes) -> list[bytes]:
@@ -101,17 +199,197 @@ def _detect_ftyp(head: bytes) -> FileType | None:
     if not brands:
         return None
     major, compatible = brands[0], set(brands[1:])
-    if major in _AVIF_BRANDS:
-        return AVIF
-    if major in _HEIC_BRANDS:
-        return HEIC
-    if compatible & _AVIF_BRANDS:
-        return AVIF
-    if compatible & _HEIC_BRANDS:
-        return HEIC
+    for known, filetype in _FTYP_TABLE:
+        if major in known:
+            return filetype
+    for known, filetype in _FTYP_TABLE:
+        if compatible & known:
+            return filetype
     if major in _HEIF_BRANDS or compatible & _HEIF_BRANDS:
         return HEIF
     return None
+
+
+# -- ZIP and ZIP-based formats ---------------------------------------------------
+
+_OOXML_FOLDERS = (("word/", DOCX), ("xl/", XLSX), ("ppt/", PPTX))
+_ZIP_MIMETYPES = {
+    "application/vnd.oasis.opendocument.text": ODT,
+    "application/vnd.oasis.opendocument.text-template": ODT,
+    "application/vnd.oasis.opendocument.spreadsheet": ODS,
+    "application/vnd.oasis.opendocument.spreadsheet-template": ODS,
+    "application/vnd.oasis.opendocument.presentation": ODP,
+    "application/vnd.oasis.opendocument.presentation-template": ODP,
+    "application/epub+zip": EPUB,
+}
+# zipfile can raise a variety of exceptions on hostile input.
+_ZIP_ERRORS = (
+    zipfile.BadZipFile, zipfile.LargeZipFile, OSError, EOFError, ValueError,
+    KeyError, IndexError, NotImplementedError, RuntimeError, struct.error,
+)
+
+
+def _detect_zip(data: bytes | bytearray | memoryview) -> FileType:
+    """Tell plain ZIP apart from OOXML, ODF and EPUB without extracting.
+
+    Only the central directory (file names) and the tiny "mimetype" entry
+    are read. The entry count is checked from the end-of-central-directory
+    record first, so a hostile archive can't make zipfile allocate millions
+    of entries.
+    """
+    try:
+        count = _zip_entry_count(data)
+    except MalformedFileError:
+        count = None
+    if count is None:
+        return _with_warning(ZIP, "ZIP directory could not be read; contents not examined")
+    if count > ZIP_MAX_ENTRIES:
+        return _with_warning(
+            ZIP, f"ZIP has {count} entries (limit {ZIP_MAX_ENTRIES}); contents not examined"
+        )
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            names = set(zf.namelist())
+            mimetype = _zip_mimetype(zf)
+    except _ZIP_ERRORS:
+        return _with_warning(ZIP, "ZIP directory could not be read; contents not examined")
+
+    if mimetype in _ZIP_MIMETYPES:
+        return _ZIP_MIMETYPES[mimetype]
+    if "[Content_Types].xml" in names:
+        found = {
+            filetype
+            for prefix, filetype in _OOXML_FOLDERS
+            if any(name.startswith(prefix) for name in names)
+        }
+        if len(found) == 1:
+            return found.pop()
+    return ZIP
+
+
+def _zip_entry_count(data: bytes | bytearray | memoryview) -> int | None:
+    """Total entries from the EOCD (or ZIP64 EOCD) record, None if not found."""
+    tail_start = max(0, len(data) - (22 + 0xFFFF))
+    tail = bytes(data[tail_start:])
+    eocd = tail.rfind(b"PK\x05\x06")
+    if eocd < 0:
+        return None
+    r = ByteReader(tail, "little")
+    r.seek(eocd + 10)
+    total = r.u16("ZIP entry count")
+    if total != 0xFFFF:
+        return total
+    # ZIP64: a locator sits immediately before the EOCD record.
+    locator = eocd - 20
+    if locator < 0 or tail[locator : locator + 4] != b"PK\x06\x07":
+        return None
+    r.seek(locator + 8)
+    z64_offset = r.u64("ZIP64 record offset")
+    whole = ByteReader(data, "little")
+    if z64_offset > len(whole) - 56:
+        return None
+    z64 = whole.sub(z64_offset, 56, "ZIP64 end of central directory")
+    if z64.read(4) != b"PK\x06\x06":
+        return None
+    z64.seek(32)
+    return z64.u64("ZIP64 entry count")
+
+
+def _zip_mimetype(zf: zipfile.ZipFile) -> str | None:
+    try:
+        info = zf.getinfo("mimetype")
+    except KeyError:
+        return None
+    if (
+        info.file_size > ZIP_MIMETYPE_MAX_SIZE
+        or info.compress_size > ZIP_MIMETYPE_MAX_SIZE
+        or info.flag_bits & 0x1  # encrypted
+    ):
+        return None
+    raw = zf.read(info)
+    try:
+        return raw.decode("ascii").strip()
+    except UnicodeDecodeError:
+        return None
+
+
+def _with_warning(filetype: FileType, warning: str) -> FileType:
+    return dataclasses.replace(filetype, warnings=filetype.warnings + (warning,))
+
+
+# -- Audio -----------------------------------------------------------------------
+
+def _detect_id3(head: bytes) -> FileType | None:
+    """An ID3v2 tag usually means MP3, but FLAC files sometimes carry one too."""
+    if len(head) < 10 or head[3] not in (2, 3, 4) or head[4] == 0xFF:
+        return None
+    if any(b >= 0x80 for b in head[6:10]):  # sizes are "synchsafe" 7-bit bytes
+        return None
+    size = (head[6] << 21) | (head[7] << 14) | (head[8] << 7) | head[9]
+    end = 10 + size + (10 if head[3] == 4 and head[5] & 0x10 else 0)
+    if head[end : end + 4] == b"fLaC":
+        return FLAC
+    return MP3
+
+
+_MPEG1_L3_KBPS = (0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320)
+_MPEG2_L3_KBPS = (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160)
+# Version bits: 3 = MPEG-1, 2 = MPEG-2, 0 = MPEG-2.5 (1 is reserved).
+_MPEG_SAMPLE_RATES = {3: (44100, 48000, 32000), 2: (22050, 24000, 16000), 0: (11025, 12000, 8000)}
+
+
+def _mpeg_frame_length(data: bytes, pos: int) -> int | None:
+    """Length of a valid MPEG audio Layer III frame starting at pos, else None."""
+    if pos < 0 or pos + 4 > len(data):
+        return None
+    b0, b1, b2 = data[pos], data[pos + 1], data[pos + 2]
+    if b0 != 0xFF or b1 & 0xE0 != 0xE0:
+        return None
+    version = (b1 >> 3) & 0x3
+    layer = (b1 >> 1) & 0x3
+    bitrate_index = b2 >> 4
+    rate_index = (b2 >> 2) & 0x3
+    if version == 1 or layer != 1 or bitrate_index in (0, 15) or rate_index == 3:
+        return None
+    table = _MPEG1_L3_KBPS if version == 3 else _MPEG2_L3_KBPS
+    bitrate = table[bitrate_index] * 1000
+    sample_rate = _MPEG_SAMPLE_RATES[version][rate_index]
+    samples_factor = 144 if version == 3 else 72
+    return samples_factor * bitrate // sample_rate + ((b2 >> 1) & 0x1)
+
+
+def _is_mpeg_audio(head: bytes) -> bool:
+    """A valid frame header at 0 followed by a matching one right after it.
+
+    One header alone is too easy to hit by accident (0xFFFB... is common in
+    random data), so a second consistent frame is required.
+    """
+    first = _mpeg_frame_length(head, 0)
+    if first is None:
+        return False
+    if _mpeg_frame_length(head, first) is None:
+        return False
+    # Same version and layer (ignore the CRC bit), same sample rate.
+    return (
+        head[1] & 0xFE == head[first + 1] & 0xFE
+        and (head[2] >> 2) & 0x3 == (head[first + 2] >> 2) & 0x3
+    )
+
+
+# -- TAR -------------------------------------------------------------------------
+
+def _is_tar(head: bytes) -> bool:
+    """POSIX/GNU tar: "ustar" magic at 257 and a valid header checksum."""
+    if len(head) < 512 or head[257:262] != b"ustar":
+        return False
+    field = head[148:156].split(b"\x00", 1)[0].strip()
+    if not field or any(c not in b"01234567" for c in field):
+        return False
+    stored = int(field, 8)
+    header = head[:148] + b" " * 8 + head[156:512]
+    unsigned = sum(header)
+    signed = sum(b - 256 if b > 127 else b for b in header)
+    return stored in (unsigned, signed)
 
 
 # -- SVG -------------------------------------------------------------------------
