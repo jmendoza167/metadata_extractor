@@ -290,3 +290,42 @@ def test_overwrite_replaces(tmp_path):
 def test_missing_directory(tmp_path):
     with pytest.raises(FileAccessError, match="no such directory"):
         write_verified(tmp_path / "missing" / "out.bin", b"x", lambda d: None)
+
+
+def test_trailing_data_and_mpf_images_are_summarized_by_size(photo):
+    data = photo.read_bytes()
+    sizes = jpeg.removed_sizes(data)
+    structure = jpeg.walk_segments(data)
+    assert sizes["trailing"] == len(data) - structure.end_of_image
+    extra_image = make_jpeg(width=64, height=48)
+    assert sizes["mpf"] == len(extra_image)
+
+    result = run("strip", str(photo))
+    assert result.returncode == 0, result.stderr
+    lines = result.stdout.splitlines()
+    trailing = next(line for line in lines if "Data after end of image" in line)
+    assert trailing.rstrip().endswith(f"{sizes['trailing']} B")
+    assert "field" not in trailing
+    mpf = next(line for line in lines if "Extra images (MPF)" in line)
+    assert mpf.rstrip().endswith(f"{len(extra_image)} B")
+    assert "field" not in mpf
+
+    data_json = json.loads(run("strip", str(photo), "-o",
+                               str(photo.with_name("other.jpg")), "--json").stdout)
+    assert data_json["removed_sizes"] == {"Data after end of image": sizes["trailing"],
+                                          "Extra images (MPF)": len(extra_image)}
+
+
+def test_size_summary_uses_binary_units(tmp_path):
+    from metaex.commands.strip import StripOutcome, summary_lines
+    from metaex.core import filetype as ft
+
+    outcome = StripOutcome("a.jpg", "a_clean.jpg", ft.JPEG, 2_000_000, 1000,
+                           removed={"Data after end of image": ["Size", "Content"]},
+                           removed_sizes={"Data after end of image": 1_258_291})
+    text = "\n".join(summary_lines(outcome))
+    assert "Data after end of image  1.2 MiB" in text
+
+
+def test_jpeg_without_trailing_data_has_no_sizes():
+    assert jpeg.removed_sizes(make_jpeg()) == {}

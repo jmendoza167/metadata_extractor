@@ -27,6 +27,9 @@ class StripOutcome:
     output_size: int
     removed: dict[str, list[str]] = field(default_factory=dict)
     """Group name -> labels of the removed fields."""
+    removed_sizes: dict[str, int] = field(default_factory=dict)
+    """Group name -> bytes removed, for groups better described by size
+    (data after the end of the image, extra images)."""
     kept_by_design: list[Finding] = field(default_factory=list)
     verify: VerifyResult | None = None
     notes: list[str] = field(default_factory=list)
@@ -44,6 +47,7 @@ class StripOutcome:
             "original_size": self.original_size,
             "output_size": self.output_size,
             "removed": self.removed,
+            "removed_sizes": self.removed_sizes,
             "kept_by_design": [
                 {"section": f.section, "label": f.label, "value": f.value}
                 for f in self.kept_by_design
@@ -149,6 +153,10 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     outcome = StripOutcome(source, target, detected, len(data), len(cleaned),
                            kept_by_design=result.kept_by_design, verify=result)
     outcome.removed = removed_groups(module.parse(data), result.kept_by_design)
+    sizes_hook = getattr(module, "removed_sizes", None)
+    if callable(sizes_hook):
+        outcome.removed_sizes = {_SECTION_GROUPS.get(key, key): n
+                                 for key, n in sizes_hook(data).items()}
     outcome.notes.extend(detected.warnings)
     if fixed_time:
         outcome.timestamps = (f"modified and accessed set to {FIXED_TIME_TEXT}; "
@@ -234,6 +242,10 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
     if outcome.removed:
         width = max(len(g) for g in outcome.removed)
         for group, labels in outcome.removed.items():
+            if group in outcome.removed_sizes:
+                lines.append(f"  {group.ljust(width)}  "
+                             f"{format_size(outcome.removed_sizes[group])}")
+                continue
             sample = ", ".join(labels[:4]) + (", ..." if len(labels) > 4 else "")
             noun = "field" if len(labels) == 1 else "fields"
             lines.append(f"  {group.ljust(width)}  {len(labels)} {noun}: {sample}")
