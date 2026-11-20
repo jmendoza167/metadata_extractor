@@ -37,10 +37,19 @@ def file_system_section(path: str | os.PathLike[str]) -> Section:
     else:
         _add_time(section, "created", "Created", created)
 
-    note = "Windows only reports the read-only flag" if sys.platform == "win32" else None
-    section.add("permissions", "Permissions",
-                f"{stat.filemode(st.st_mode)} ({stat.S_IMODE(st.st_mode):o})", note=note)
+    section.add("permissions", "Permissions", format_permissions(st.st_mode))
     return section
+
+
+def format_permissions(mode: int) -> str:
+    """"-rw-r--r-- (644)" on Unix; "read-only"/"read-write" on Windows.
+
+    Windows maps only its read-only attribute onto the mode bits, so the
+    rwx triplets would suggest detail that isn't there.
+    """
+    if sys.platform == "win32":
+        return "read-write" if mode & stat.S_IWRITE else "read-only"
+    return f"{stat.filemode(mode)} ({stat.S_IMODE(mode):o})"
 
 
 def _creation_time(st: os.stat_result) -> float | None:

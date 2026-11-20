@@ -89,9 +89,30 @@ def test_invalid_timestamp_is_unavailable(monkeypatch, sample):
     assert "invalid timestamp" in modified.note
 
 
-def test_permissions_string(monkeypatch, sample):
+def test_permissions_string_on_unix(monkeypatch, sample):
+    monkeypatch.setattr(generic.sys, "platform", "linux")
     monkeypatch.setattr(generic.os, "stat", lambda p: fake_stat(st_mode=0o100640))
-    assert file_system_section(sample).get("permissions").value == "-rw-r----- (640)"
+    permissions = file_system_section(sample).get("permissions")
+    assert permissions.value == "-rw-r----- (640)"
+    assert permissions.note is None
+
+
+@pytest.mark.parametrize("mode,expected", [(0o100666, "read-write"), (0o100444, "read-only")])
+def test_permissions_on_windows(monkeypatch, sample, mode, expected):
+    monkeypatch.setattr(generic.sys, "platform", "win32")
+    monkeypatch.setattr(generic.os, "stat", lambda p: fake_stat(st_mode=mode))
+    assert file_system_section(sample).get("permissions").value == expected
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="real Windows read-only attribute")
+def test_real_read_only_file_on_windows(tmp_path):
+    p = tmp_path / "ro.txt"
+    p.write_bytes(b"x")
+    os.chmod(p, 0o444)
+    try:
+        assert file_system_section(p).get("permissions").value == "read-only"
+    finally:
+        os.chmod(p, 0o666)
 
 
 def test_missing_file_raises_clean_error(tmp_path):
