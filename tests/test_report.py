@@ -102,6 +102,40 @@ def test_very_long_values_are_shortened_with_note():
     assert text.count("x" * 20) <= MAX_VALUE_LINES * 4
 
 
+def test_long_labels_are_wrapped_not_cut():
+    s = Section("xmp", "XMP")
+    label = "xmpMM:History[1]/stEvt:softwareAgent"
+    s.add("a", label, "Editor 2.0")
+    s.add("b", "x" * 80, "long single word")
+    lines = render_text(Report("x", [s]), width=100).splitlines()
+    from metaex.core.report import MAX_LABEL_WIDTH
+
+    body = [l for l in lines if l.startswith("    ")]
+    label_column = "".join(l[4 : 4 + MAX_LABEL_WIDTH].strip() for l in body)
+    assert label in label_column
+    assert "x" * 80 in label_column
+    assert "..." not in "\n".join(lines)
+    # value stays on the first line of its label
+    first = next(l for l in lines if "xmpMM:History[1]/" in l)
+    assert first.rstrip().endswith("Editor 2.0")
+
+
+@pytest.mark.parametrize(
+    "label,width,expected",
+    [
+        ("short", 10, ["short"]),
+        ("xmpMM:History[1]/stEvt:action", 20, ["xmpMM:History[1]/", "stEvt:action"]),
+        ("abcdefghij", 4, ["abcd", "efgh", "ij"]),
+        ("a/b", 1, ["a", "/", "b"]),
+    ],
+)
+def test_wrap_label(label, width, expected):
+    from metaex.core.report import wrap_label
+
+    assert wrap_label(label, width) == expected
+    assert "".join(wrap_label(label, width)) == label
+
+
 def test_note_is_shown():
     s = Section("a", "A")
     s.add("created", "Created", "unavailable", note="not reported by this OS")

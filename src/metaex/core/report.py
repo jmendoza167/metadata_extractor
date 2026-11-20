@@ -23,7 +23,7 @@ from metaex.core.result import Section
 DEFAULT_WIDTH = 100
 MIN_WIDTH = 60
 MAX_WIDTH = 160
-MAX_LABEL_WIDTH = 24
+MAX_LABEL_WIDTH = 32
 MAX_VALUE_LINES = 6
 JSON_HEX_PREVIEW_BYTES = 32
 JSON_MAX_DEPTH = 32
@@ -66,15 +66,16 @@ def render_text(report: Report, width: int | None = None) -> str:
         for f in section.fields:
             any_sensitive = any_sensitive or f.sensitive
             mark = SENSITIVE_MARK if f.sensitive else " "
-            label = sanitize(f.label)
-            if len(label) > label_width:
-                label = label[: label_width - 3] + "..."
+            label_lines = wrap_label(sanitize(f.label), label_width)
             text = format_value(f.value)
             if f.note:
                 text += f" ({sanitize(f.note)})"
-            lines = _wrap_value(text, value_width)
-            out.append(f"  {mark} {label.ljust(label_width)}  {lines[0]}".rstrip())
-            out += [" " * value_col + line for line in lines[1:]]
+            value_lines = _wrap_value(text, value_width)
+            for i in range(max(len(label_lines), len(value_lines))):
+                label = label_lines[i] if i < len(label_lines) else ""
+                value = value_lines[i] if i < len(value_lines) else ""
+                prefix = mark if i == 0 else " "
+                out.append(f"  {prefix} {label.ljust(label_width)}  {value}".rstrip())
         out.append("")
 
     if any_sensitive:
@@ -144,6 +145,41 @@ def _escape(ch: str) -> str:
     if code <= 0xFFFF:
         return f"\\u{code:04x}"
     return f"\\U{code:08x}"
+
+
+def wrap_label(label: str, width: int) -> list[str]:
+    """Split a label into lines of at most ``width`` characters, never dropping text.
+
+    Breaks are preferred after "/", "]" or a space (XMP paths such as
+    xmpMM:History[1]/stEvt:action), and pieces longer than a line are cut.
+    """
+    if len(label) <= width:
+        return [label]
+    pieces: list[str] = []
+    current = ""
+    for ch in label:
+        current += ch
+        if ch in "/] ":
+            pieces.append(current)
+            current = ""
+    if current:
+        pieces.append(current)
+    lines: list[str] = []
+    line = ""
+    for piece in pieces:
+        while len(piece) > width:  # a single piece too long for any line
+            if line:
+                lines.append(line.rstrip())
+                line = ""
+            lines.append(piece[:width])
+            piece = piece[width:]
+        if len(line) + len(piece) > width:
+            lines.append(line.rstrip())
+            line = ""
+        line += piece
+    if line:
+        lines.append(line.rstrip())
+    return [l for l in lines if l] or [""]
 
 
 def _wrap_value(text: str, width: int) -> list[str]:
