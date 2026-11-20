@@ -8,12 +8,16 @@ header, never to the start of the containing file.
 
 from __future__ import annotations
 
+import re
 import struct
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
+from metaex.core import exif_tags
 from metaex.core.errors import MalformedFileError
 from metaex.core.reader import ByteReader
+from metaex.core.result import Section
 
 EXIF_APP1_PREFIX = b"Exif\x00"
 TIFF_MAGIC = 42
@@ -291,3 +295,234 @@ def decode_ascii(raw: bytes) -> str:
     """TIFF ASCII: drop NULs (terminators and separators), decode leniently."""
     parts = [p for p in raw.split(b"\x00") if p]
     return " / ".join(p.decode("utf-8", errors="replace") for p in parts).rstrip()
+
+
+# -- names, formatting and report sections ------------------------------------------
+
+# IFDs whose tags are shown without an IFD prefix.
+_PLAIN_IFDS = {"IFD0", "Exif", "Interop"}
+_DATETIME_OFFSET_TAGS = {
+    "DateTime": "OffsetTime",
+    "DateTimeOriginal": "OffsetTimeOriginal",
+    "DateTimeDigitized": "OffsetTimeDigitized",
+}
+_VERSION_TAGS = {"ExifVersion", "FlashpixVersion", "InteroperabilityVersion"}
+_OFFSET_RE = re.compile(r"[+-](\d\d):(\d\d)")
+
+
+def base_ifd_name(name: str) -> str:
+    """'Exif (2)' -> 'Exif'."""
+    return name.split(" (", 1)[0]
+
+
+def tag_name(ifd_name: str, tag: int) -> str | None:
+    base = base_ifd_name(ifd_name)
+    if base == "Interop":
+        return exif_tags.INTEROP_TAGS.get(tag)
+    if base == "GPS":
+        return None
+    return exif_tags.MAIN_TAGS.get(tag)
+
+
+def exif_sections(st: TiffStructure) -> list[Section]:
+    """Report sections for parsed EXIF data. Every tag is listed, known or not."""
+    section = Section("exif", "EXIF")
+    order = "little-endian (II)" if st.header.byte_order == "little" else "big-endian (MM)"
+    section.add("byte_order", "Byte order", order)
+    ctx = _context(st)
+    for ifd in st.ifds:
+        for entry in ifd.entries:
+            if entry.tag in exif_tags.STRUCTURAL_TAGS:
+                continue
+            _add_entry(section, ifd, entry, ctx)
+    return [section]
+
+
+def _context(st: TiffStructure) -> dict[str, Any]:
+    """Values other tags need for formatting (camera make, time zone offsets)."""
+    ctx: dict[str, Any] = {"byte_order": st.header.byte_order, "offsets": {}}
+    for ifd in st.ifds:
+        if base_ifd_name(ifd.name) not in _PLAIN_IFDS:
+            continue
+        for entry in ifd.entries:
+            name = tag_name(ifd.name, entry.tag)
+            if name == "Make" and isinstance(entry.value, str):
+                ctx.setdefault("make", entry.value)
+            elif name and name.startswith("OffsetTime") and isinstance(entry.value, str):
+                ctx["offsets"][name] = entry.value
+    return ctx
+
+
+def _add_entry(section: Section, ifd: Ifd, entry: IfdEntry, ctx: dict[str, Any]) -> None:
+    name = tag_name(ifd.name, entry.tag)
+    label = name or f"Unknown tag 0x{entry.tag:04X}"
+    key = name or f"tag_0x{entry.tag:04x}"
+    if base_ifd_name(ifd.name) not in _PLAIN_IFDS:
+        label = f"{ifd.name} {label}"
+        key = f"{ifd.name}.{key}"
+    sensitive = name is not None and exif_tags.is_sensitive_name(name)
+    if entry.error:
+        value, note = "(not readable)", entry.error
+    else:
+        value, note = format_entry(entry, name, ctx)
+    section.add(key, label, value, sensitive=sensitive, note=note)
+
+
+def format_entry(entry: IfdEntry, name: str | None, ctx: dict[str, Any]) -> tuple[Any, str | None]:
+    """Readable value and optional note for one entry."""
+    v = entry.value
+    if name == "ExposureTime":
+        return format_exposure_time(v), None
+    if name == "FNumber":
+        return format_fnumber(v), None
+    if name in ("FocalLength", "FocalLengthIn35mmFilm"):
+        return format_length_mm(v), None
+    if name == "Flash" and isinstance(v, int):
+        return format_flash(v), None
+    if name in _DATETIME_OFFSET_TAGS and isinstance(v, str):
+        return format_datetime(v, ctx["offsets"].get(_DATETIME_OFFSET_TAGS[name]))
+    if name is not None and name.startswith("XP"):
+        return decode_xp(entry.raw), None
+    if name == "MakerNote":
+        make = ctx.get("make") or "unknown"
+        return (f"present, {len(entry.raw)} bytes (camera make: {make})",
+                "vendor-specific format; contents not decoded")
+    if name == "UserComment":
+        return decode_user_comment(entry.raw, ctx["byte_order"]), None
+    if name in _VERSION_TAGS and isinstance(v, bytes):
+        return format_version(v), None
+    if name == "ComponentsConfiguration" and isinstance(v, bytes):
+        return format_components(v), None
+    table = exif_tags.ENUMS.get(entry.tag) if exif_tags.MAIN_TAGS.get(entry.tag) == name else None
+    if table is not None and isinstance(v, int):
+        if v in table:
+            return table[v], None
+        return v, "unknown value"
+    return format_generic(v), None
+
+
+def format_generic(value: Any) -> Any:
+    if isinstance(value, Rational):
+        return format_rational(value)
+    if isinstance(value, float):
+        return f"{value:g}"
+    if isinstance(value, bytes):
+        if len(value) > 16:
+            return value  # rendered as "<N bytes>"
+        if value and all(0x20 <= b < 0x7F for b in value):
+            return value.decode("ascii")
+        return " ".join(f"{b:02X}" for b in value) or "(empty)"
+    if isinstance(value, tuple):
+        if len(value) > 64:
+            return f"{len(value)} values (not shown)"
+        return ", ".join(str(format_generic(v)) for v in value) or "(empty)"
+    if isinstance(value, str):
+        return value or "(empty)"
+    return value
+
+
+def format_rational(r: Rational) -> str:
+    value = r.as_float()
+    if value is None:
+        return f"{r} (invalid: zero denominator)"
+    if r.denominator == 1:
+        return str(r.numerator)
+    return f"{round(value, 6):g}"
+
+
+def _as_float(value: Any) -> float | None:
+    if isinstance(value, Rational):
+        return value.as_float()
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    return None
+
+
+def format_exposure_time(value: Any) -> Any:
+    seconds = _as_float(value)
+    if seconds is None or not 0 < seconds < float("inf"):
+        return format_generic(value)
+    if seconds < 1:
+        return f"1/{round(1 / seconds)} s"
+    return f"{seconds:g} s"
+
+
+def format_fnumber(value: Any) -> Any:
+    f = _as_float(value)
+    if f is None or not 0 < f < float("inf"):
+        return format_generic(value)
+    return f"f/{f:.1f}"
+
+
+def format_length_mm(value: Any) -> Any:
+    mm = _as_float(value)
+    if mm is None or mm != mm:
+        return format_generic(value)
+    return f"{mm:g} mm"
+
+
+def format_flash(value: int) -> str:
+    parts = ["Fired" if value & 0x01 else "Did not fire"]
+    mode = {1: "compulsory flash", 2: "flash suppressed", 3: "auto mode"}.get((value >> 3) & 0x3)
+    if mode:
+        parts.append(mode)
+    returned = {2: "return light not detected", 3: "return light detected"}.get((value >> 1) & 0x3)
+    if returned:
+        parts.append(returned)
+    if value & 0x20:
+        parts.append("no flash function")
+    if value & 0x40:
+        parts.append("red-eye reduction")
+    return ", ".join(parts)
+
+
+def format_datetime(text: str, offset: str | None) -> tuple[str, str | None]:
+    """EXIF 'YYYY:MM:DD HH:MM:SS' (plus OffsetTime*) -> ISO 8601."""
+    try:
+        moment = datetime.strptime(text.strip(), "%Y:%m:%d %H:%M:%S")
+    except ValueError:
+        return text or "(empty)", "not a valid EXIF date"
+    iso = moment.isoformat()
+    if offset is not None:
+        match = _OFFSET_RE.fullmatch(offset.strip())
+        if match and int(match.group(1)) <= 14 and int(match.group(2)) < 60:
+            return iso + offset.strip(), None
+        return iso, f"invalid time zone offset {offset!r}"
+    return iso, "no time zone recorded"
+
+
+def format_version(raw: bytes) -> str:
+    """b'0232' -> '2.32'."""
+    if len(raw) == 4 and raw.isdigit():
+        text = raw.decode("ascii")
+        return f"{int(text[:2])}.{text[2:]}"
+    return format_generic(raw)
+
+
+def format_components(raw: bytes) -> str:
+    names = {0: "-", 1: "Y", 2: "Cb", 3: "Cr", 4: "R", 5: "G", 6: "B"}
+    return ", ".join(names.get(b, f"0x{b:02X}") for b in raw)
+
+
+def decode_xp(raw: bytes) -> str:
+    """Windows XP* tags: UTF-16LE text stored as BYTE."""
+    text = raw[: len(raw) - (len(raw) % 2)].decode("utf-16-le", errors="replace")
+    return text.replace("\x00", "").strip() or "(empty)"
+
+
+def decode_user_comment(raw: bytes, byte_order: str) -> str:
+    """UserComment / GPSProcessingMethod: 8-byte character code, then text."""
+    code, body = raw[:8], raw[8:]
+    if code.startswith(b"UNICODE"):
+        if body.startswith((b"\xff\xfe", b"\xfe\xff")):
+            text = body[: len(body) - (len(body) % 2)].decode("utf-16", errors="replace")
+        else:
+            encoding = "utf-16-le" if byte_order == "little" else "utf-16-be"
+            text = body[: len(body) - (len(body) % 2)].decode(encoding, errors="replace")
+    elif code.startswith(b"JIS"):
+        text = body.decode("iso2022_jp", errors="replace")
+    elif code.startswith(b"ASCII") or code == b"\x00" * 8:
+        text = body.decode("utf-8", errors="replace")
+    else:
+        text = raw.decode("utf-8", errors="replace")
+    return text.replace("\x00", "").strip() or "(empty)"
