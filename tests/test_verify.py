@@ -1,6 +1,10 @@
+import hashlib
+
 import pytest
 
-from helpers.jpeg import app, icc_profile, icc_segments, kitchen_sink_jpeg, make_jpeg, sample_photo
+from helpers.jpeg import (
+    SCAN_DATA, app, icc_profile, icc_segments, kitchen_sink_jpeg, make_jpeg, sample_photo, segment,
+)
 from metaex.core.errors import UnsupportedFormatError
 from metaex.core.verify import verify
 from metaex.formats import jpeg
@@ -65,4 +69,77 @@ def test_unsupported_type_raises():
 
 
 def test_image_data_match_is_none_without_original():
-    assert verify(jpeg.strip(sample_photo())).image_data_match is None
+    result = verify(jpeg.strip(sample_photo()))
+    assert result.image_data_match is None
+    assert len(result.image_sha256) == 64
+    assert result.original_image_sha256 is None
+
+
+# --- JPEG-specific checks ----------------------------------------------------------
+
+
+def test_image_data_matches_original():
+    original = kitchen_sink_jpeg()
+    result = verify(jpeg.strip(original), original)
+    assert result.clean
+    assert result.image_data_match is True
+    assert result.image_sha256 == result.original_image_sha256
+    assert result.image_sha256 == hashlib.sha256(jpeg.image_data(original)).hexdigest()
+
+
+def test_changed_image_data_is_detected():
+    original = sample_photo()
+    cleaned = jpeg.strip(original)
+    altered = cleaned.replace(SCAN_DATA, b"\x99" + SCAN_DATA[1:])
+    result = verify(altered, original)
+    assert result.image_data_match is False
+    assert not result.clean
+    assert "image data differs from the original" in result.problems
+
+
+def test_exif_with_more_than_orientation_is_a_leftover():
+    from helpers.tiff import ASCII, SHORT, build_tiff, exif_payload
+
+    data = make_jpeg(app(1, exif_payload(build_tiff([(0x0112, SHORT, 6), (0x010F, ASCII, "C")]))))
+    result = verify(data)
+    assert not result.clean
+    assert ("EXIF", "Make") in labels(result.leftovers)
+    assert any(f.section == "JPEG structure" and "EXIF contains more" in f.value
+               for f in result.leftovers)
+
+
+def test_orientation_exif_with_hidden_bytes_is_a_leftover():
+    minimal = jpeg.minimal_orientation_exif(6)
+    payload = minimal[4:] + b"hidden data here"
+    result = verify(make_jpeg(app(1, payload)))
+    assert ("EXIF", "Orientation") in labels(result.kept_by_design)
+    assert not result.clean
+    assert any("unused bytes" in f.value for f in result.leftovers)
+
+
+@pytest.mark.parametrize(
+    "segment_bytes,text",
+    [
+        (app(0, b"JFIF\x00\x01\x02\x01\x00\x48\x00\x48\x00\x00" + b"secret"), "extra bytes in JFIF"),
+        (app(14, b"Adobe\x00\x64\x00\x00\x00\x00\x01" + b"secret"), "extra bytes in Adobe"),
+        (app(2, b"ICC_PROFILE\x00\x02\x02" + bytes(10)), "ICC profile chunk"),
+        (segment(0xFE, b"note"), "COM segment is not allowed"),
+        (app(1, b"http://ns.adobe.com/xmp/extension/\x00short"), "APP1"),
+    ],
+)
+def test_hidden_or_disallowed_segments_are_leftovers(segment_bytes, text):
+    result = verify(make_jpeg(segment_bytes))
+    assert not result.clean
+    assert any(text in f.value for f in result.leftovers if f.section == "JPEG structure")
+
+
+def test_nothing_after_eoi():
+    result = verify(jpeg.strip(sample_photo()) + b"more")
+    assert not result.clean
+    assert any(f.section == "Trailing data" for f in result.leftovers)
+
+
+def test_original_that_is_not_a_jpeg():
+    result = verify(jpeg.strip(sample_photo()), b"not a jpeg")
+    assert result.image_data_match is None
+    assert any("original is not a complete JPEG" in p for p in result.problems)

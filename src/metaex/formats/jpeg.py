@@ -9,6 +9,7 @@ or a restart marker (RST0-7).
 
 from __future__ import annotations
 
+import hashlib
 import struct
 from dataclasses import dataclass, field
 
@@ -797,6 +798,92 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     if image_data(cleaned) != bytes(image):
         raise MalformedFileError("internal check failed: image data changed while stripping")
     return cleaned
+
+
+# -- Verification -------------------------------------------------------------------
+
+MINIMAL_EXIF_TIFF_SIZE = 8 + 2 + 12 + 4  # header, one-entry IFD0, next-IFD offset
+
+
+def _is_orientation_only_exif(payload: bytes) -> bool:
+    """EXIF holding only IFD0 with the Orientation tag, and no unused bytes."""
+    try:
+        st = exif.parse_exif(payload)
+    except MalformedFileError:
+        return False
+    tiff = exif.tiff_from_exif_payload(payload)
+    if [ifd.name for ifd in st.ifds] != ["IFD0"] or st.warnings:
+        return False
+    ifd0 = st.ifds[0]
+    return ([e.tag for e in ifd0.entries] == [ORIENTATION_TAG]
+            and ifd0.next_offset == 0
+            and st.header.ifd0_offset == 8
+            and len(tiff) == MINIMAL_EXIF_TIFF_SIZE)
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """JPEG-specific verification, beyond the field-level whitelist.
+
+    - Segment whitelist: only image segments, SOI/EOI, one minimal JFIF,
+      one Orientation-only EXIF, complete ICC chunks and one minimal Adobe
+      segment may remain. Anything else (including extra bytes hidden in an
+      allowed segment) is a leftover.
+    - SHA-256 of the image-defining bytes (tables, SOF, SOS and scan data);
+      compared with the original's if one is given.
+    """
+    out: dict = {"leftovers": [], "problems": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None}
+    try:
+        image = image_data(cleaned)
+    except MalformedFileError as exc:
+        out["problems"].append(f"not a complete JPEG: {exc}")
+        return out
+    out["image_sha256"] = hashlib.sha256(image).hexdigest()
+
+    structure = walk_segments(bytes(cleaned))
+    icc_ok = assemble_icc_profile(structure, []) is not None
+    seen: set[str] = set()
+    for seg in structure.segments:
+        p = seg.payload
+        if seg.marker in IMAGE_MARKERS or seg.marker in (SOI, EOI):
+            continue
+        if seg.marker == APP0 and p.startswith(JFIF_ID) and "jfif" not in seen:
+            seen.add("jfif")
+            if len(p) == 14 and p[12] == 0 and p[13] == 0:
+                continue
+            problem = f"{len(p) - 14} extra bytes in JFIF segment"
+        elif seg.marker == APP1 and p.startswith(exif.EXIF_APP1_PREFIX) and "exif" not in seen:
+            seen.add("exif")
+            if _is_orientation_only_exif(p):
+                continue
+            problem = "EXIF contains more than the Orientation tag, or unused bytes"
+        elif seg.marker == APP2 and p.startswith(ICC_ID):
+            if icc_ok:
+                continue
+            problem = "ICC profile chunk that cannot be read as a complete profile"
+        elif seg.marker == APP14 and p.startswith(ADOBE_ID) and "adobe" not in seen:
+            seen.add("adobe")
+            if len(p) == 12:
+                continue
+            problem = f"{len(p) - 12} extra bytes in Adobe segment"
+        else:
+            ident = f' "{seg.identifier}"' if seg.identifier else ""
+            problem = f"{seg.name}{ident} segment is not allowed in a cleaned JPEG"
+        out["leftovers"].append(("JPEG structure", f"{seg.name} at offset {seg.offset}",
+                                 f"{problem} ({len(p)} bytes)"))
+
+    if original is not None:
+        try:
+            original_image = image_data(original)
+        except MalformedFileError as exc:
+            out["problems"].append(f"original is not a complete JPEG ({exc}); "
+                                   "image data not compared")
+        else:
+            out["original_image_sha256"] = hashlib.sha256(original_image).hexdigest()
+            out["image_data_match"] = original_image == image
+            if original_image != image:
+                out["problems"].append("image data differs from the original")
+    return out
 
 
 def parse(data: bytes | bytearray | memoryview) -> dict:

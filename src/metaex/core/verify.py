@@ -72,5 +72,16 @@ def verify(cleaned: bytes, original: bytes | None = None,
         result.problems.append("the file structure is malformed, so it could not be "
                                "checked completely")
     result.notes.extend(w for w in parsed.get("warnings", []) if not w.startswith("CRITICAL"))
+
+    # Format-specific checks: hidden bytes, structure whitelist, image data.
+    details_hook = getattr(module, "verify_details", None)
+    if callable(details_hook):
+        details = details_hook(cleaned, None if original is None else bytes(original))
+        result.leftovers.extend(Finding(*item) for item in details.get("leftovers", []))
+        result.problems.extend(details.get("problems", []))
+        result.image_sha256 = details.get("image_sha256")
+        result.original_image_sha256 = details.get("original_image_sha256")
+        result.image_data_match = details.get("image_data_match")
+
     result.clean = not result.leftovers and not result.problems
     return result
