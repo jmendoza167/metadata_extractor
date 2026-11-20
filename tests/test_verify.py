@@ -64,8 +64,8 @@ def test_malformed_file_is_not_clean():
 
 
 def test_unsupported_type_raises():
-    with pytest.raises(UnsupportedFormatError, match="can't verify PNG"):
-        verify(b"\x89PNG\r\n\x1a\n" + bytes(20))
+    with pytest.raises(UnsupportedFormatError, match="can't verify GIF"):
+        verify(b"GIF89a" + bytes(20))
 
 
 def test_image_data_match_is_none_without_original():

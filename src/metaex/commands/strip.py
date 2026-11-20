@@ -205,6 +205,13 @@ _SECTION_GROUPS = {
     "jfif": "JFIF",
     "adobe": "Adobe",
     "other_app": "Other APP segments",
+    # PNG
+    "text": "Text",
+    "ai": "AI generation data",
+    "time": "Modification time",
+    "content_credentials": "Content Credentials (C2PA)",
+    "color": "Color and display",
+    "unknown": "Unknown chunks",
 }
 _CAMERA = {"Make", "Model", "BodySerialNumber", "LensMake", "LensModel", "LensSerialNumber",
            "LensSpecification", "MakerNote", "CameraOwnerName", "UniqueCameraModel",
@@ -303,6 +310,9 @@ def _kept_by_section(findings: list[Finding]) -> dict[str, str]:
             desc = next((f.value for f in items if f.label == "Description"), None)
             text = "kept so colors stay correct"
             result[section] = f'{text} (description: "{desc}")' if desc else text
+        elif section == "Color and display":
+            result[section] = "kept so the image displays correctly: " + ", ".join(
+                f.label for f in items)
         else:
             result[section] = ", ".join(f"{f.label} = {f.value}" for f in items
                                         if f.label != "Byte order")

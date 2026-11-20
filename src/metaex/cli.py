@@ -73,8 +73,9 @@ def build_parser() -> argparse.ArgumentParser:
     strip.add_argument("--yes", action="store_true",
                        help="don't ask for confirmation with --in-place")
     strip.add_argument("--paranoid", action="store_true",
-                       help="also remove the ICC color profile and JFIF density "
-                            "(colors may shift)")
+                       help="also remove the ICC color profile and other color and "
+                            "density data (JPEG: JFIF density; PNG: gAMA, cHRM, cICP, "
+                            "mDCv, cLLI, pHYs); colors may shift")
     strip.add_argument("--no-orientation", action="store_true",
                        help="don't keep the EXIF Orientation tag (the image may display rotated)")
     strip.add_argument("--fixed-time", action="store_true",

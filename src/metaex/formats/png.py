@@ -897,3 +897,12 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
         "structure": structure_section(structure),
         "complete": structure.error is None,
     }
+
+
+def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
+    """Byte size of the data after IEND ("trailing"), for the strip summary."""
+    data = bytes(data)
+    structure = walk_chunks(data)
+    if structure.end_of_image is not None and len(data) > structure.end_of_image:
+        return {"trailing": len(data) - structure.end_of_image}
+    return {}

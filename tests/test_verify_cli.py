@@ -61,10 +61,10 @@ def test_changed_image_data_is_not_clean(tmp_path):
 
 def test_errors_exit_1(tmp_path):
     assert run(str(tmp_path / "missing.jpg")).returncode == 1
-    png = write(tmp_path, "a.png", b"\x89PNG\r\n\x1a\n" + bytes(20))
-    result = run(str(png))
+    gif = write(tmp_path, "a.gif", b"GIF89a" + bytes(20))
+    result = run(str(gif))
     assert result.returncode == 1
-    assert "can't verify PNG" in result.stderr
+    assert "can't verify GIF" in result.stderr
 
 
 def test_json_keys(tmp_path):

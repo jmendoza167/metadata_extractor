@@ -184,10 +184,10 @@ def test_not_a_png_is_refused():
         png.strip(b"\xff\xd8\xff")
 
 
-def test_png_is_not_offered_for_stripping_yet():
+def test_png_is_registered_for_stripping():
     from metaex.core.registry import can_strip
 
-    assert not can_strip(png)
+    assert can_strip(png)
 
 
 # -- verification ---------------------------------------------------------------------
