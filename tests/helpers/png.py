@@ -38,10 +38,26 @@ def _pixels(width: int, height: int, depth: int, color: int, seed: int) -> bytes
     return b"".join(rows)
 
 
+ADAM7 = ((0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2),
+         (0, 1, 1, 2))
+
+
 def raw_image(width: int = 4, height: int = 4, depth: int = 8, color: int = RGB,
-              seed: int = 1) -> bytes:
-    """Uncompressed image data for a non-interlaced image."""
-    return _pixels(width, height, depth, color, seed)
+              seed: int = 1, interlace: int = 0) -> bytes:
+    """Uncompressed image data (filtered scanlines), plain or Adam7-interlaced."""
+    if not interlace:
+        return _pixels(width, height, depth, color, seed)
+    passes = []
+    for i, (x0, y0, dx, dy) in enumerate(ADAM7):
+        w = max(0, -(-(width - x0) // dx))
+        h = max(0, -(-(height - y0) // dy))
+        if w and h:  # empty passes have no scanlines at all
+            passes.append(_pixels(w, h, depth, color, seed + i))
+    return b"".join(passes)
+
+
+def expected_raw_size(width: int, height: int, depth: int, color: int, interlace: int) -> int:
+    return len(raw_image(width, height, depth, color, 0, interlace))
 
 
 def idat_chunks(raw: bytes, parts: int = 1) -> list[bytes]:
@@ -53,13 +69,14 @@ def idat_chunks(raw: bytes, parts: int = 1) -> list[bytes]:
 
 def make_png(*chunks: bytes, width: int = 4, height: int = 4, depth: int = 8,
              color: int = RGB, before_idat: tuple[bytes, ...] = (), idat_parts: int = 1,
-             iend: bool = True, trailing: bytes = b"", seed: int = 1) -> bytes:
+             iend: bool = True, trailing: bytes = b"", seed: int = 1,
+             interlace: int = 0) -> bytes:
     """Signature, IHDR, ``before_idat`` chunks, IDAT(s), ``chunks``, IEND, trailing bytes.
 
     For palette images, pass PLTE (and tRNS) in ``before_idat``.
     """
-    raw = raw_image(width, height, depth, color, seed)
-    return (SIGNATURE + ihdr(width, height, depth, color)
+    raw = raw_image(width, height, depth, color, seed, interlace)
+    return (SIGNATURE + ihdr(width, height, depth, color, interlace)
             + b"".join(before_idat)
             + b"".join(idat_chunks(raw, idat_parts))
             + b"".join(chunks)
@@ -127,3 +144,122 @@ def fctl(sequence: int, width: int = 4, height: int = 4) -> bytes:
 
 def fdat(sequence: int, raw: bytes) -> bytes:
     return chunk("fdAT", struct.pack(">I", sequence) + zlib.compress(raw))
+
+
+# -- image variants ----------------------------------------------------------------
+
+
+def palette_png(*chunks: bytes, **kwargs) -> bytes:
+    """4-color palette image with per-entry transparency."""
+    plte = chunk("PLTE", bytes([0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]))
+    trns = chunk("tRNS", bytes([0, 128, 255, 255]))
+    return make_png(*chunks, color=PALETTE, depth=2, before_idat=(plte, trns), **kwargs)
+
+
+def apng(*chunks: bytes, frames: int = 3, width: int = 4, height: int = 4) -> bytes:
+    """An animated PNG: the default image is frame 1; the others are in fdAT chunks."""
+    sequence = 0
+    before = [actl(frames)]
+    before.append(fctl(sequence, width, height))
+    sequence += 1
+    after = []
+    for i in range(1, frames):
+        after.append(fctl(sequence, width, height))
+        after.append(fdat(sequence + 1, raw_image(width, height, seed=10 + i)))
+        sequence += 2
+    return make_png(*after, *chunks, width=width, height=height, before_idat=tuple(before))
+
+
+def variants() -> dict[str, bytes]:
+    """Small real PNGs of every common kind, with a little metadata each."""
+    meta = text("Software", "Generator 1.0")
+    return {
+        "gray8": make_png(meta, color=GRAY, width=5, height=3),
+        "gray1": make_png(meta, color=GRAY, depth=1, width=13, height=2),
+        "rgb8": make_png(meta),
+        "rgba8": make_png(meta, color=RGBA),
+        "gray_alpha16": make_png(meta, color=GRAY_ALPHA, depth=16),
+        "rgb16": make_png(meta, depth=16, width=3, height=5),
+        "palette_trns": palette_png(meta),
+        "interlaced": make_png(meta, width=9, height=7, interlace=1),
+        "interlaced_1x1": make_png(meta, width=1, height=1, interlace=1),
+        "multi_idat": make_png(meta, width=16, height=16, idat_parts=5),
+        "apng": apng(meta),
+    }
+
+
+# -- kitchen sink ------------------------------------------------------------------
+
+AI_PARAMETERS = ("a photo of a cat on a beach\nNegative prompt: blurry\n"
+                 "Steps: 20, Sampler: Euler a, CFG scale: 7, Seed: 1234567, "
+                 "Model: example-model-v1")
+COMFY_PROMPT = '{"3": {"class_type": "KSampler", "inputs": {"seed": 1234567}}}'
+COMFY_WORKFLOW = '{"last_node_id": 9, "nodes": [{"id": 3, "type": "KSampler"}]}'
+
+
+def kitchen_sink_tiff(order: str = "<") -> bytes:
+    from helpers.tiff import ASCII, RATIONAL, SHORT, build_tiff
+
+    return build_tiff(
+        [(0x010F, ASCII, "ExampleCam"), (0x0110, ASCII, "Model X"), (0x0112, SHORT, 6),
+         (0x0131, ASCII, "Editor 2.0"), (0x0132, ASCII, "2024:05:01 14:30:00")],
+        exif=[(0x9003, ASCII, "2024:05:01 14:30:00"), (0xA431, ASCII, "SN-0001")],
+        gps=[(0x0001, ASCII, "N"), (0x0002, RATIONAL, [(48, 1), (51, 1), (3012, 100)]),
+             (0x0003, ASCII, "E"), (0x0004, RATIONAL, [(2, 1), (17, 1), (4013, 100)])],
+        order=order)
+
+
+def kitchen_sink_png(order: str = "<") -> bytes:
+    """Every chunk type metaex reads: text (tEXt, zTXt, iTXt), AI generation
+    data, XMP with GPS, eXIf with GPS and Orientation 6, tIME, iCCP, all
+    color and display chunks, a suggested palette with histogram, caBX,
+    APNG animation, an unknown chunk and data after IEND. Values are made up."""
+    from helpers.jpeg import SAMPLE_XMP, icc_profile
+
+    before = (
+        exif_chunk(kitchen_sink_tiff(order)),
+        iccp(icc_profile(), "Jane's MacBook display"),
+        chunk("sRGB", b"\x00"),
+        chunk("gAMA", struct.pack(">I", 45455)),
+        chunk("cHRM", struct.pack(">8I", 31270, 32900, 64000, 33000, 30000, 60000,
+                                  15000, 6000)),
+        chunk("cICP", bytes([1, 13, 0, 1])),
+        chunk("mDCv", struct.pack(">8H2I", 35400, 14600, 8500, 39850, 6550, 2300, 15635,
+                                  16450, 10000000, 50)),
+        chunk("cLLI", struct.pack(">II", 10000000, 4000000)),
+        chunk("sBIT", b"\x08\x08\x08"),
+        chunk("PLTE", bytes(range(12))),  # suggested palette for a truecolor image
+        chunk("bKGD", b"\x00\x10\x00\x20\x00\x30"),
+        chunk("hIST", struct.pack(">4H", 1, 2, 3, 4)),
+        chunk("tRNS", b"\x00\x00\x00\x00\x00\x00"),
+        phys(),
+        chunk("sPLT", b"Jane's palette\x00\x08" + bytes(12)),
+        chunk("oFFs", struct.pack(">iiB", 120, 80, 0)),
+        chunk("pCAL", b"elevation\x00" + struct.pack(">ii", 0, 100) + b"\x00\x02m\x00" + b"0\x00100"),
+        chunk("sCAL", b"\x010.001\x000.001"),
+        time_chunk(2024, 5, 1, 12, 30, 0),
+        text("Author", "Jane Doe"),
+        actl(2),
+        fctl(0),
+    )
+    after = (
+        fctl(1), fdat(2, raw_image(seed=20)),
+        text("Software", "Editor 2.0"),
+        text("Title", "Holiday"),
+        text("Description", "Our trip"),
+        text("Copyright", "(c) Jane Doe"),
+        text("Creation Time", "2024-05-01T14:30:00+02:00"),
+        text("Source", "ExampleCam Model X"),
+        text("Disclaimer", "none"),
+        text("Warning", "none"),
+        text("Private Note", "meet at the cafe at 5"),
+        ztxt("Comment", "a compressed comment"),
+        itxt("Title", "Vacances", language="fr", translated="Titre", compress=True),
+        text("parameters", AI_PARAMETERS),
+        text("prompt", COMFY_PROMPT),
+        itxt("workflow", COMFY_WORKFLOW),
+        itxt("XML:com.adobe.xmp", SAMPLE_XMP),
+        chunk("caBX", b"\x00\x00\x00\x20jumb" + bytes(24)),
+        chunk("prVt", b"private data"),
+    )
+    return make_png(*after, before_idat=before, idat_parts=2, trailing=b"secret after IEND")
