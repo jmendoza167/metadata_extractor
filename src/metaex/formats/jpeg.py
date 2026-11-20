@@ -580,6 +580,142 @@ def trailing_sections(structure: JpegStructure, data: bytes, warnings: list[str]
     return [section]
 
 
+# -- Stripping ---------------------------------------------------------------------
+
+DHT, DAC, DQT, DNL, DRI = 0xC4, 0xCC, 0xDB, 0xDC, 0xDD
+# Segments that define the image. They are copied byte-for-byte, never
+# re-encoded: frame headers, tables, restart interval, scan headers.
+IMAGE_MARKERS = _SOF_MARKERS | {DHT, DAC, DQT, DNL, DRI, SOS}
+# Structural markers metaex does not support (hierarchical and extension
+# JPEG, reserved codes). Dropping them could break the image, so such files
+# are refused.
+_UNSUPPORTED_MARKERS = {0xC8, 0xDE, 0xDF} | set(range(0xF0, 0xFE)) | set(range(0x02, 0xC0))
+JFIF_ID = b"JFIF\x00"
+ADOBE_ID = b"Adobe"
+
+
+def _make_segment(marker: int, payload: bytes) -> bytes:
+    return bytes([0xFF, marker]) + (len(payload) + 2).to_bytes(2, "big") + payload
+
+
+def _segment_bytes(data: bytes, seg: Segment) -> bytes:
+    """The segment as stored: marker, length and payload."""
+    return data[seg.offset : seg.offset + 2 + seg.length]
+
+
+def _scan_bytes(data: bytes, seg: Segment) -> bytes:
+    """The entropy-coded data after an SOS segment (including RSTn markers)."""
+    start = seg.offset + 2 + seg.length
+    return data[start : start + seg.scan_length]
+
+
+def checked_structure(data: bytes) -> JpegStructure:
+    """Walk a JPEG for stripping or verification: anything malformed raises.
+
+    Unlike parse(), which reports what it can of a damaged file, this
+    refuses truncated files, files without EOI, frame or scan, and
+    unsupported structural markers.
+    """
+    structure = walk_segments(data)
+    if structure.error:
+        raise MalformedFileError(structure.error)
+    if structure.end_of_image is None:
+        raise MalformedFileError("missing end-of-image (EOI) marker; the file may be truncated")
+    for seg in structure.segments:
+        if seg.marker in _UNSUPPORTED_MARKERS:
+            raise MalformedFileError(
+                f"unsupported JPEG structure: {seg.name} marker at offset {seg.offset}")
+    markers = {seg.marker for seg in structure.segments}
+    if not markers & _SOF_MARKERS:
+        raise MalformedFileError("no frame header (SOF) found")
+    if SOS not in markers:
+        raise MalformedFileError("no image data (SOS) found")
+    return structure
+
+
+def image_data(data: bytes | bytearray | memoryview) -> bytes:
+    """The image-defining bytes (tables, SOF, SOS headers and scan data) in file order.
+
+    Two files with the same image data decode to the same picture.
+    Raises MalformedFileError like checked_structure().
+    """
+    data = bytes(data)
+    structure = checked_structure(data)
+    return b"".join(
+        _segment_bytes(data, seg) + (_scan_bytes(data, seg) if seg.marker == SOS else b"")
+        for seg in structure.segments
+        if seg.marker in IMAGE_MARKERS
+    )
+
+
+def _first_app(structure: JpegStructure, marker: int, prefix: bytes) -> Segment | None:
+    for seg in structure.segments:
+        if seg.marker == marker and seg.payload.startswith(prefix):
+            return seg
+    return None
+
+
+def _minimal_jfif(seg: Segment) -> bytes:
+    """A new JFIF APP0 with the original version and density, without thumbnail."""
+    p = seg.payload
+    if len(p) < 14:
+        raise MalformedFileError(f"JFIF segment at offset {seg.offset} is too short")
+    units = p[7]
+    x_density, y_density = int.from_bytes(p[8:10], "big"), int.from_bytes(p[10:12], "big")
+    if units not in (0, 1, 2) or x_density == 0 or y_density == 0:
+        units, x_density, y_density = 0, 1, 1  # invalid density: plain 1:1 aspect
+    payload = (JFIF_ID + bytes([p[5], p[6], units]) + x_density.to_bytes(2, "big")
+               + y_density.to_bytes(2, "big") + b"\x00\x00")
+    return _make_segment(APP0, payload)
+
+
+def _minimal_adobe(seg: Segment) -> bytes:
+    """A new APP14 "Adobe" with only its 7 defined bytes (version, flags, transform).
+
+    Needed to decode CMYK/YCCK images correctly; contains no personal data.
+    """
+    p = seg.payload
+    if len(p) < 12:
+        raise MalformedFileError(f"Adobe APP14 segment at offset {seg.offset} is too short")
+    return _make_segment(APP14, ADOBE_ID + p[5:12])
+
+
+def strip(data: bytes | bytearray | memoryview) -> bytes:
+    """Return a copy of the JPEG with all metadata removed (whitelist).
+
+    Kept: SOI, frame headers (SOFn), DHT, DAC, DQT, DRI, DNL, SOS with its
+    scan data, EOI, all copied byte-for-byte; a newly written minimal JFIF
+    APP0 (if the original had one) and APP14 Adobe. Everything else is
+    dropped: every other APPn segment, comments, and any data after EOI.
+
+    Raises MalformedFileError for malformed, truncated or unsupported
+    input; nothing is ever partly stripped.
+    """
+    data = bytes(data)
+    structure = checked_structure(data)
+    out = bytearray(b"\xff\xd8")
+    jfif = _first_app(structure, APP0, JFIF_ID)
+    if jfif is not None:
+        out += _minimal_jfif(jfif)
+    adobe = _first_app(structure, APP14, ADOBE_ID)
+    if adobe is not None:
+        out += _minimal_adobe(adobe)
+    image = bytearray()
+    for seg in structure.segments:
+        if seg.marker in IMAGE_MARKERS:
+            chunk = _segment_bytes(data, seg)
+            if seg.marker == SOS:
+                chunk += _scan_bytes(data, seg)
+            out += chunk
+            image += chunk
+    out += b"\xff\xd9"
+    cleaned = bytes(out)
+    # Self-check: the output must be a well-formed JPEG with identical image data.
+    if image_data(cleaned) != bytes(image):
+        raise MalformedFileError("internal check failed: image data changed while stripping")
+    return cleaned
+
+
 def parse(data: bytes | bytearray | memoryview) -> dict:
     """Parse a JPEG and return its warnings, report sections and structure.
 

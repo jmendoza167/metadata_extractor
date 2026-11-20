@@ -32,6 +32,18 @@ clean unless it is; never claim support for a format that isn't implemented.
    - `parse(data: bytes) -> dict` — the metadata found, for display
    - `strip(data: bytes) -> bytes` — a cleaned copy built from the whitelist
 
+## Stripping guarantees
+
+These hold for every format metaex strips:
+
+- **The image is never re-encoded.** Image-defining data is copied
+  byte-for-byte; for JPEG that is the entropy-coded scan data and the tables
+  (DQT, DHT, SOF, SOS, DRI).
+- **Output is written to a temp file in the destination folder, verified,
+  and only then renamed into place** (`os.replace`). If verification fails,
+  the temp file is deleted and nothing is left behind.
+- **Malformed input is refused, never "partly stripped".**
+
 ## Layout
 
 ```

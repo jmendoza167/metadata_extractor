@@ -88,7 +88,6 @@ def field(data: dict, section: str, key: str):
 
 PLANNED = "planned (not implemented yet)"
 UNRECOGNIZED = "not supported (unrecognized format)"
-VIEW_ONLY = "viewing supported; stripping not implemented yet"
 
 
 def test_show_jpeg_is_examined(tmp_path):
@@ -97,7 +96,7 @@ def test_show_jpeg_is_examined(tmp_path):
     p = tmp_path / "photo.jpg"
     p.write_bytes(make_jpeg())
     data = show_json(p)
-    assert field(data, "file_type", "support") == VIEW_ONLY
+    assert field(data, "file_type", "support") == "supported"
     assert field(data, "file_type", "embedded_metadata") == "examined"
     assert not any("NOT examined" in w for w in data["warnings"])
 
