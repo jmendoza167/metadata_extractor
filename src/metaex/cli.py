@@ -20,9 +20,19 @@ EXIT_USAGE = 2
 # Subcommand name -> one-line help text for commands not implemented yet.
 PLACEHOLDERS = {
     "risk": "summarize the privacy risk of a file's metadata",
-    "strip": "write a copy of a file with metadata removed",
     "verify": "check that a cleaned file contains no metadata",
 }
+
+
+def _add_common_options(sub: argparse.ArgumentParser) -> None:
+    sub.add_argument(
+        "--max-size",
+        type=_size_in_mib,
+        default=DEFAULT_MAX_SIZE,
+        metavar="MB",
+        help=f"refuse files larger than this many MiB (default {DEFAULT_MAX_SIZE // MIB})",
+    )
+    sub.add_argument("--debug", action="store_true", help="show tracebacks on errors")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -43,13 +53,6 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument("path", help="file to examine")
     show.add_argument("--json", action="store_true", help="print the report as JSON")
     show.add_argument(
-        "--max-size",
-        type=_size_in_mib,
-        default=DEFAULT_MAX_SIZE,
-        metavar="MB",
-        help=f"refuse files larger than this many MiB (default {DEFAULT_MAX_SIZE // MIB})",
-    )
-    show.add_argument(
         "--structure",
         action="store_true",
         help="also list the file's low-level structure (e.g. JPEG segments)",
@@ -59,8 +62,22 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="OUT",
         help="save the embedded EXIF thumbnail to OUT (a new file; never overwrites)",
     )
-    show.add_argument("--debug", action="store_true", help="show tracebacks on errors")
+    _add_common_options(show)
     show.set_defaults(handler=_cmd_show)
+
+    strip_help = "write a verified copy of a file with its metadata removed"
+    strip = subparsers.add_parser("strip", help=strip_help, description=strip_help)
+    strip.add_argument("path", help="file to clean (never modified unless --in-place)")
+    strip.add_argument("-o", "--output", metavar="OUTPUT",
+                       help="where to write the cleaned copy (default: <name>_clean.<ext>)")
+    strip.add_argument("--paranoid", action="store_true",
+                       help="also remove the ICC color profile and JFIF density "
+                            "(colors may shift)")
+    strip.add_argument("--no-orientation", action="store_true",
+                       help="don't keep the EXIF Orientation tag (the image may display rotated)")
+    strip.add_argument("--json", action="store_true", help="print the summary as JSON")
+    _add_common_options(strip)
+    strip.set_defaults(handler=_cmd_strip)
 
     for name, help_text in PLACEHOLDERS.items():
         sub = subparsers.add_parser(name, help=help_text, description=help_text)
@@ -119,6 +136,20 @@ def _cmd_show(args: argparse.Namespace) -> int:
         # stderr, so --json output on stdout stays valid JSON
         write_text(f"metaex: saved embedded thumbnail ({saved} bytes) to "
                    f"{sanitize(args.extract_thumbnail)}\n", sys.stderr)
+    return EXIT_OK
+
+
+def _cmd_strip(args: argparse.Namespace) -> int:
+    import json
+
+    from metaex.commands.strip import strip_file, summary_lines
+
+    outcome = strip_file(args.path, args.output, paranoid=args.paranoid,
+                         keep_orientation=not args.no_orientation, max_size=args.max_size)
+    if args.json:
+        write_text(json.dumps(outcome.to_dict(), indent=2, ensure_ascii=True) + "\n")
+    else:
+        write_text("\n".join(sanitize(line) for line in summary_lines(outcome)) + "\n")
     return EXIT_OK
 
 
