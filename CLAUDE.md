@@ -39,9 +39,29 @@ src/metaex/
     __init__.py      # __version__
     __main__.py      # enables `python -m metaex`
     cli.py           # argparse entry point; main() returns an exit code
+    core/            # format-independent building blocks
+    commands/        # one module per CLI subcommand
     formats/         # one module per file format
 tests/               # pytest tests
+    helpers/         # builders that generate test files in memory
 ```
+
+What belongs where:
+
+- **`core/`**: code shared by many formats and commands, with no CLI or
+  format-specific knowledge: errors (`errors.py`), bounds-checked reading
+  (`reader.py`), size-limited loading (`loader.py`), type detection
+  (`filetype.py`), file system metadata and hashes (`generic.py`), the
+  report data model and rendering (`result.py`, `report.py`), and
+  metadata structures used by several formats, such as EXIF/TIFF
+  (`exif.py`, reused by JPEG, PNG, WebP and TIFF).
+- **`commands/`**: the logic of each subcommand (`show.py`, ...). Builds a
+  report from `core/` and `formats/`; no argparse here.
+- **`formats/`**: one module per file format (`jpeg.py`, ...), each
+  exposing `parse(data) -> dict` and `strip(data) -> bytes`. A format
+  module may use `core/`, never `commands/` or `cli.py`.
+- **`cli.py`**: argument parsing, printing and turning errors into exit
+  codes only.
 
 - `main()` returns an integer exit code; only the top-level entry points call
   `sys.exit`. Don't call `sys.exit` deep in the code.
@@ -58,6 +78,11 @@ pytest
 ```
 
 - **Every new feature needs tests.** Bug fixes need a regression test.
+- **Never commit real personal files** (photos, documents, recordings),
+  not even as test fixtures: they carry exactly the metadata this tool
+  exists to remove. Keep real samples for manual testing in
+  `private_samples/`, which is git-ignored. Tests only use files generated
+  in code (see `tests/helpers/`).
 - Tests that run the CLI use `sys.executable -m metaex` so they work on
   Windows, Linux and macOS.
 - Parser tests should include malformed/truncated/oversized inputs, not just
