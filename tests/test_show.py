@@ -233,6 +233,60 @@ def test_internal_errors_are_one_line_without_debug(tmp_path, monkeypatch, capsy
     assert "Traceback" in capsys.readouterr().err
 
 
+# --- --extract-thumbnail ------------------------------------------------------
+
+def jpeg_with_thumbnail():
+    from helpers.jpeg import app, make_jpeg
+    from helpers.tiff import ASCII, SHORT, build_tiff, exif_payload
+
+    thumb = make_jpeg(width=160, height=120)
+    tiff = build_tiff([(0x010F, ASCII, "Cam")], ifd1=[(0x0103, SHORT, 6)], thumbnail=thumb)
+    return make_jpeg(app(1, exif_payload(tiff)), width=1600, height=1200), thumb
+
+
+def test_extract_thumbnail(tmp_path):
+    photo, thumb = jpeg_with_thumbnail()
+    src = tmp_path / "photo.jpg"
+    src.write_bytes(photo)
+    out = tmp_path / "thumb.jpg"
+    result = run_show(str(src), "--extract-thumbnail", str(out), "--json")
+    assert result.returncode == 0, result.stderr
+    json.loads(result.stdout)
+    assert out.read_bytes() == thumb
+    assert f"saved embedded thumbnail ({len(thumb)} bytes)" in result.stderr
+
+
+def test_extract_thumbnail_refuses_to_overwrite(tmp_path):
+    photo, _ = jpeg_with_thumbnail()
+    src = tmp_path / "photo.jpg"
+    src.write_bytes(photo)
+    out = tmp_path / "thumb.jpg"
+    out.write_bytes(b"precious")
+    assert_one_line_error(run_show(str(src), "--extract-thumbnail", str(out)),
+                          "already exists", "refusing to overwrite")
+    assert out.read_bytes() == b"precious"
+    assert_one_line_error(run_show(str(src), "--extract-thumbnail", str(src)), "already exists")
+    assert src.read_bytes() == photo
+
+
+def test_extract_thumbnail_when_there_is_none(tmp_path):
+    from helpers.jpeg import make_jpeg
+
+    src = tmp_path / "plain.jpg"
+    src.write_bytes(make_jpeg())
+    out = tmp_path / "thumb.jpg"
+    assert_one_line_error(run_show(str(src), "--extract-thumbnail", str(out)),
+                          "no embedded EXIF thumbnail")
+    assert not out.exists()
+
+
+def test_extract_thumbnail_from_non_jpeg(tmp_path):
+    src = tmp_path / "a.png"
+    src.write_bytes(PNG)
+    assert_one_line_error(run_show(str(src), "--extract-thumbnail", str(tmp_path / "t.jpg")),
+                          "only supported for JPEG")
+
+
 def test_main_returns_zero_in_process(tmp_path, capsys):
     p = tmp_path / "a.png"
     p.write_bytes(PNG)

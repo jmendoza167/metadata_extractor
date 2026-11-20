@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from metaex.core import exif
 from metaex.core.errors import MalformedFileError
 from metaex.core.result import Section
 
@@ -21,6 +22,7 @@ EOI = 0xD9
 SOS = 0xDA
 COM = 0xFE
 APP0 = 0xE0
+APP1 = 0xE1
 
 # Markers that are not followed by a length field.
 _STANDALONE = {0x01, *range(0xD0, 0xD8), SOI, EOI}
@@ -182,6 +184,20 @@ def _app_identifier(payload: bytes) -> str:
             break
         chars.append(chr(b))
     return "".join(chars)
+
+
+def exif_thumbnail(data: bytes) -> bytes | None:
+    """The embedded EXIF (IFD1) thumbnail of a JPEG, or None."""
+    structure = walk_segments(bytes(data))
+    for seg in structure.segments:
+        if seg.marker == APP1 and seg.payload.startswith(exif.EXIF_APP1_PREFIX):
+            try:
+                thumb = exif.exif_thumbnail(exif.parse_exif(seg.payload))
+            except MalformedFileError:
+                continue
+            if thumb is not None:
+                return thumb.data
+    return None
 
 
 _SOF_MARKERS = {m for m in range(0xC0, 0xD0)} - {0xC4, 0xC8, 0xCC}

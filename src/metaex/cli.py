@@ -49,6 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="MB",
         help=f"refuse files larger than this many MiB (default {DEFAULT_MAX_SIZE // MIB})",
     )
+    show.add_argument(
+        "--extract-thumbnail",
+        metavar="OUT",
+        help="save the embedded EXIF thumbnail to OUT (a new file; never overwrites)",
+    )
     show.add_argument("--debug", action="store_true", help="show tracebacks on errors")
     show.set_defaults(handler=_cmd_show)
 
@@ -98,10 +103,17 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _cmd_show(args: argparse.Namespace) -> int:
-    from metaex.commands.show import build_report
+    from metaex.commands.show import build_report, extract_thumbnail
 
     report = build_report(args.path, max_size=args.max_size)
+    saved = None
+    if args.extract_thumbnail:
+        saved = extract_thumbnail(args.path, args.extract_thumbnail, max_size=args.max_size)
     write_text(render_json(report) if args.json else render_text(report))
+    if saved is not None:
+        # stderr, so --json output on stdout stays valid JSON
+        write_text(f"metaex: saved embedded thumbnail ({saved} bytes) to "
+                   f"{sanitize(args.extract_thumbnail)}\n", sys.stderr)
     return EXIT_OK
 
 

@@ -6,10 +6,33 @@ import importlib.util
 import os
 
 from metaex.core import filetype as ft
+from metaex.core.errors import MetaexError
 from metaex.core.generic import file_system_section, hashes_section, mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, load_file
 from metaex.core.report import Report
 from metaex.core.result import Section
+from metaex.core.writer import write_new_file
+
+
+def extract_thumbnail(path: str | os.PathLike[str], out_path: str | os.PathLike[str],
+                      max_size: int = DEFAULT_MAX_SIZE) -> int:
+    """Save the embedded EXIF thumbnail of a JPEG to a new file; return its size.
+
+    Never overwrites: fails if ``out_path`` already exists.
+    """
+    name = os.fspath(path)
+    data = load_file(name, max_size)
+    detected = ft.detect(data, name)
+    if detected.key != ft.JPEG.key:
+        raise MetaexError(f"{name}: thumbnail extraction is only supported for JPEG files "
+                          f"(this file is {detected.name})")
+    from metaex.formats import jpeg
+
+    thumb = jpeg.exif_thumbnail(data)
+    if thumb is None:
+        raise MetaexError(f"{name}: no embedded EXIF thumbnail found")
+    write_new_file(out_path, thumb)
+    return len(thumb)
 
 
 def build_report(path: str | os.PathLike[str], max_size: int = DEFAULT_MAX_SIZE) -> Report:
