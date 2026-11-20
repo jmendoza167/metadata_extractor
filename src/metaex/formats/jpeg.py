@@ -184,6 +184,23 @@ def _app_identifier(payload: bytes) -> str:
     return "".join(chars)
 
 
+_SOF_MARKERS = {m for m in range(0xC0, 0xD0)} - {0xC4, 0xC8, 0xCC}
+
+
+def image_size(data: bytes) -> tuple[int, int] | None:
+    """(width, height) from the first frame header (SOFn), or None."""
+    try:
+        structure = walk_segments(bytes(data))
+    except MalformedFileError:
+        return None
+    for seg in structure.segments:
+        if seg.marker in _SOF_MARKERS and len(seg.payload) >= 5:
+            height = int.from_bytes(seg.payload[1:3], "big")
+            width = int.from_bytes(seg.payload[3:5], "big")
+            return width, height
+    return None
+
+
 # -- report ------------------------------------------------------------------------
 
 

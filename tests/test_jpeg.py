@@ -92,6 +92,12 @@ def test_not_a_jpeg_raises():
         walk_segments(b"\x89PNG")
 
 
+def test_image_size():
+    assert jpeg.image_size(make_jpeg(width=640, height=480)) == (640, 480)
+    assert jpeg.image_size(SOI + EOI) is None
+    assert jpeg.image_size(b"not a jpeg") is None
+
+
 def test_parse_returns_structure():
     result = jpeg.parse(make_jpeg())
     assert result["structure"].title == "JPEG structure"

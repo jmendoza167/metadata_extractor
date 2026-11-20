@@ -12,7 +12,7 @@ import re
 import struct
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
 from metaex.core import exif_tags
 from metaex.core.errors import MalformedFileError
@@ -324,11 +324,15 @@ def tag_name(ifd_name: str, tag: int) -> str | None:
     return exif_tags.MAIN_TAGS.get(tag)
 
 
-def exif_sections(st: TiffStructure, warnings: list[str] | None = None) -> list[Section]:
+def exif_sections(st: TiffStructure, warnings: list[str] | None = None,
+                  image_size: Callable[[bytes], tuple[int, int] | None] | None = None,
+                  ) -> list[Section]:
     """Report sections for parsed EXIF data. Every tag is listed, known or not.
 
     Problems found while interpreting values (e.g. invalid GPS coordinates)
     and critical findings are appended to ``warnings`` if given.
+    ``image_size`` returns (width, height) of an embedded JPEG thumbnail; it
+    is passed in so this module doesn't depend on a specific format module.
     """
     if warnings is None:
         warnings = []
@@ -337,8 +341,9 @@ def exif_sections(st: TiffStructure, warnings: list[str] | None = None) -> list[
     section.add("byte_order", "Byte order", order)
     ctx = _context(st)
     gps_ifd = st.ifd("GPS")
+    ifd1 = st.ifd("IFD1")
     for ifd in st.ifds:
-        if ifd is gps_ifd:
+        if ifd is gps_ifd or ifd is ifd1:
             continue
         for entry in ifd.entries:
             if entry.tag in exif_tags.STRUCTURAL_TAGS:
@@ -347,6 +352,8 @@ def exif_sections(st: TiffStructure, warnings: list[str] | None = None) -> list[
     sections = [section]
     if gps_ifd is not None:
         sections.append(gps_section(gps_ifd, ctx, warnings))
+    if ifd1 is not None:
+        sections.append(thumbnail_section(st, ifd1, ctx, warnings, image_size))
     return sections
 
 
@@ -542,6 +549,65 @@ def decode_user_comment(raw: bytes, byte_order: str) -> str:
     else:
         text = raw.decode("utf-8", errors="replace")
     return text.replace("\x00", "").strip() or "(empty)"
+
+
+# -- Thumbnail (IFD1) -------------------------------------------------------------
+
+JPEG_INTERCHANGE_FORMAT = 0x0201
+JPEG_INTERCHANGE_FORMAT_LENGTH = 0x0202
+THUMBNAIL_WARNING = "embedded thumbnail may show the original, uncropped image"
+
+
+@dataclass(frozen=True)
+class Thumbnail:
+    offset: int
+    """Offset of the thumbnail inside the TIFF data."""
+    data: bytes
+
+
+def exif_thumbnail(st: TiffStructure, problems: list[str] | None = None) -> Thumbnail | None:
+    """The JPEG thumbnail referenced by IFD1, if present and within bounds."""
+    ifd1 = st.ifd("IFD1")
+    if ifd1 is None:
+        return None
+    offset = ifd1.value(JPEG_INTERCHANGE_FORMAT)
+    length = ifd1.value(JPEG_INTERCHANGE_FORMAT_LENGTH)
+    if offset is None and length is None:
+        return None
+    if not isinstance(offset, int) or not isinstance(length, int) or length <= 0:
+        if problems is not None:
+            problems.append("EXIF thumbnail pointer is invalid; thumbnail not read")
+        return None
+    if offset > len(st.data) or length > len(st.data) - offset:
+        if problems is not None:
+            problems.append(f"EXIF thumbnail ({length} bytes at offset {offset}) extends "
+                            "past the end of the EXIF data; thumbnail not read")
+        return None
+    return Thumbnail(offset, st.data[offset : offset + length])
+
+
+def thumbnail_section(st: TiffStructure, ifd1: Ifd, ctx: dict[str, Any], warnings: list[str],
+                      image_size: Callable[[bytes], tuple[int, int] | None] | None) -> Section:
+    section = Section("thumbnail", "Thumbnail")
+    thumb = exif_thumbnail(st, warnings)
+    if thumb is not None:
+        is_jpeg = thumb.data.startswith(b"\xff\xd8")
+        section.add("embedded_thumbnail", "Embedded thumbnail",
+                    f"{'JPEG' if is_jpeg else 'unrecognized data'}, {len(thumb.data)} bytes",
+                    sensitive=True, note=f"at offset {thumb.offset} in the EXIF data")
+        size = image_size(thumb.data) if (image_size is not None and is_jpeg) else None
+        if size is not None:
+            section.add("dimensions", "Dimensions", f"{size[0]} x {size[1]} pixels")
+        warnings.append(THUMBNAIL_WARNING)
+    elif ifd1.get(0x0111) is not None:  # StripOffsets: uncompressed thumbnail
+        section.add("embedded_thumbnail", "Embedded thumbnail",
+                    "uncompressed (strips)", sensitive=True, note="not extracted")
+        warnings.append(THUMBNAIL_WARNING)
+    for entry in ifd1.entries:
+        if entry.tag in exif_tags.STRUCTURAL_TAGS:
+            continue
+        _add_entry(section, ifd1, entry, ctx, prefix=False)
+    return section
 
 
 # -- GPS ----------------------------------------------------------------------------

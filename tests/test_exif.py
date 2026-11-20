@@ -436,6 +436,48 @@ def test_gps_time_without_date():
     assert gps["Date/time (UTC)"].value == "08:05:15 UTC (no date recorded)"
 
 
+def thumbnail_result(**kwargs):
+    from helpers.jpeg import make_jpeg
+    from metaex.formats.jpeg import image_size
+
+    thumb = kwargs.pop("thumbnail", make_jpeg(width=160, height=120))
+    tiff = build_tiff([(0x010F, ASCII, "M")], ifd1=[(0x0103, SHORT, 6)], thumbnail=thumb, **kwargs)
+    warnings = []
+    sections = exif_sections(parse_tiff(tiff), warnings, image_size=image_size)
+    return tiff, thumb, sections, warnings
+
+
+@pytest.mark.parametrize("order", ["<", ">"])
+def test_thumbnail_is_detected_with_size_and_dimensions(order):
+    _, thumb, sections, warnings = thumbnail_result(order=order)
+    assert [s.title for s in sections] == ["EXIF", "Thumbnail"]
+    f = {x.label: x for x in sections[-1].fields}
+    assert f["Embedded thumbnail"].value == f"JPEG, {len(thumb)} bytes"
+    assert f["Embedded thumbnail"].sensitive
+    assert f["Dimensions"].value == "160 x 120 pixels"
+    assert f["Compression"].value == "JPEG (old-style)"
+    assert "embedded thumbnail may show the original, uncropped image" in warnings
+    assert not any(x.label.startswith("IFD1") for x in sections[0].fields)
+
+
+def test_exif_thumbnail_bytes():
+    from metaex.core.exif import exif_thumbnail
+
+    tiff, thumb, _, _ = thumbnail_result()
+    found = exif_thumbnail(parse_tiff(tiff))
+    assert found.data == thumb
+    assert tiff[found.offset : found.offset + len(thumb)] == thumb
+
+
+def test_thumbnail_past_end_is_a_warning():
+    from metaex.core.exif import exif_thumbnail
+
+    tiff = build_tiff([], ifd1=[(0x0201, LONG, 10), (0x0202, LONG, 99999)])
+    problems = []
+    assert exif_thumbnail(parse_tiff(tiff), problems) is None
+    assert "past the end" in problems[0]
+
+
 def test_unreadable_entry_is_listed():
     f = fields_of(build_tiff([(0x010F, ASCII, 100, struct.pack("<I", 5000))]))
     assert f["Make"].value == "(not readable)"
