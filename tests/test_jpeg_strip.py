@@ -1,8 +1,11 @@
 """Basic tests for JPEG stripping (whitelist)."""
 
+import random
+import struct
+
 import pytest
 
-from helpers.jpeg import EOI, SOI, app, kitchen_sink_jpeg, make_jpeg, sample_photo, segment
+from helpers.jpeg import EOI, SOI, app, kitchen_sink_jpeg, make_jpeg, sample_photo, segment, sof0
 from metaex.core.errors import MalformedFileError
 from metaex.formats import jpeg
 
@@ -139,6 +142,165 @@ def test_broken_icc_profile_is_dropped():
 def test_malformed_input_raises(data):
     with pytest.raises(MalformedFileError):
         jpeg.strip(data)
+
+
+# --- coverage: kitchen sink, idempotence, modes, CMYK, mutations ---------------------
+
+# Sections (and fields) that may remain after stripping, by design.
+KEPT_BY_DESIGN = {
+    "jfif": {"version", "density"},
+    "adobe": None,  # all fields
+    "icc": None,
+    "exif": {"byte_order", "Orientation"},
+}
+
+
+def leftovers(data):
+    found = []
+    for s in jpeg.parse(data)["sections"]:
+        allowed = KEPT_BY_DESIGN.get(s.key, set())
+        if allowed is not None:
+            found += [(s.key, f.key) for f in s.fields if f.key not in allowed]
+    return found
+
+
+def image_segments(data):
+    """(marker name, exact bytes) of every image-defining segment, scan data included."""
+    structure = jpeg.walk_segments(data)
+    out = []
+    for seg in structure.segments:
+        if seg.marker in jpeg.IMAGE_MARKERS:
+            chunk = data[seg.offset : seg.offset + 2 + seg.length]
+            if seg.marker == 0xDA:
+                start = seg.offset + 2 + seg.length
+                chunk += data[start : start + seg.scan_length]
+            out.append((seg.name, chunk))
+    return out
+
+
+@pytest.mark.parametrize("order", ["<", ">"])
+@pytest.mark.parametrize("paranoid", [False, True])
+def test_kitchen_sink_is_fully_cleaned(order, paranoid):
+    original = kitchen_sink_jpeg(order)
+    cleaned = jpeg.strip(original, paranoid=paranoid)
+    assert leftovers(cleaned) == []
+    result = jpeg.parse(cleaned)
+    assert result["complete"]
+    assert not [w for w in result["warnings"] if w.startswith("CRITICAL")]
+    keys = {s.key for s in result["sections"]}
+    assert keys == ({"jfif", "adobe"} if paranoid else {"jfif", "adobe", "icc"})
+    # Tables, frame header, scan headers and scan data are byte-identical.
+    assert image_segments(cleaned) == image_segments(original)
+    assert [n for n, _ in image_segments(cleaned)] == ["DQT", "SOF0", "DHT", "SOS"]
+    assert cleaned.endswith(b"\xff\xd9")
+    assert b"trailing secret" not in cleaned
+
+
+@pytest.mark.parametrize("make", [
+    lambda: kitchen_sink_jpeg("<"),
+    lambda: kitchen_sink_jpeg(">"),
+    lambda: photo_with_orientation(6),
+    lambda: make_jpeg(app(0, JFIF_WITH_THUMB), app(14, ADOBE)),
+])
+@pytest.mark.parametrize("options", [{}, {"paranoid": True}, {"keep_orientation": False}])
+def test_strip_is_idempotent(make, options):
+    once = jpeg.strip(make(), **options)
+    assert jpeg.strip(once, **options) == once
+
+
+def test_orientation_1_vs_6_on_a_full_photo():
+    from helpers.tiff import SHORT
+
+    def photo(orientation):
+        data = bytearray(sample_photo())
+        # sample_photo has Orientation=1 (SHORT, little-endian) in IFD0: patch it.
+        pos = data.find(struct.pack("<HHIH", 0x0112, SHORT, 1, 1))
+        assert pos > 0
+        data[pos + 8 : pos + 10] = struct.pack("<H", orientation)
+        return bytes(data)
+
+    assert section_keys(jpeg.strip(photo(1))) == []
+    (section,) = jpeg.parse(jpeg.strip(photo(6)))["sections"]
+    assert {f.key: f.value for f in section.fields}["Orientation"] == "Rotated 90 degrees clockwise"
+
+
+def cmyk_jpeg(transform):
+    sof = struct.pack(">BHHB", 8, 8, 8, 4) + b"".join(bytes([i, 0x11, 0]) for i in range(1, 5))
+    data = make_jpeg(app(14, b"Adobe\x00\x64\x00\x00\x00\x00" + bytes([transform])),
+                     app(1, b"Exif\x00\x00junk"))
+    return data.replace(sof0(), segment(0xC0, sof))
+
+
+@pytest.mark.parametrize("transform", [0, 2])
+@pytest.mark.parametrize("paranoid", [False, True])
+def test_cmyk_file_keeps_adobe_app14(transform, paranoid):
+    original = cmyk_jpeg(transform)
+    cleaned = jpeg.strip(original, paranoid=paranoid)
+    adobe = [s for s in jpeg.walk_segments(cleaned).segments if s.marker == 0xEE]
+    assert len(adobe) == 1 and adobe[0].payload[-1] == transform
+    assert image_segments(cleaned) == image_segments(original)
+    assert section_keys(cleaned) == ["adobe"]
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        kitchen_sink_jpeg()[:-200],  # cut inside the trailing JPEG: EOI of the first still there
+        kitchen_sink_jpeg()[:3000],
+        make_jpeg(scan=b"\x01\x02\xff"),
+        SOI + app(1, b"Exif\x00\x00") + b"\xff\xe1\x00\x01" + EOI,
+        SOI + b"\xff\xf0\x00\x02" + make_jpeg()[2:],  # reserved JPG0 marker
+        SOI + b"\xff\x02\x00\x02" + make_jpeg()[2:],  # reserved low marker
+    ],
+)
+def test_malformed_or_unsupported_input(data):
+    try:
+        cleaned = jpeg.strip(data)
+    except MalformedFileError:
+        return
+    # Cutting after the first EOI leaves a valid JPEG; it must then be clean.
+    assert leftovers(cleaned) == []
+
+
+def test_malformed_input_produces_nothing(tmp_path):
+    with pytest.raises(MalformedFileError):
+        jpeg.strip(kitchen_sink_jpeg()[:3000])
+    assert list(tmp_path.iterdir()) == []  # strip() itself never writes files
+
+
+def mutate(data, rng):
+    d = bytearray(data)
+    op = rng.random()
+    if op < 0.6:
+        for _ in range(rng.randint(1, 8)):
+            d[rng.randrange(len(d))] = rng.randrange(256)
+    elif op < 0.8:
+        del d[rng.randrange(len(d)):]
+    else:
+        pos = rng.randrange(len(d))
+        d[pos:pos] = rng.randbytes(rng.randint(1, 16))
+    return bytes(d)
+
+
+def test_mutations_either_raise_or_produce_clean_output():
+    """1,000 random mutations: strip raises MalformedFileError or returns a clean JPEG."""
+    rng = random.Random(31337)
+    originals = [kitchen_sink_jpeg("<"), kitchen_sink_jpeg(">")]
+    stripped = 0
+    for i in range(1000):
+        data = mutate(rng.choice(originals), rng)
+        paranoid = bool(i % 2)
+        try:
+            cleaned = jpeg.strip(data, paranoid=paranoid)
+        except MalformedFileError:
+            continue
+        stripped += 1
+        result = jpeg.parse(cleaned)
+        assert result["complete"]
+        assert leftovers(cleaned) == []
+        assert "trailing" not in {s.key for s in result["sections"]}
+        assert jpeg.image_data(cleaned) == jpeg.image_data(data)
+    assert stripped > 300  # most mutations leave a strippable JPEG
 
 
 def test_short_jfif_or_adobe_is_refused():
