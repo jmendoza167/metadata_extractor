@@ -1,4 +1,5 @@
 import io
+import random
 import tarfile
 import zipfile
 
@@ -140,7 +141,7 @@ def test_single_mpeg_frame_header_is_not_enough():
 
 def test_unknown_never_raises():
     assert detect(b"\x00" * 1000) == ft.UNKNOWN
-    assert detect(b"PK\x03\x04garbage") .key == "zip"
+    assert detect(b"PK\x03\x04garbage").key == "zip"
 
 
 # --- extension mismatch -------------------------------------------------------
@@ -176,3 +177,189 @@ def test_no_filename_or_no_extension_means_no_warning():
 
 def test_unknown_content_has_no_mismatch_warning():
     assert detect(b"plain text", "notes.jpg").warnings == ()
+
+
+# --- edge cases -----------------------------------------------------------------
+
+
+def test_every_known_type_has_a_sample():
+    constants = {
+        v.key for v in vars(ft).values()
+        if isinstance(v, ft.FileType) and v is not ft.UNKNOWN
+    }
+    sampled = {t.key for _, t in IMAGES + OTHER_FORMATS}
+    assert constants == sampled
+
+
+@pytest.mark.parametrize("name", [None, "empty", "empty.jpg", "empty.zip"])
+def test_empty_file(name):
+    result = detect(b"", name)
+    assert result == ft.UNKNOWN
+    assert result.warnings == ()
+
+
+@pytest.mark.parametrize(
+    "truncated",
+    [
+        b"\xff\xd8",
+        b"\x89PNG\r\n\x1a",
+        b"GIF89",
+        b"RIFF\x00\x00\x00\x00WEB",
+        b"II*",
+        b"MM\x00",
+        b"%PDF",
+        b"\xd0\xcf\x11\xe0\xa1\xb1\x1a",
+        b"fLa",
+        b"Ogg",
+        b"\x1f\x8b",
+        b"7z\xbc\xaf\x27",
+        b"Rar!\x1a\x07",
+        b"ID3\x04\x00",
+        b"\x00\x00\x00\x18ftyphei",
+        b"<svg",
+        b"\xff\xfb\x90",
+    ],
+)
+def test_truncated_headers_are_unknown(truncated):
+    assert detect(truncated) == ft.UNKNOWN
+
+
+def test_truncated_tar_header_is_not_tar():
+    assert detect(make_tar()[:511]) != ft.TAR
+
+
+def test_tar_with_bad_checksum_is_not_tar():
+    data = bytearray(make_tar())
+    data[0] ^= 0xFF  # change the member name; checksum no longer matches
+    assert detect(bytes(data)) != ft.TAR
+
+
+def test_second_mpeg_frame_cut_short():
+    assert detect(mpeg_frames(2)[:419]) == ft.UNKNOWN
+
+
+def test_mpeg_frames_with_different_sample_rates_are_rejected():
+    first = b"\xff\xfb\x90\x00" + b"\x00" * 413
+    second = b"\xff\xfb\x94\x00"  # same bitrate, 48 kHz
+    assert detect(first + second) == ft.UNKNOWN
+
+
+def test_id3_with_size_past_end_of_data_is_still_mp3():
+    assert detect(b"ID3\x03\x00\x00\x7f\x7f\x7f\x7f") == ft.MP3
+
+
+@pytest.mark.parametrize("cut", [4, 30, 60, -10, -22])
+def test_truncated_zip_is_plain_zip_with_warning(cut):
+    data = make_zip({"[Content_Types].xml": OOXML_CT, "word/document.xml": "<w/>"})
+    result = detect(data[:cut])
+    assert result.key == "zip"
+    assert result.warnings
+    assert "not examined" in result.warnings[0]
+
+
+def test_zip_with_too_many_entries_is_not_examined(monkeypatch):
+    monkeypatch.setattr(ft, "ZIP_MAX_ENTRIES", 1)
+    data = make_zip({"[Content_Types].xml": OOXML_CT, "word/document.xml": "<w/>"})
+    result = detect(data)
+    assert result.key == "zip"
+    assert "2 entries" in result.warnings[0]
+
+
+def test_corrupt_central_directory_is_plain_zip():
+    data = bytearray(make_zip({"[Content_Types].xml": OOXML_CT, "word/document.xml": "<w/>"}))
+    cd = data.find(b"PK\x01\x02")
+    data[cd : cd + 4] = b"XXXX"
+    result = detect(bytes(data))
+    assert result.key == "zip"
+    assert result.warnings
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [
+        {"word/document.xml": "<w/>"},  # no [Content_Types].xml
+        {"[Content_Types].xml": OOXML_CT, "readme.txt": "x"},  # no word/xl/ppt
+        {"[Content_Types].xml": OOXML_CT, "word/a.xml": "", "xl/b.xml": ""},  # ambiguous
+        {"[Content_Types].xml": OOXML_CT, "wordy/document.xml": "<w/>"},  # prefix trick
+        {"[content_types].xml": OOXML_CT, "word/document.xml": "<w/>"},  # wrong case
+        {"mimetype": "application/x-something-else", "word/document.xml": ""},
+        {"mimetype": "application/vnd.oasis.opendocument.text" + " " * 300},  # oversized
+        {"mimetype": b"\xff\xfe\x00bad"},  # not ASCII
+    ],
+)
+def test_zip_that_only_looks_like_an_office_file_is_plain_zip(entries):
+    assert detect(make_zip(entries)) == ft.ZIP
+
+
+def test_empty_zip():
+    assert detect(make_zip({})) == ft.ZIP
+
+
+def test_unknown_ftyp_brand_is_unknown():
+    assert detect(ftyp(b"zzzz", b"yyyy")) == ft.UNKNOWN
+
+
+def test_ftyp_with_tiny_box_size_is_unknown():
+    assert detect(b"\x00\x00\x00\x04ftypheic" + b"\x00" * 8) == ft.UNKNOWN
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        b"<!-- never closed <svg>",
+        b"<!DOCTYPE svg [ never closed <svg>",
+        b"<?xml version='1.0'?><html><svg/></html>",
+        b"<svgfoo/>",
+        b"Hello <svg/>",
+        b"<!--" + b"x" * 5000 + b"--><svg/>",  # root element beyond 4 KB
+    ],
+)
+def test_not_svg(data):
+    assert detect(data) == ft.UNKNOWN
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        b"  \n\t<svg>",
+        b"<svg:svg xmlns:svg='http://www.w3.org/2000/svg'/>",
+        b"<!DOCTYPE svg [ <!ENTITY a 'b'> ]>\n<svg/>",
+        b"\xff\xfe" + "<?xml version='1.0'?><svg/>".encode("utf-16-le"),
+        b"\xfe\xff" + "<svg/>".encode("utf-16-be"),
+    ],
+)
+def test_svg_variants(data):
+    assert detect(data) == ft.SVG
+
+
+def test_random_bytes_never_raise():
+    rng = random.Random(1234)
+    prefixes = [b"", b"PK\x03\x04", b"PK\x05\x06", b"ID3\x03\x00", b"RIFF",
+                b"\x00\x00\x00\x20ftyp", b"\xff\xfb", b"<", b"\xef\xbb\xbf<"]
+    for _ in range(600):
+        prefix = rng.choice(prefixes)
+        data = prefix + rng.randbytes(rng.randrange(0, 3000))
+        result = detect(data, "x.bin")
+        assert isinstance(result, ft.FileType)
+
+
+@pytest.mark.parametrize(
+    "data,name,warning",
+    [
+        (make_zip({"[Content_Types].xml": OOXML_CT, "word/d.xml": ""}), "report.zip",
+         "extension .zip but content is DOCX"),
+        (make_zip({"a.txt": "x"}), "report.docx", "extension .docx but content is ZIP"),
+        (mpeg_frames(2), "song.wav", "extension .wav but content is MP3"),
+        (b"<svg/>", "logo.PNG", "extension .PNG but content is SVG"),
+        (b"%PDF-1.4", "invoice.pdf.exe", "extension .exe but content is PDF"),
+    ],
+)
+def test_wrong_extensions(data, name, warning):
+    assert warning in detect(data, name).warnings
+
+
+def test_mismatch_warning_is_added_after_zip_warning():
+    data = make_zip({"a": "b"})[:30]
+    result = detect(data, "a.docx")
+    assert len(result.warnings) == 2
+    assert result.warnings[1] == "extension .docx but content is ZIP"
