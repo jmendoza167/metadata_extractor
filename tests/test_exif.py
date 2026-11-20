@@ -360,6 +360,32 @@ def test_gps_section(order):
     assert any(w.startswith("CRITICAL: GPS coordinates found (48.858367, 2.294481)") for w in warnings)
 
 
+def test_map_links():
+    _, gps, _ = gps_result(GPS_PARIS)
+    assert gps["OpenStreetMap"].value == (
+        "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481")
+    assert gps["Google Maps"].value == "https://www.google.com/maps?q=48.858367,2.294481"
+    assert gps["OpenStreetMap"].sensitive and gps["Google Maps"].sensitive
+
+
+def test_no_map_links_without_valid_coordinates():
+    _, gps, _ = gps_result([(0x0001, ASCII, "N")])
+    assert "OpenStreetMap" not in gps and "Google Maps" not in gps
+
+
+def test_building_map_links_makes_no_network_requests(monkeypatch):
+    import socket
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("metaex tried to open a network connection")
+
+    monkeypatch.setattr(socket, "socket", no_network)
+    monkeypatch.setattr(socket, "create_connection", no_network)
+    monkeypatch.setattr(socket, "getaddrinfo", no_network)
+    _, gps, _ = gps_result(GPS_PARIS)
+    assert gps["Google Maps"].value.startswith("https://")
+
+
 def test_gps_entries_are_not_repeated_in_exif_section():
     sections, _, _ = gps_result(GPS_PARIS)
     assert not any("GPS" in f.label for f in sections[0].fields)

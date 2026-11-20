@@ -575,6 +575,19 @@ def gps_coordinates(gps: Ifd, warnings: list[str] | None = None) -> Coordinates 
     return Coordinates(lat, lon)
 
 
+def map_links(coords: Coordinates) -> dict[str, str]:
+    """Map URLs for the coordinates.
+
+    These are only strings for the user to open if they choose to; metaex
+    itself never makes network requests.
+    """
+    lat, lon = f"{coords.latitude:.6f}", f"{coords.longitude:.6f}"
+    return {
+        "openstreetmap": f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=16/{lat}/{lon}",
+        "google_maps": f"https://www.google.com/maps?q={lat},{lon}",
+    }
+
+
 def gps_section(gps: Ifd, ctx: dict[str, Any], warnings: list[str]) -> Section:
     """Interpreted GPS values. Every field is sensitive: this is a location."""
     section = Section("gps", "GPS")
@@ -586,6 +599,9 @@ def gps_section(gps: Ifd, ctx: dict[str, Any], warnings: list[str]) -> Section:
                     note="decimal degrees")
         section.add("latitude", "Latitude", f"{coords.latitude:.6f}", sensitive=True)
         section.add("longitude", "Longitude", f"{coords.longitude:.6f}", sensitive=True)
+        links = map_links(coords)
+        section.add("openstreetmap", "OpenStreetMap", links["openstreetmap"], sensitive=True)
+        section.add("google_maps", "Google Maps", links["google_maps"], sensitive=True)
         consumed |= {GPS_LATITUDE, GPS_LATITUDE_REF, GPS_LONGITUDE, GPS_LONGITUDE_REF}
         warnings.append(f"CRITICAL: GPS coordinates found ({coords}): they reveal "
                         "where the photo was taken")
