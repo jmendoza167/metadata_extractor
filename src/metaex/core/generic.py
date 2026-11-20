@@ -69,3 +69,86 @@ def _add_time(section: Section, key: str, label: str, timestamp: float) -> None:
         section.add(key, label, UNAVAILABLE, note=f"invalid timestamp {timestamp!r}")
     else:
         section.add(key, label, value)
+
+
+# -- Windows "Mark of the Web" ------------------------------------------------------
+
+ZONE_IDENTIFIER_STREAM = "Zone.Identifier"
+ZONE_IDENTIFIER_MAX_SIZE = 64 * 1024
+ZONE_IDENTIFIER_MAX_ENTRIES = 100
+
+_ZONE_NAMES = {
+    "0": "Local machine",
+    "1": "Local intranet",
+    "2": "Trusted sites",
+    "3": "Internet",
+    "4": "Restricted sites",
+}
+_ZONE_LABELS = {
+    "zoneid": ("zone_id", "Zone"),
+    "referrerurl": ("referrer_url", "Referrer URL"),
+    "hosturl": ("host_url", "Host URL"),
+}
+
+
+def mark_of_the_web_section(path: str | os.PathLike[str]) -> Section | None:
+    """Where a file was downloaded from, per its NTFS Zone.Identifier stream.
+
+    Windows (browsers, mail clients, archivers) attaches this alternate data
+    stream to downloaded files. It is not part of the file's content, so it
+    is not copied into a cleaned file, but it does reveal the download source
+    while the file sits on disk. Returns None on other operating systems or
+    when the stream doesn't exist.
+    """
+    if sys.platform != "win32":
+        return None
+    stream = f"{os.fspath(path)}:{ZONE_IDENTIFIER_STREAM}"
+    section = Section("mark_of_the_web", "Download origin (Mark of the Web)")
+    try:
+        with open(stream, "rb") as f:
+            raw = f.read(ZONE_IDENTIFIER_MAX_SIZE + 1)
+    except PermissionError:
+        section.add("status", "Zone.Identifier", "present but could not be read",
+                    sensitive=True, note="permission denied")
+        return section
+    except OSError:
+        # No such stream, or a file system without alternate data streams.
+        return None
+
+    if len(raw) > ZONE_IDENTIFIER_MAX_SIZE:
+        section.add("status", "Zone.Identifier", "present but not read", sensitive=True,
+                    note=f"stream is larger than {ZONE_IDENTIFIER_MAX_SIZE} bytes")
+        return section
+
+    entries = parse_zone_identifier(raw)
+    if not entries:
+        section.add("status", "Zone.Identifier", "present (no entries)", sensitive=True)
+        return section
+    for name, value in entries:
+        key, label = _ZONE_LABELS.get(name.lower(), (name.lower(), name))
+        if key == "zone_id" and value in _ZONE_NAMES:
+            value = f"{value} ({_ZONE_NAMES[value]})"
+        section.add(key, label, value, sensitive=True)
+    return section
+
+
+def parse_zone_identifier(raw: bytes) -> list[tuple[str, str]]:
+    """Parse the INI-style Zone.Identifier text into (name, value) pairs.
+
+    Section headers and blank lines are skipped; at most
+    ZONE_IDENTIFIER_MAX_ENTRIES entries are returned.
+    """
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        text = raw.decode("utf-16", errors="replace")
+    else:
+        text = raw.decode("utf-8-sig", errors="replace")
+    entries: list[tuple[str, str]] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith(("[", ";", "#")) or "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        entries.append((name.strip(), value.strip()))
+        if len(entries) >= ZONE_IDENTIFIER_MAX_ENTRIES:
+            break
+    return entries

@@ -7,7 +7,12 @@ import pytest
 
 from metaex.core import generic
 from metaex.core.errors import FileAccessError
-from metaex.core.generic import UNAVAILABLE, file_system_section
+from metaex.core.generic import (
+    UNAVAILABLE,
+    file_system_section,
+    mark_of_the_web_section,
+    parse_zone_identifier,
+)
 
 
 @pytest.fixture
@@ -88,3 +93,73 @@ def test_permissions_string(monkeypatch, sample):
 def test_missing_file_raises_clean_error(tmp_path):
     with pytest.raises(FileAccessError):
         file_system_section(tmp_path / "missing")
+
+
+# --- Mark of the Web ------------------------------------------------------------
+
+ZONE_TEXT = (
+    b"[ZoneTransfer]\r\n"
+    b"ZoneId=3\r\n"
+    b"ReferrerUrl=https://example.com/downloads\r\n"
+    b"HostUrl=https://cdn.example.com/file.zip\r\n"
+)
+
+
+def test_parse_zone_identifier():
+    assert parse_zone_identifier(ZONE_TEXT) == [
+        ("ZoneId", "3"),
+        ("ReferrerUrl", "https://example.com/downloads"),
+        ("HostUrl", "https://cdn.example.com/file.zip"),
+    ]
+
+
+def test_parse_zone_identifier_utf16_and_garbage():
+    text = ZONE_TEXT.decode("ascii")
+    assert parse_zone_identifier(b"\xff\xfe" + text.encode("utf-16-le"))[0] == ("ZoneId", "3")
+    assert parse_zone_identifier(b"\x00\xff garbage without equals") == []
+    assert parse_zone_identifier(b"") == []
+
+
+def test_parse_zone_identifier_caps_entries():
+    raw = b"".join(b"K%d=v\n" % i for i in range(1000))
+    assert len(parse_zone_identifier(raw)) == generic.ZONE_IDENTIFIER_MAX_ENTRIES
+
+
+def test_mark_of_the_web_skipped_on_other_platforms(monkeypatch, sample):
+    monkeypatch.setattr(generic.sys, "platform", "linux")
+    assert mark_of_the_web_section(sample) is None
+
+
+windows_only = pytest.mark.skipif(sys.platform != "win32", reason="NTFS streams are Windows-only")
+
+
+def write_zone_stream(path, data: bytes) -> None:
+    try:
+        with open(f"{path}:Zone.Identifier", "wb") as f:
+            f.write(data)
+    except OSError as exc:
+        pytest.skip(f"file system does not support alternate data streams: {exc}")
+
+
+@windows_only
+def test_mark_of_the_web_is_read_and_sensitive(sample):
+    write_zone_stream(sample, ZONE_TEXT)
+    section = mark_of_the_web_section(sample)
+    assert section is not None
+    v = {f.key: f.value for f in section.fields}
+    assert v["zone_id"] == "3 (Internet)"
+    assert v["referrer_url"] == "https://example.com/downloads"
+    assert v["host_url"] == "https://cdn.example.com/file.zip"
+    assert all(f.sensitive for f in section.fields)
+
+
+@windows_only
+def test_no_stream_means_no_section(sample):
+    assert mark_of_the_web_section(sample) is None
+
+
+@windows_only
+def test_oversized_stream_is_not_read(sample):
+    write_zone_stream(sample, b"A=" + b"x" * (generic.ZONE_IDENTIFIER_MAX_SIZE + 10))
+    section = mark_of_the_web_section(sample)
+    assert section.fields[0].value == "present but not read"
