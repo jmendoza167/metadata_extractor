@@ -119,6 +119,18 @@ def test_show_jpeg_sections_in_order(tmp_path):
     assert data["warnings"][: len(critical)] == critical
 
 
+def test_duplicate_warnings_are_shown_once(tmp_path):
+    from helpers.jpeg import SAMPLE_XMP, extended_xmp_segments, make_jpeg, xmp_segment
+
+    p = tmp_path / "photo.jpg"
+    p.write_bytes(make_jpeg(xmp_segment(SAMPLE_XMP), *extended_xmp_segments(SAMPLE_XMP)))
+    warnings = show_json(p)["warnings"]
+    gps = [w for w in warnings if "XMP contains GPS data" in w]
+    assert len(gps) == 1
+    assert gps[0].startswith("CRITICAL")
+    assert len(warnings) == len(set(warnings))
+
+
 def test_structure_only_with_flag(tmp_path):
     from helpers.jpeg import sample_photo
 

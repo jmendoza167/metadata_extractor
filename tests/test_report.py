@@ -136,6 +136,22 @@ def test_wrap_label(label, width, expected):
     assert "".join(wrap_label(label, width)) == label
 
 
+@pytest.mark.parametrize(
+    "warnings,expected",
+    [
+        (["a", "b", "a"], ["a", "b"]),
+        (["x", "CRITICAL: x", "y"], ["CRITICAL: x", "y"]),
+        (["CRITICAL: x", "x"], ["CRITICAL: x"]),
+        (["CRITICAL: x", "CRITICAL: x"], ["CRITICAL: x"]),
+        ([], []),
+    ],
+)
+def test_unique_warnings(warnings, expected):
+    from metaex.core.report import unique_warnings
+
+    assert unique_warnings(warnings) == expected
+
+
 def test_note_is_shown():
     s = Section("a", "A")
     s.add("created", "Created", "unavailable", note="not reported by this OS")

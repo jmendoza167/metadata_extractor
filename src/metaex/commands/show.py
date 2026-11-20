@@ -11,7 +11,7 @@ from metaex.core import filetype as ft
 from metaex.core.errors import MalformedFileError, MetaexError
 from metaex.core.generic import file_system_section, hashes_section, mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, load_file
-from metaex.core.report import Report
+from metaex.core.report import Report, unique_warnings
 from metaex.core.result import Section
 from metaex.core.writer import write_new_file
 
@@ -77,8 +77,10 @@ def build_report(path: str | os.PathLike[str], max_size: int = DEFAULT_MAX_SIZE,
     if motw is not None:
         report.sections.append(motw)
     report.sections.append(hashes_section(name))
-    # Most important first; the sort is stable, so the order is otherwise kept.
-    report.warnings.sort(key=lambda w: not w.startswith("CRITICAL"))
+    # Each warning once; most important first (the sort is stable, so the
+    # order is otherwise kept).
+    report.warnings = sorted(unique_warnings(report.warnings),
+                             key=lambda w: not w.startswith("CRITICAL"))
     return report
 
 

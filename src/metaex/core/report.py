@@ -86,6 +86,27 @@ def render_text(report: Report, width: int | None = None) -> str:
     return "\n".join(out).rstrip("\n") + "\n"
 
 
+CRITICAL_PREFIX = "CRITICAL: "
+
+
+def unique_warnings(warnings: list[str]) -> list[str]:
+    """Drop repeated warnings, keeping the first position and highest severity.
+
+    Two warnings are the same if they match once a leading "CRITICAL: " is
+    ignored; if either copy is critical, the critical one is kept.
+    """
+    out: list[str] = []
+    index: dict[str, int] = {}
+    for warning in warnings:
+        key = warning[len(CRITICAL_PREFIX):] if warning.startswith(CRITICAL_PREFIX) else warning
+        if key not in index:
+            index[key] = len(out)
+            out.append(warning)
+        elif warning.startswith(CRITICAL_PREFIX):
+            out[index[key]] = warning
+    return out
+
+
 def format_value(value: Any) -> str:
     """One-line, display-safe text for a field value."""
     if isinstance(value, (bytes, bytearray, memoryview)):
