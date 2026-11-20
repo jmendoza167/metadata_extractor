@@ -68,8 +68,13 @@ def build_parser() -> argparse.ArgumentParser:
     strip_help = "write a verified copy of a file with its metadata removed"
     strip = subparsers.add_parser("strip", help=strip_help, description=strip_help)
     strip.add_argument("path", help="file to clean (never modified unless --in-place)")
-    strip.add_argument("-o", "--output", metavar="OUTPUT",
-                       help="where to write the cleaned copy (default: <name>_clean.<ext>)")
+    target = strip.add_mutually_exclusive_group()
+    target.add_argument("-o", "--output", metavar="OUTPUT",
+                        help="where to write the cleaned copy (default: <name>_clean.<ext>)")
+    target.add_argument("--in-place", action="store_true",
+                        help="replace the original file (asks for confirmation)")
+    strip.add_argument("--yes", action="store_true",
+                       help="don't ask for confirmation with --in-place")
     strip.add_argument("--paranoid", action="store_true",
                        help="also remove the ICC color profile and JFIF density "
                             "(colors may shift)")
@@ -144,13 +149,28 @@ def _cmd_strip(args: argparse.Namespace) -> int:
 
     from metaex.commands.strip import strip_file, summary_lines
 
+    if args.in_place and not args.yes:
+        _confirm_overwrite(args.path)
     outcome = strip_file(args.path, args.output, paranoid=args.paranoid,
-                         keep_orientation=not args.no_orientation, max_size=args.max_size)
+                         keep_orientation=not args.no_orientation, max_size=args.max_size,
+                         in_place=args.in_place)
     if args.json:
         write_text(json.dumps(outcome.to_dict(), indent=2, ensure_ascii=True) + "\n")
     else:
         write_text("\n".join(sanitize(line) for line in summary_lines(outcome)) + "\n")
     return EXIT_OK
+
+
+def _confirm_overwrite(path: str) -> None:
+    """Ask on the terminal before replacing a file; refuse if there is no terminal."""
+    stdin = sys.stdin
+    if stdin is None or not stdin.isatty():
+        raise MetaexError("--in-place needs confirmation, but input is not a terminal; "
+                          "pass --yes to overwrite without asking. Nothing changed.")
+    write_text(f"Type 'yes' to overwrite {sanitize(path)}: ", sys.stderr)
+    answer = stdin.readline()
+    if answer.strip() != "yes":
+        raise MetaexError("not confirmed; nothing changed")
 
 
 def _not_implemented(args: argparse.Namespace) -> int:

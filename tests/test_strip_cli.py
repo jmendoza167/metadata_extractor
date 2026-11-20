@@ -107,6 +107,66 @@ def test_paranoid_and_no_orientation(tmp_path):
     assert b == set()
 
 
+# --- --in-place --------------------------------------------------------------------
+
+class FakeTerminal:
+    def __init__(self, answer):
+        self.answer = answer
+
+    def isatty(self):
+        return True
+
+    def readline(self):
+        return self.answer
+
+
+def test_in_place_with_yes(photo):
+    original = photo.read_bytes()
+    result = run("strip", str(photo), "--in-place", "--yes")
+    assert result.returncode == 0, result.stderr
+    cleaned = photo.read_bytes()
+    assert cleaned != original
+    check = verify(cleaned, original)
+    assert check.clean and check.image_data_match
+    assert listing(photo.parent) == ["photo.jpg"]
+
+
+def test_in_place_without_terminal_is_refused(photo):
+    original = photo.read_bytes()
+    result = run("strip", str(photo), "--in-place", stdin="yes\n")
+    assert result.returncode == 1
+    assert "pass --yes" in result.stderr
+    assert photo.read_bytes() == original
+
+
+@pytest.mark.parametrize("answer,changed", [("yes\n", True), ("y\n", False), ("", False),
+                                            ("no\n", False)])
+def test_in_place_confirmation_prompt(photo, monkeypatch, capsys, answer, changed):
+    from metaex import cli
+
+    original = photo.read_bytes()
+    monkeypatch.setattr(sys, "stdin", FakeTerminal(answer))
+    code = cli.main(["strip", str(photo), "--in-place"])
+    err = capsys.readouterr().err
+    assert f"Type 'yes' to overwrite {photo}:" in err
+    assert code == (0 if changed else 1)
+    assert (photo.read_bytes() != original) == changed
+    if not changed:
+        assert "not confirmed" in err
+
+
+def test_in_place_and_output_conflict(photo, tmp_path):
+    result = run("strip", str(photo), "--in-place", "-o", str(tmp_path / "x.jpg"))
+    assert result.returncode == 2
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+def test_in_place_keeps_permissions(photo):
+    os.chmod(photo, 0o640)
+    assert run("strip", str(photo), "--in-place", "--yes").returncode == 0
+    assert (os.stat(photo).st_mode & 0o777) == 0o640
+
+
 # --- write_verified -----------------------------------------------------------------
 
 def test_failed_check_leaves_nothing(tmp_path):

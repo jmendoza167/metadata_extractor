@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import stat
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -63,8 +64,12 @@ def default_output_path(path: str, filetype: ft.FileType) -> str:
 
 def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | None = None, *,
                paranoid: bool = False, keep_orientation: bool = True,
-               max_size: int = DEFAULT_MAX_SIZE) -> StripOutcome:
+               max_size: int = DEFAULT_MAX_SIZE, in_place: bool = False) -> StripOutcome:
     """load -> detect -> strip -> temp file -> verify -> move into place.
+
+    With ``in_place`` the original is replaced (still via a verified temp
+    file and os.replace, keeping its permission bits); the caller is
+    responsible for asking the user first.
 
     Raises (and writes nothing) for unsupported types, malformed input, an
     existing output file, or a failed verification.
@@ -78,11 +83,16 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
                 else f"{detected.name} files yet")
         raise UnsupportedFormatError(f"metaex can't strip {what}; no file written")
 
-    target = os.fspath(output) if output is not None else default_output_path(source, detected)
-    if os.path.lexists(target):
-        hint = "" if output is not None else " Use -o to choose another name."
-        raise MetaexError(f"{target}: already exists; refusing to overwrite it.{hint} "
-                          "No file written.")
+    if in_place and output is not None:
+        raise MetaexError("--in-place and -o cannot be combined")
+    if in_place:
+        target = source
+    else:
+        target = os.fspath(output) if output is not None else default_output_path(source, detected)
+        if os.path.lexists(target):
+            hint = "" if output is not None else " Use -o to choose another name."
+            raise MetaexError(f"{target}: already exists; refusing to overwrite it.{hint} "
+                              "No file written.")
     try:
         cleaned = module.strip(data, keep_orientation=keep_orientation, paranoid=paranoid)
     except MalformedFileError as exc:
@@ -96,7 +106,11 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
                               + "; ".join(reasons[:3]) + "); no file written")
         return result
 
-    result = write_verified(target, cleaned, check)
+    if in_place:
+        mode = stat.S_IMODE(os.stat(source).st_mode)
+        result = write_verified(target, cleaned, check, overwrite=True, mode=mode)
+    else:
+        result = write_verified(target, cleaned, check)
     outcome = StripOutcome(source, target, detected, len(data), len(cleaned),
                            kept_by_design=result.kept_by_design, verify=result)
     outcome.removed = removed_groups(module.parse(data), result.kept_by_design)
