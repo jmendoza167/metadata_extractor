@@ -199,6 +199,29 @@ def sample_photo(order: str = "<", trailing: bytes = b"") -> bytes:
                      width=4000, height=3000, trailing=trailing)
 
 
+def kitchen_sink_jpeg(order: str = "<") -> bytes:
+    """Every kind of metadata metaex reads: EXIF (GPS, thumbnail), XMP and
+    Extended XMP, IPTC, ICC, comment, JFIF, Adobe, an unknown APPn, MPF
+    extra images and trailing data."""
+    photo = sample_photo(order=order)
+    extras = (
+        [app(0, b"JFIF\x00\x01\x02\x01\x00\x48\x00\x48\x00\x00")]
+        + extended_xmp_segments(SAMPLE_XMP, chunk_size=400)
+        + [photoshop_segment(photoshop_resource(0x0404, iim((1, 90, b"\x1b%G"), (2, 80, "Jane"),
+                                                             (2, 90, "Paris"), (2, 25, "a"))),
+                             photoshop_resource(0x040C, bytes(40)))]
+        + icc_segments(icc_profile(), 300)
+        + [segment(0xFE, b"a comment"), app(14, b"Adobe\x00\x64\x00\x00\x00\x00\x01"),
+           app(12, b"Ducky\x00\x01")]
+    )
+    # Insert the extra segments right after SOI, then add MPF images + trailing data.
+    body = photo[:2] + b"".join(extras) + photo[2:]
+    mpf = make_mpf_jpeg([(0x010001, make_jpeg(width=64, height=48))], order=order)
+    mpf_segment_end = 2 + 4 + int.from_bytes(mpf[4:6], "big") - 2
+    mpf_app2 = mpf[2:mpf_segment_end]
+    return body[:2] + mpf_app2 + body[2:] + make_jpeg() + b"trailing secret"
+
+
 def make_jpeg(*segments: bytes, width: int = 8, height: int = 8,
               scan: bytes = SCAN_DATA, eoi: bool = True, trailing: bytes = b"") -> bytes:
     """SOI, the given segments, a minimal frame and scan, EOI, trailing bytes."""
