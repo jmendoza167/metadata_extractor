@@ -1,0 +1,18 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Packaging / build artifacts
+*.egg-info/
+dist/
+build/
+
+# Test / tool caches
+.pytest_cache/
+
+# metaex output files (e.g. photo_clean.jpg)
+*_clean.*
