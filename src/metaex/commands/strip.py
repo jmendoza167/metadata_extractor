@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from metaex.core import filetype as ft
+from metaex.core import icc
 from metaex.core.errors import MalformedFileError, MetaexError, UnsupportedFormatError
 from metaex.core.generic import mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, format_size, load_file
@@ -33,6 +34,8 @@ class StripOutcome:
     kept_by_design: list[Finding] = field(default_factory=list)
     verify: VerifyResult | None = None
     notes: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    """Things kept in the output that the user may want to remove."""
     timestamps: str = ""
     """How the output's file times were set."""
     zone_identifier: str | None = None
@@ -62,6 +65,7 @@ class StripOutcome:
             },
             "timestamps": self.timestamps,
             "zone_identifier": self.zone_identifier,
+            "warnings": self.warnings,
             "notes": self.notes,
         }
 
@@ -157,6 +161,7 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     if callable(sizes_hook):
         outcome.removed_sizes = {_SECTION_GROUPS.get(key, key): n
                                  for key, n in sizes_hook(data).items()}
+    outcome.warnings.extend(kept_warnings(module.parse(cleaned)))
     outcome.notes.extend(detected.warnings)
     if fixed_time:
         outcome.timestamps = (f"modified and accessed set to {FIXED_TIME_TEXT}; "
@@ -171,6 +176,18 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
             outcome.notes.append("the output has a Zone.Identifier stream; this should not "
                                  "happen, please report it")
     return outcome
+
+
+def kept_warnings(parsed_output: dict) -> list[str]:
+    """Warnings about metadata the cleaned file still has by design."""
+    warnings = []
+    for section in parsed_output.get("sections", []):
+        if section.key == "icc":
+            device = icc.named_device(section)
+            if device:
+                warnings.append(f"ICC profile names a device ({device}); use --paranoid to "
+                                "remove it (colors may shift)")
+    return warnings
 
 
 # -- what was removed, grouped for people --------------------------------------------
@@ -258,6 +275,8 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
             lines.append(f"  {section}: {values}")
     else:
         lines.append("  (nothing)")
+    for warning in outcome.warnings:
+        lines.append(f"  Warning: {warning}")
     lines.append("")
     v = outcome.verify
     if v is not None:

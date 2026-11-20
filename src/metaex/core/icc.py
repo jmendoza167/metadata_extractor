@@ -141,3 +141,25 @@ def _text_tag(profile: bytes, offset: int, size: int) -> str | None:
     except MalformedFileError:
         return None
     return None
+
+
+# Header device fields that name a color standard rather than a device.
+GENERIC_DEVICES = {("IEC", "sRGB")}
+
+
+def named_device(section: Section) -> str | None:
+    """"<manufacturer> <model>" if an ICC profile section names a device, else None.
+
+    Standard profiles that only name a color standard (IEC sRGB) don't count.
+    """
+    values = []
+    for key in ("device_manufacturer", "device_model"):
+        f = section.get(key)
+        if f is not None and isinstance(f.value, str) and f.value != "(none)":
+            values.append(f.value)
+        else:
+            values.append(None)
+    if tuple(values) in GENERIC_DEVICES:
+        return None
+    named = [v for v in values if v]
+    return " ".join(named) if named else None

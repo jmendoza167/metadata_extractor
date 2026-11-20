@@ -329,3 +329,48 @@ def test_size_summary_uses_binary_units(tmp_path):
 
 def test_jpeg_without_trailing_data_has_no_sizes():
     assert jpeg.removed_sizes(make_jpeg()) == {}
+
+
+ICC_WARNING = ("ICC profile names a device (ACME X100); use --paranoid to remove it "
+               "(colors may shift)")
+
+
+def test_kept_icc_device_is_warned_about(photo):
+    result = run("strip", str(photo))
+    assert result.returncode == 0, result.stderr
+    assert f"  Warning: {ICC_WARNING}" in result.stdout.splitlines()
+    data = json.loads(run("strip", str(photo), "-o", str(photo.with_name("j.jpg")),
+                          "--json").stdout)
+    assert data["warnings"] == [ICC_WARNING]
+
+
+def test_no_icc_warning_with_paranoid(photo):
+    result = run("strip", str(photo), "--paranoid")
+    assert result.returncode == 0, result.stderr
+    assert "names a device" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "manufacturer,model,expected",
+    [
+        (b"ACME", b"X100", "ACME X100"),
+        (b"ACME", bytes(4), "ACME"),
+        (bytes(4), b"X100", "X100"),
+        (bytes(4), bytes(4), None),
+        (b"IEC ", b"sRGB", None),  # the standard sRGB profile names no device
+    ],
+)
+def test_icc_named_device(manufacturer, model, expected):
+    from metaex.core import icc
+
+    section = icc.icc_section(icc_profile(manufacturer=manufacturer, model=model), [])
+    assert icc.named_device(section) == expected
+
+
+def test_no_icc_warning_for_generic_profile(tmp_path):
+    p = tmp_path / "srgb.jpg"
+    p.write_bytes(make_jpeg(*icc_segments(icc_profile(manufacturer=bytes(4), model=bytes(4)))))
+    result = run("strip", str(p))
+    assert result.returncode == 0, result.stderr
+    assert "ICC profile" in result.stdout  # kept
+    assert "names a device" not in result.stdout
