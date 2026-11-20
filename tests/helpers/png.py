@@ -69,3 +69,32 @@ def make_png(*chunks: bytes, width: int = 4, height: int = 4, depth: int = 8,
 
 def text(keyword: str, value: str) -> bytes:
     return chunk("tEXt", keyword.encode("latin-1") + b"\x00" + value.encode("latin-1"))
+
+
+def ztxt(keyword: str, value: str, method: int = 0, compressed: bytes | None = None) -> bytes:
+    body = compressed if compressed is not None else zlib.compress(value.encode("latin-1"))
+    return chunk("zTXt", keyword.encode("latin-1") + b"\x00" + bytes([method]) + body)
+
+
+def itxt(keyword: str, value: str, language: str = "", translated: str = "",
+         compress: bool = False, compressed: bytes | None = None) -> bytes:
+    body = value.encode("utf-8")
+    if compressed is not None:
+        body, compress = compressed, True
+    elif compress:
+        body = zlib.compress(body)
+    return chunk("iTXt", keyword.encode("latin-1") + b"\x00" + bytes([int(compress), 0])
+                 + language.encode("ascii") + b"\x00" + translated.encode("utf-8") + b"\x00"
+                 + body)
+
+
+def zlib_bomb(size: int) -> bytes:
+    """zlib data that expands to ``size`` zero bytes."""
+    c = zlib.compressobj(9)
+    out = bytearray()
+    block = bytes(1024 * 1024)
+    left = size
+    while left > 0:
+        out += c.compress(block[: min(left, len(block))])
+        left -= len(block)
+    return bytes(out + c.flush())

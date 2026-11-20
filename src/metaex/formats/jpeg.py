@@ -280,26 +280,11 @@ def xmp_sections(structure: JpegStructure, warnings: list[str]) -> list[Section]
     section = Section("xmp", "XMP")
     for i, seg in enumerate(standard):
         label = "XMP packet" if i == 0 else f"XMP packet {i + 1}"
-        _add_xmp(section, seg.payload[len(XMP_ID):], label, "", warnings)
+        xmp.add_to_section(section, seg.payload[len(XMP_ID):], label, "", warnings)
     for guid, packet in assemble_extended_xmp(extended, warnings).items():
-        _add_xmp(section, packet, f"Extended XMP {guid}", "(extended) ", warnings)
+        xmp.add_to_section(section, packet, f"Extended XMP {guid}", "(extended) ",
+                           warnings)
     return [section]
-
-
-def _add_xmp(section: Section, packet: bytes, label: str, prefix: str,
-             warnings: list[str]) -> None:
-    section.add(f"{label}.size", label, f"{len(packet)} bytes")
-    try:
-        result = xmp.parse_xmp(packet)
-    except MalformedFileError as exc:
-        warnings.append(f"{label} not parsed: {exc}")
-        section.add(f"{label}.status", f"{label} status", "present but not parsed",
-                    sensitive=True, note=str(exc))
-        return
-    warnings.extend(result.warnings)
-    for prop in result.properties:
-        section.add(prefix + prop.path, prefix + prop.path, prop.value,
-                    sensitive=prop.sensitive)
 
 
 def assemble_extended_xmp(segments: list[Segment], warnings: list[str]) -> dict[str, bytes]:

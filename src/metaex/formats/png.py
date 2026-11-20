@@ -12,8 +12,9 @@ from __future__ import annotations
 import zlib
 from dataclasses import dataclass, field
 
-from metaex.core import filetype
+from metaex.core import filetype, xmp
 from metaex.core.errors import MalformedFileError
+from metaex.core.inflate import Budget, DecompressionLimitError, inflate
 from metaex.core.result import Section
 
 SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -125,6 +126,170 @@ def walk_chunks(data: bytes | bytearray | memoryview) -> PngStructure:
     if result.chunks and result.chunks[0].type != "IHDR":
         result.warnings.append(f"the first chunk is {result.chunks[0].type}, not IHDR")
     return result
+
+
+# -- text chunks: tEXt, zTXt, iTXt ----------------------------------------------------
+
+TEXT_CHUNKS = {"tEXt", "zTXt", "iTXt"}
+MAX_SHOWN_CHARS = 256 * 1024
+"""Longer text values are cut in the report (the full text is still removed)."""
+
+# Keywords defined by the PNG specification.
+STANDARD_KEYWORDS = {
+    "Title", "Author", "Description", "Copyright", "Creation Time", "Software",
+    "Disclaimer", "Warning", "Source", "Comment",
+}
+XMP_KEYWORD = "XML:com.adobe.xmp"
+# Keywords AI image generators use for the prompt and generation settings.
+AI_KEYWORDS = {
+    "parameters": "Stable Diffusion (AUTOMATIC1111 / Forge): prompt and settings",
+    "prompt": "ComfyUI: prompt graph (JSON)",
+    "workflow": "ComfyUI: workflow (JSON)",
+    "invokeai_metadata": "InvokeAI: prompt and settings (JSON)",
+    "invokeai_graph": "InvokeAI: generation graph (JSON)",
+    "sd-metadata": "InvokeAI (older versions): prompt and settings",
+    "Dream": "InvokeAI (older versions): prompt",
+}
+
+
+@dataclass
+class TextEntry:
+    chunk_type: str
+    offset: int
+    keyword: str
+    text: str | None
+    """None if the text could not be read (see ``problem``)."""
+    language: str = ""
+    translated_keyword: str = ""
+    compressed: bool = False
+    problem: str | None = None
+
+
+def _inflate_text(raw: bytes, entry: TextEntry, budget: Budget,
+                  warnings: list[str]) -> bytes | None:
+    where = f"{entry.chunk_type} chunk {entry.keyword!r} at offset {entry.offset}"
+    try:
+        result = inflate(raw, budget)
+    except DecompressionLimitError as exc:
+        entry.problem = f"compressed text not shown: {exc}"
+        warnings.append(f"{where}: {exc}; its text is not shown")
+        return None
+    except MalformedFileError as exc:
+        entry.problem = f"compressed text could not be read: {exc}"
+        warnings.append(f"{where}: {exc}")
+        return None
+    if result.extra:
+        warnings.append(f"{where}: {result.extra} bytes of extra data after the "
+                        "compressed text")
+    return result.data
+
+
+def decode_text_chunk(chunk: Chunk, budget: Budget, warnings: list[str]) -> TextEntry:
+    """Keyword and text of a tEXt, zTXt or iTXt chunk.
+
+    Problems (missing separators, bad compression, the decompression limit)
+    are reported in the entry's ``problem`` and in ``warnings``; they never
+    raise.
+    """
+    keyword_raw, sep, rest = chunk.data.partition(b"\x00")
+    entry = TextEntry(chunk.type, chunk.offset, keyword_raw.decode("latin-1"), None)
+    if not sep:
+        entry.problem = "malformed chunk: no keyword separator"
+        warnings.append(f"{chunk.type} chunk at offset {chunk.offset} is malformed "
+                        "(no keyword separator)")
+        return entry
+    if not 1 <= len(keyword_raw) <= 79:
+        warnings.append(f"{chunk.type} chunk at offset {chunk.offset} has an invalid "
+                        f"keyword length ({len(keyword_raw)})")
+    if chunk.type == "tEXt":
+        entry.text = rest.decode("latin-1")
+    elif chunk.type == "zTXt":
+        entry.compressed = True
+        if not rest or rest[0] != 0:
+            entry.problem = "unknown compression method"
+            warnings.append(f"zTXt chunk at offset {chunk.offset} uses an unknown "
+                            "compression method")
+            return entry
+        raw = _inflate_text(rest[1:], entry, budget, warnings)
+        if raw is not None:
+            entry.text = raw.decode("latin-1")
+    else:  # iTXt
+        if len(rest) < 2:
+            entry.problem = "malformed chunk: too short"
+            warnings.append(f"iTXt chunk at offset {chunk.offset} is too short")
+            return entry
+        flag, method = rest[0], rest[1]
+        language, sep1, rest = rest[2:].partition(b"\x00")
+        translated, sep2, body = rest.partition(b"\x00")
+        if not (sep1 and sep2):
+            entry.problem = "malformed chunk: missing separators"
+            warnings.append(f"iTXt chunk at offset {chunk.offset} is malformed "
+                            "(missing separators)")
+            return entry
+        entry.language = language.decode("latin-1")
+        entry.translated_keyword = translated.decode("utf-8", errors="replace")
+        if flag:
+            entry.compressed = True
+            if method != 0:
+                entry.problem = "unknown compression method"
+                warnings.append(f"iTXt chunk at offset {chunk.offset} uses an unknown "
+                                "compression method")
+                return entry
+            body = _inflate_text(body, entry, budget, warnings)
+            if body is None:
+                return entry
+        entry.text = body.decode("utf-8", errors="replace")
+    return entry
+
+
+def _shown(text: str) -> str:
+    if len(text) <= MAX_SHOWN_CHARS:
+        return text
+    return text[:MAX_SHOWN_CHARS] + f" ... ({len(text) - MAX_SHOWN_CHARS} more characters)"
+
+
+def _unique(section: Section, key: str) -> str:
+    if section.get(key) is None:
+        return key
+    n = 2
+    while section.get(f"{key} ({n})") is not None:
+        n += 1
+    return f"{key} ({n})"
+
+
+def text_sections(structure: PngStructure, budget: Budget,
+                  warnings: list[str]) -> list[Section]:
+    """Text, AI generation data and XMP sections from the text chunks.
+
+    Every keyword is shown, including unknown ones.
+    """
+    text = Section("text", "Text")
+    ai = Section("ai", "AI generation data")
+    xmp_section = Section("xmp", "XMP")
+    for chunk in structure.chunks:
+        if chunk.type not in TEXT_CHUNKS:
+            continue
+        entry = decode_text_chunk(chunk, budget, warnings)
+        if entry.keyword == XMP_KEYWORD and entry.text is not None:
+            n = sum(1 for f in xmp_section.fields if f.key.endswith(".size"))
+            label = "XMP packet" if n == 0 else f"XMP packet {n + 1}"
+            xmp.add_to_section(xmp_section, entry.text.encode("utf-8"), label, "", warnings)
+            continue
+        target = ai if entry.keyword in AI_KEYWORDS else text
+        notes = [entry.chunk_type + (", compressed" if entry.compressed else "")]
+        if entry.keyword in AI_KEYWORDS:
+            notes.append(AI_KEYWORDS[entry.keyword])
+        elif entry.keyword not in STANDARD_KEYWORDS and entry.keyword != XMP_KEYWORD:
+            notes.append("non-standard keyword")
+        if entry.language:
+            notes.append(f"language {entry.language}")
+        if entry.translated_keyword:
+            notes.append(f"translated keyword: {entry.translated_keyword}")
+        value = _shown(entry.text) if entry.text is not None else f"({entry.problem})"
+        label = entry.keyword or "(empty keyword)"
+        target.add(_unique(target, label), label, value, sensitive=True,
+                   note="; ".join(notes))
+    return [s for s in (text, ai, xmp_section) if s.fields]
 
 
 # -- report ------------------------------------------------------------------------

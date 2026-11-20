@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
 from metaex.core.errors import MalformedFileError
+from metaex.core.result import Section
 
 MAX_XMP_SIZE = 16 * 1024 * 1024
 MAX_PROPERTIES = 10_000
@@ -127,6 +128,28 @@ def parse_xmp(packet: bytes) -> XmpResult:
             "CRITICAL: XMP contains GPS data (" + ", ".join(gps[:4])
             + (", ..." if len(gps) > 4 else "") + ")")
     return walker.result
+
+
+def add_to_section(section: Section, packet: bytes, label: str, prefix: str,
+                   warnings: list[str]) -> None:
+    """Add a packet's size and properties to a report section.
+
+    ``label`` names the packet ("XMP packet"); ``prefix`` is put before each
+    property path (e.g. "(extended) "). A packet that can't be parsed is
+    reported as present but not parsed, with the reason in ``warnings``.
+    """
+    section.add(f"{label}.size", label, f"{len(packet)} bytes")
+    try:
+        result = parse_xmp(packet)
+    except MalformedFileError as exc:
+        warnings.append(f"{label} not parsed: {exc}")
+        section.add(f"{label}.status", f"{label} status", "present but not parsed",
+                    sensitive=True, note=str(exc))
+        return
+    warnings.extend(result.warnings)
+    for prop in result.properties:
+        section.add(prefix + prop.path, prefix + prop.path, prop.value,
+                    sensitive=prop.sensitive)
 
 
 def _segments(path: str) -> list[str]:

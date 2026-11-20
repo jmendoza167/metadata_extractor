@@ -106,3 +106,126 @@ def test_data_after_iend_is_critical(trailing, content):
 def test_no_trailing_section_without_trailing_data():
     data = make_png()
     assert png.trailing_sections(png.walk_chunks(data), data, []) == []
+
+
+# -- text chunks ---------------------------------------------------------------------
+
+from helpers.png import itxt, zlib_bomb, ztxt  # noqa: E402
+from metaex.core.inflate import Budget  # noqa: E402
+
+
+def sections_of(*chunks, budget=None):
+    warnings = []
+    s = png.walk_chunks(make_png(*chunks))
+    out = png.text_sections(s, budget or Budget(), warnings)
+    return {sec.key: sec for sec in out}, warnings
+
+
+def values(section):
+    return {f.key: f.value for f in section.fields}
+
+
+def test_text_ztxt_itxt():
+    title = "Caf" + chr(0xE9) + " " + chr(0x2615)  # needs UTF-8
+    secs, warnings = sections_of(
+        text("Author", "Jane Doe"),
+        ztxt("Comment", "compressed comment"),
+        itxt("Title", title, language="fr", translated="Titre"),
+        itxt("Description", "long text " * 50, compress=True),
+    )
+    assert warnings == []
+    v = values(secs["text"])
+    assert v["Author"] == "Jane Doe"
+    assert v["Comment"] == "compressed comment"
+    assert v["Title"] == title
+    assert v["Description"] == "long text " * 50
+    notes = {f.key: f.note for f in secs["text"].fields}
+    assert notes["Comment"] == "zTXt, compressed"
+    assert notes["Title"] == "iTXt; language fr; translated keyword: Titre"
+    assert all(f.sensitive for f in secs["text"].fields)
+
+
+def test_unknown_keywords_are_shown():
+    secs, _ = sections_of(text("My Secret Key", "value"), text("Author", "a"),
+                          text("Author", "b"))
+    v = values(secs["text"])
+    assert v["My Secret Key"] == "value"
+    assert v["Author"] == "a" and v["Author (2)"] == "b"
+    assert secs["text"].get("My Secret Key").note == "tEXt; non-standard keyword"
+
+
+@pytest.mark.parametrize("keyword", ["parameters", "prompt", "workflow"])
+def test_ai_generation_data(keyword):
+    secs, _ = sections_of(text(keyword, "a cat, Steps: 20, Seed: 42"), text("Software", "x"))
+    assert "text" in secs and "Software" in values(secs["text"])
+    ai = secs["ai"]
+    assert ai.title == "AI generation data"
+    assert values(ai)[keyword] == "a cat, Steps: 20, Seed: 42"
+
+
+def test_xmp_in_itxt_is_parsed():
+    from helpers.jpeg import SAMPLE_XMP
+
+    secs, warnings = sections_of(itxt("XML:com.adobe.xmp", SAMPLE_XMP))
+    v = values(secs["xmp"])
+    assert v["dc:creator"] == "Jane Doe"
+    assert v["xmpMM:DocumentID"] == "xmp.did:1234"
+    assert any(w.startswith("CRITICAL: XMP contains GPS") for w in warnings)
+
+
+def test_xmp_with_doctype_is_refused():
+    evil = '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaa">]><x>&a;</x>'
+    secs, warnings = sections_of(itxt("XML:com.adobe.xmp", evil))
+    assert values(secs["xmp"])["XMP packet.status"] == "present but not parsed"
+    assert any("DOCTYPE" in w for w in warnings)
+
+
+def test_ztxt_bomb_is_capped():
+    bomb = ztxt("Comment", "", compressed=zlib_bomb(64 * 1024 * 1024))
+    secs, warnings = sections_of(bomb, text("Author", "still read"))
+    v = values(secs["text"])
+    assert v["Comment"].startswith("(compressed text not shown")
+    assert v["Author"] == "still read"
+    assert any("16 MiB limit" in w for w in warnings)
+
+
+def test_budget_is_shared_between_chunks():
+    big = "x" * 600
+    secs, warnings = sections_of(ztxt("Comment", big), ztxt("Title", big), budget=Budget(1000))
+    v = values(secs["text"])
+    assert v["Comment"] == big
+    assert v["Title"].startswith("(compressed text not shown")
+
+
+def test_text_without_separator():
+    from helpers.png import chunk
+
+    secs, warnings = sections_of(chunk("tEXt", b"no separator"))
+    assert "no keyword separator" in values(secs["text"])["no separator"]
+    assert any("no keyword separator" in w for w in warnings)
+
+
+def test_bad_compression_is_reported():
+    from helpers.png import chunk
+
+    secs, warnings = sections_of(ztxt("Comment", "", compressed=b"garbage"),
+                                 ztxt("Title", "x", method=1),
+                                 chunk("iTXt", b"Author\x00\x01"))
+    v = values(secs["text"])
+    assert "could not be read" in v["Comment"]
+    assert "unknown compression method" in v["Title"]
+    assert "too short" in v["Author"]
+    assert len(warnings) == 3
+
+
+def test_extra_data_after_compressed_text_is_warned():
+    import zlib
+
+    secs, warnings = sections_of(ztxt("Comment", "", compressed=zlib.compress(b"hi") + b"XX"))
+    assert values(secs["text"])["Comment"] == "hi"
+    assert any("2 bytes of extra data" in w for w in warnings)
+
+
+def test_long_text_is_cut_in_the_report():
+    secs, _ = sections_of(text("Comment", "a" * (png.MAX_SHOWN_CHARS + 10)))
+    assert values(secs["text"])["Comment"].endswith("(10 more characters)")
