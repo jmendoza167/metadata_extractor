@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "metaex"
 version = "0.0.1"
 description = "View and remove metadata from files, using only the Python standard library."
+readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
