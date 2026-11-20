@@ -36,7 +36,7 @@ def test_no_arguments_prints_help():
         assert command in result.stdout
 
 
-@pytest.mark.parametrize("command", ["show", "risk", "strip", "verify"])
+@pytest.mark.parametrize("command", ["risk", "strip", "verify"])
 def test_placeholder_subcommands_exit_with_code_1(command):
     result = run_cli(command)
     assert result.returncode == 1
@@ -47,3 +47,9 @@ def test_unknown_subcommand_is_a_usage_error():
     result = run_cli("no-such-command")
     assert result.returncode == 2
     assert "invalid choice" in result.stderr
+
+
+def test_show_without_path_is_a_usage_error():
+    result = run_cli("show")
+    assert result.returncode == 2
+    assert "path" in result.stderr
