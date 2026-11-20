@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import zlib
 from dataclasses import dataclass, field
+from datetime import datetime
 
-from metaex.core import filetype, xmp
-from metaex.core.errors import MalformedFileError
+from metaex.core import exif, filetype, icc, xmp
+from metaex.core.errors import MalformedFileError, MetaexError
 from metaex.core.inflate import Budget, DecompressionLimitError, inflate
-from metaex.core.result import Section
+from metaex.core.result import Field, Section
 
 SIGNATURE = b"\x89PNG\r\n\x1a\n"
 MAX_CHUNKS = 100_000
@@ -290,6 +291,283 @@ def text_sections(structure: PngStructure, budget: Budget,
         target.add(_unique(target, label), label, value, sensitive=True,
                    note="; ".join(notes))
     return [s for s in (text, ai, xmp_section) if s.fields]
+
+
+# -- tIME ------------------------------------------------------------------------------
+
+
+def time_sections(structure: PngStructure, warnings: list[str]) -> list[Section]:
+    """tIME: when the image was last modified (UTC)."""
+    chunks = structure.all("tIME")
+    if not chunks:
+        return []
+    section = Section("time", "Time")
+    for i, chunk in enumerate(chunks):
+        key = "tIME" if i == 0 else f"tIME ({i + 1})"
+        section.add(key, "Last modified", _time_value(chunk, warnings), sensitive=True,
+                    note="tIME chunk, UTC")
+    return [section]
+
+
+def _time_value(chunk: Chunk, warnings: list[str]) -> str:
+    if len(chunk.data) != 7:
+        warnings.append(f"tIME chunk at offset {chunk.offset} has {len(chunk.data)} bytes "
+                        "instead of 7")
+        return f"(malformed: {len(chunk.data)} bytes)"
+    year = int.from_bytes(chunk.data[:2], "big")
+    month, day, hour, minute, second = chunk.data[2:]
+    text = f"{year:04d}-{month:02d}-{day:02d}T{hour:02d}:{minute:02d}:{second:02d}Z"
+    try:
+        datetime(year, month, day, hour, minute, min(second, 59))  # 60 = leap second
+        if second > 60:
+            raise ValueError
+    except ValueError:
+        warnings.append(f"tIME chunk at offset {chunk.offset} holds an invalid date")
+        return f"invalid date {text}"
+    return text
+
+
+# -- eXIf ------------------------------------------------------------------------------
+
+EXIF_PREFIX = b"Exif\x00\x00"
+
+
+def exif_tiff(chunk: Chunk) -> bytes:
+    """The TIFF data of an eXIf chunk.
+
+    The specification says the chunk holds TIFF data directly; some
+    writers add the JPEG-style "Exif\\0\\0" prefix, which is accepted too.
+    """
+    data = chunk.data
+    return data[len(EXIF_PREFIX):] if data.startswith(EXIF_PREFIX) else data
+
+
+def exif_sections(structure: PngStructure, warnings: list[str]) -> list[Section]:
+    """EXIF, GPS and Thumbnail sections for the eXIf chunk(s)."""
+    out: list[Section] = []
+    for i, chunk in enumerate(structure.all("eXIf")):
+        suffix = "" if i == 0 else f" (chunk {i + 1})"
+        try:
+            st = exif.parse_tiff(exif_tiff(chunk))
+        except MalformedFileError as exc:
+            warnings.append(f"EXIF{suffix} not parsed: {exc}")
+            section = Section("exif", "EXIF" + suffix)
+            section.add("status", "EXIF", "present but not parsed", sensitive=True,
+                        note=str(exc))
+            out.append(section)
+            continue
+        warnings.extend(f"EXIF{suffix}: {w}" for w in st.warnings)
+        sections = exif.exif_sections(st, warnings)
+        for section in sections:
+            section.title += suffix
+        out += sections
+    return out
+
+
+# -- iCCP ------------------------------------------------------------------------------
+
+GENERIC_ICC_NAME = "ICC profile"
+
+
+@dataclass
+class IccpChunk:
+    name: str
+    compressed: bytes
+    """The zlib stream as stored (after the name and compression method)."""
+
+
+def split_iccp(chunk: Chunk) -> IccpChunk:
+    """Profile name and compressed profile of an iCCP chunk; raises if malformed."""
+    name, sep, rest = chunk.data.partition(b"\x00")
+    if not sep or not rest:
+        raise MalformedFileError(f"iCCP chunk at offset {chunk.offset} is malformed")
+    if rest[0] != 0:
+        raise MalformedFileError(f"iCCP chunk at offset {chunk.offset} uses an unknown "
+                                 "compression method")
+    return IccpChunk(name.decode("latin-1"), rest[1:])
+
+
+def icc_sections(structure: PngStructure, budget: Budget,
+                 warnings: list[str]) -> list[Section]:
+    """The embedded ICC color profile (iCCP), read with core/icc."""
+    chunk = structure.first("iCCP")
+    if chunk is None:
+        return []
+    try:
+        iccp = split_iccp(chunk)
+    except MalformedFileError as exc:
+        warnings.append(str(exc))
+        section = Section("icc", "ICC profile")
+        section.add("status", "ICC profile", "present but not parsed", note=str(exc))
+        return [section]
+    try:
+        inflated = inflate(iccp.compressed, budget)
+        if inflated.extra:
+            warnings.append(f"iCCP chunk: {inflated.extra} bytes of extra data after the "
+                            "compressed profile")
+        section = icc.icc_section(inflated.data, warnings)
+    except MetaexError as exc:
+        warnings.append(f"ICC profile not parsed: {exc}")
+        section = Section("icc", "ICC profile")
+        section.add("status", "ICC profile", "present but not parsed", note=str(exc))
+    section.fields.insert(0, Field("profile_name", "Profile name", iccp.name,
+                                   sensitive=iccp.name != GENERIC_ICC_NAME))
+    return [section]
+
+
+# -- color and display chunks ----------------------------------------------------------
+
+RENDERING_INTENTS = {0: "perceptual", 1: "relative colorimetric", 2: "saturation",
+                     3: "absolute colorimetric"}
+CICP_PRIMARIES = {1: "BT.709 / sRGB", 9: "BT.2020", 11: "DCI-P3", 12: "Display P3"}
+CICP_TRANSFER = {1: "BT.709", 8: "linear", 13: "sRGB", 16: "PQ (HDR)", 18: "HLG (HDR)"}
+COLOR_CHUNKS = ("sRGB", "gAMA", "cHRM", "cICP", "mDCv", "cLLI", "sBIT", "bKGD", "hIST",
+                "sPLT", "pHYs", "oFFs", "pCAL", "sCAL")
+_COLOR_LABELS = {
+    "sRGB": "sRGB", "gAMA": "Gamma", "cHRM": "Chromaticities",
+    "cICP": "Color coding (cICP)", "mDCv": "Mastering display", "cLLI": "Content light level",
+    "sBIT": "Significant bits", "bKGD": "Background color", "hIST": "Palette histogram",
+    "sPLT": "Suggested palette", "pHYs": "Pixel density", "oFFs": "Image offset",
+    "pCAL": "Pixel calibration", "sCAL": "Physical scale",
+}
+_FIXED_SIZES = {"sRGB": 1, "gAMA": 4, "cHRM": 32, "cICP": 4, "mDCv": 24, "cLLI": 8,
+                "pHYs": 9, "oFFs": 9}
+
+
+def _u32s(data: bytes) -> list[int]:
+    return [int.from_bytes(data[i : i + 4], "big") for i in range(0, len(data) - 3, 4)]
+
+
+def _color_value(chunk: Chunk) -> str:
+    """Readable value of a color/display chunk; raises MalformedFileError if malformed."""
+    t, d = chunk.type, chunk.data
+    if t in _FIXED_SIZES and len(d) != _FIXED_SIZES[t]:
+        raise MalformedFileError(f"{len(d)} bytes instead of {_FIXED_SIZES[t]}")
+    if t == "sRGB":
+        return f"sRGB color space, {RENDERING_INTENTS.get(d[0], f'intent {d[0]}')} intent"
+    if t == "gAMA":
+        return f"gamma {_u32s(d)[0] / 100000:g}"
+    if t == "cHRM":
+        v = [x / 100000 for x in _u32s(d)]
+        return (f"white {v[0]:g},{v[1]:g}; red {v[2]:g},{v[3]:g}; "
+                f"green {v[4]:g},{v[5]:g}; blue {v[6]:g},{v[7]:g}")
+    if t == "cICP":
+        primaries = CICP_PRIMARIES.get(d[0], f"primaries {d[0]}")
+        transfer = CICP_TRANSFER.get(d[1], f"transfer {d[1]}")
+        return (f"{primaries}, {transfer}, matrix {d[2]}, "
+                f"{'full' if d[3] else 'narrow'} range")
+    if t == "mDCv":
+        xy = [int.from_bytes(d[i : i + 2], "big") * 0.00002 for i in range(0, 16, 2)]
+        top, low = (int.from_bytes(d[i : i + 4], "big") * 0.0001 for i in (16, 20))
+        return (f"primaries {xy[0]:.4f},{xy[1]:.4f} {xy[2]:.4f},{xy[3]:.4f} "
+                f"{xy[4]:.4f},{xy[5]:.4f}; white {xy[6]:.4f},{xy[7]:.4f}; "
+                f"luminance {low:g} to {top:g} cd/m2")
+    if t == "cLLI":
+        max_cll, max_fall = (x * 0.0001 for x in _u32s(d))
+        return f"max {max_cll:g} cd/m2, frame average max {max_fall:g} cd/m2"
+    if t == "pHYs":
+        x, y = _u32s(d[:8])
+        if d[8] == 1:
+            return f"{x * 0.0254:.0f} x {y * 0.0254:.0f} dpi ({x} x {y} pixels per meter)"
+        return f"aspect ratio {x}:{y} (no unit)"
+    if t == "sBIT":
+        return "significant bits " + ", ".join(str(b) for b in d)
+    if t == "bKGD":
+        return "0x" + d.hex()
+    if t == "hIST":
+        return f"{len(d) // 2} entries"
+    if t == "sPLT":
+        name, sep, rest = d.partition(b"\x00")
+        if not sep or not rest:
+            raise MalformedFileError("no palette name separator")
+        entry_size = 6 if rest[0] == 8 else 10
+        return (f'"{name.decode("latin-1")}", {(len(rest) - 1) // entry_size} entries, '
+                f"{rest[0]}-bit")
+    if t == "oFFs":
+        x = int.from_bytes(d[0:4], "big", signed=True)
+        y = int.from_bytes(d[4:8], "big", signed=True)
+        unit = {0: "pixels", 1: "micrometers"}.get(d[8], f"unit {d[8]}")
+        return f"{x}, {y} {unit}"
+    if t == "pCAL":
+        name, sep, _rest = d.partition(b"\x00")
+        if not sep:
+            raise MalformedFileError("no calibration name separator")
+        return f'"{name.decode("latin-1")}"'
+    if t == "sCAL":
+        if len(d) < 4:
+            raise MalformedFileError("too short")
+        unit = {1: "meters", 2: "radians"}.get(d[0], f"unit {d[0]}")
+        width, _sep, height = d[1:].partition(b"\x00")
+        return f"{width.decode('latin-1')} x {height.decode('latin-1')} {unit} per pixel"
+    raise AssertionError(t)
+
+
+def color_sections(structure: PngStructure, warnings: list[str]) -> list[Section]:
+    """Color space, display and physical-size chunks."""
+    section = Section("color", "Color and display")
+    for chunk in structure.chunks:
+        if chunk.type not in COLOR_CHUNKS:
+            continue
+        try:
+            value = _color_value(chunk)
+        except MalformedFileError as exc:
+            warnings.append(f"{chunk.type} chunk at offset {chunk.offset} is malformed: {exc}")
+            value = f"(malformed: {exc})"
+        section.add(_unique(section, chunk.type), _COLOR_LABELS[chunk.type], value,
+                    note=f"{chunk.type} chunk")
+    return [section] if section.fields else []
+
+
+# -- caBX, APNG, unknown chunks ---------------------------------------------------------
+
+ANIMATION_CHUNKS = ("acTL", "fcTL", "fdAT")
+
+
+def content_credentials_sections(structure: PngStructure) -> list[Section]:
+    """caBX: C2PA Content Credentials, reported but not parsed."""
+    chunks = structure.all("caBX")
+    if not chunks:
+        return []
+    section = Section("content_credentials", "Content Credentials")
+    for i, chunk in enumerate(chunks):
+        key = "caBX" if i == 0 else f"caBX ({i + 1})"
+        section.add(key, "C2PA manifest", f"{chunk.length} bytes at offset {chunk.offset}",
+                    sensitive=True, note="not parsed; can contain edit history, "
+                                         "software, account or identity information")
+    return [section]
+
+
+def animation_sections(structure: PngStructure, warnings: list[str]) -> list[Section]:
+    """APNG: the animation control chunk and frame counts."""
+    actl = structure.first("acTL")
+    fctl = structure.all("fcTL")
+    if actl is None and not fctl and structure.first("fdAT") is None:
+        return []
+    section = Section("animation", "Animation")
+    if actl is not None and len(actl.data) == 8:
+        frames, plays = _u32s(actl.data)
+        section.add("frames", "Frames", frames, note="acTL chunk")
+        section.add("plays", "Plays", "forever" if plays == 0 else plays)
+    else:
+        warnings.append("APNG animation chunks without a valid acTL chunk")
+    section.add("frame_controls", "Frame control chunks (fcTL)", len(fctl))
+    section.add("frame_data", "Frame data chunks (fdAT)", len(structure.all("fdAT")))
+    return [section]
+
+
+KNOWN_CHUNKS = ({"IHDR", "PLTE", "IDAT", "IEND", "tRNS", "tIME", "eXIf", "iCCP", "caBX"}
+                | TEXT_CHUNKS | set(COLOR_CHUNKS) | set(ANIMATION_CHUNKS))
+
+
+def unknown_sections(structure: PngStructure) -> list[Section]:
+    section = Section("unknown", "Unknown chunks")
+    for chunk in structure.chunks:
+        if chunk.type not in KNOWN_CHUNKS:
+            kind = "critical" if chunk.critical else "ancillary"
+            section.add(f"{chunk.type}@{chunk.offset}", chunk.type,
+                        f"{chunk.length} bytes at offset {chunk.offset}", sensitive=True,
+                        note=f"{kind}; contents not examined")
+    return [section] if section.fields else []
 
 
 # -- report ------------------------------------------------------------------------

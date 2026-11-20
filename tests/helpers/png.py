@@ -98,3 +98,32 @@ def zlib_bomb(size: int) -> bytes:
         out += c.compress(block[: min(left, len(block))])
         left -= len(block)
     return bytes(out + c.flush())
+
+
+def iccp(profile: bytes, name: str = "ICC profile", compressed: bytes | None = None) -> bytes:
+    body = compressed if compressed is not None else zlib.compress(profile)
+    return chunk("iCCP", name.encode("latin-1") + b"\x00\x00" + body)
+
+
+def exif_chunk(tiff: bytes, prefix: bool = False) -> bytes:
+    return chunk("eXIf", (b"Exif\x00\x00" if prefix else b"") + tiff)
+
+
+def time_chunk(year=2024, month=5, day=1, hour=12, minute=30, second=0) -> bytes:
+    return chunk("tIME", struct.pack(">HBBBBB", year, month, day, hour, minute, second))
+
+
+def phys(x: int = 2835, y: int = 2835, unit: int = 1) -> bytes:
+    return chunk("pHYs", struct.pack(">IIB", x, y, unit))
+
+
+def actl(frames: int, plays: int = 0) -> bytes:
+    return chunk("acTL", struct.pack(">II", frames, plays))
+
+
+def fctl(sequence: int, width: int = 4, height: int = 4) -> bytes:
+    return chunk("fcTL", struct.pack(">IIIIIHHBB", sequence, width, height, 0, 0, 1, 10, 0, 0))
+
+
+def fdat(sequence: int, raw: bytes) -> bytes:
+    return chunk("fdAT", struct.pack(">I", sequence) + zlib.compress(raw))

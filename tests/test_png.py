@@ -229,3 +229,173 @@ def test_extra_data_after_compressed_text_is_warned():
 def test_long_text_is_cut_in_the_report():
     secs, _ = sections_of(text("Comment", "a" * (png.MAX_SHOWN_CHARS + 10)))
     assert values(secs["text"])["Comment"].endswith("(10 more characters)")
+
+
+# -- tIME, eXIf, iCCP, color, caBX, APNG, unknown chunks ---------------------------
+
+import struct as _struct  # noqa: E402
+
+from helpers.jpeg import icc_profile  # noqa: E402
+from helpers.png import (actl, exif_chunk, fctl, fdat, iccp, phys,  # noqa: E402
+                         time_chunk)
+from helpers.png import chunk as png_chunk  # noqa: E402
+from helpers.tiff import ASCII, RATIONAL, SHORT, build_tiff  # noqa: E402
+
+
+def structure_of(*chunks, **kwargs):
+    return png.walk_chunks(make_png(*chunks, **kwargs))
+
+
+def test_time():
+    warnings = []
+    [section] = png.time_sections(structure_of(time_chunk()), warnings)
+    assert values(section) == {"tIME": "2024-05-01T12:30:00Z"}
+    assert section.fields[0].sensitive and warnings == []
+
+
+@pytest.mark.parametrize("raw,expected", [
+    (_struct.pack(">HBBBBB", 2024, 13, 1, 0, 0, 0), "invalid date 2024-13-01T00:00:00Z"),
+    (_struct.pack(">HBBBBB", 2016, 12, 31, 23, 59, 60), "2016-12-31T23:59:60Z"),
+    (b"\x07\xe8\x05", "(malformed: 3 bytes)"),
+])
+def test_time_invalid(raw, expected):
+    [section] = png.time_sections(structure_of(png_chunk("tIME", raw)), [])
+    assert values(section)["tIME"] == expected
+
+
+GPS_ENTRIES = [(0x0001, ASCII, "N"), (0x0002, RATIONAL, [(48, 1), (51, 1), (3012, 100)]),
+               (0x0003, ASCII, "E"), (0x0004, RATIONAL, [(2, 1), (17, 1), (4013, 100)])]
+
+
+@pytest.mark.parametrize("prefix", [False, True])
+@pytest.mark.parametrize("order", ["<", ">"])
+def test_exif_with_gps(prefix, order):
+    tiff = build_tiff([(0x010F, ASCII, "ExampleCam"), (0x0112, SHORT, 6)], order=order,
+                      gps=GPS_ENTRIES)
+    warnings = []
+    secs = {s.key: s for s in png.exif_sections(structure_of(exif_chunk(tiff, prefix)),
+                                                warnings)}
+    assert values(secs["exif"])["Make"] == "ExampleCam"
+    assert "Orientation" in values(secs["exif"])
+    assert "48.858" in str(values(secs["gps"])["coordinates"])
+
+
+def test_broken_exif_is_reported():
+    warnings = []
+    [section] = png.exif_sections(structure_of(exif_chunk(b"XX\x00\x00")), warnings)
+    assert values(section)["status"] == "present but not parsed"
+    assert any("EXIF not parsed" in w for w in warnings)
+
+
+def test_iccp():
+    profile = icc_profile()
+    [section] = png.icc_sections(structure_of(iccp(profile, "Jane display")), Budget(), [])
+    v = values(section)
+    assert v["profile_name"] == "Jane display"
+    assert section.fields[0].sensitive
+    assert v["device_manufacturer"] == "ACME" and v["description"] == "Test RGB profile"
+
+
+def test_iccp_generic_name_is_not_sensitive():
+    [section] = png.icc_sections(structure_of(iccp(icc_profile())), Budget(), [])
+    assert not section.get("profile_name").sensitive
+
+
+@pytest.mark.parametrize("bad", [b"no separator", b"name\x00\x01" + b"x" * 10,
+                                 b"name\x00\x00not zlib"])
+def test_broken_iccp(bad):
+    warnings = []
+    [section] = png.icc_sections(structure_of(png_chunk("iCCP", bad)), Budget(), warnings)
+    assert values(section)["status"] == "present but not parsed"
+    assert warnings
+
+
+def test_iccp_bomb_is_capped():
+    warnings = []
+    [section] = png.icc_sections(
+        structure_of(iccp(b"", compressed=zlib_bomb(64 * 1024 * 1024))), Budget(), warnings)
+    assert values(section)["status"] == "present but not parsed"
+    assert any("16 MiB limit" in w for w in warnings)
+
+
+def test_color_chunks():
+    chunks = [
+        png_chunk("sRGB", b"\x00"),
+        png_chunk("gAMA", _struct.pack(">I", 45455)),
+        png_chunk("cHRM", _struct.pack(">8I", 31270, 32900, 64000, 33000, 30000, 60000,
+                                       15000, 6000)),
+        png_chunk("cICP", bytes([12, 13, 0, 1])),
+        png_chunk("mDCv", _struct.pack(">8H2I", *([10000] * 8), 10000000, 50)),
+        png_chunk("cLLI", _struct.pack(">II", 10000000, 4000000)),
+        png_chunk("sBIT", bytes([5, 6, 5])),
+        png_chunk("bKGD", b"\x00\xff\x00\xff\x00\xff"),
+        phys(),
+        png_chunk("oFFs", _struct.pack(">iiB", -5, 10, 0)),
+        png_chunk("pCAL", b"temperature\x00rest"),
+        png_chunk("sCAL", b"\x011.5\x002.5"),
+    ]
+    warnings = []
+    [section] = png.color_sections(structure_of(before_idat=tuple(chunks)), warnings)
+    v = values(section)
+    assert warnings == []
+    assert v["sRGB"] == "sRGB color space, perceptual intent"
+    assert v["gAMA"] == "gamma 0.45455"
+    assert v["cHRM"].startswith("white 0.3127,0.329; red 0.64,0.33")
+    assert v["cICP"] == "Display P3, sRGB, matrix 0, full range"
+    assert v["mDCv"].endswith("luminance 0.005 to 1000 cd/m2")
+    assert v["cLLI"] == "max 1000 cd/m2, frame average max 400 cd/m2"
+    assert v["sBIT"] == "significant bits 5, 6, 5"
+    assert v["pHYs"] == "72 x 72 dpi (2835 x 2835 pixels per meter)"
+    assert v["oFFs"] == "-5, 10 pixels"
+    assert v["pCAL"] == '"temperature"'
+    assert v["sCAL"] == "1.5 x 2.5 meters per pixel"
+
+
+def test_palette_chunks():
+    from helpers.png import PALETTE
+
+    plte = png_chunk("PLTE", bytes(range(12)))
+    chunks = (plte, png_chunk("hIST", bytes(8)),
+              png_chunk("sPLT", b"My palette\x00\x08" + bytes(12)))
+    [section] = png.color_sections(structure_of(before_idat=chunks, color=PALETTE), [])
+    v = values(section)
+    assert v["hIST"] == "4 entries"
+    assert v["sPLT"] == '"My palette", 2 entries, 8-bit'
+
+
+@pytest.mark.parametrize("chunk_type,data", [("gAMA", b"\x00"), ("pHYs", bytes(3)),
+                                             ("sPLT", b"noname"), ("sCAL", b"\x01")])
+def test_malformed_color_chunks(chunk_type, data):
+    warnings = []
+    [section] = png.color_sections(structure_of(png_chunk(chunk_type, data)), warnings)
+    assert values(section)[chunk_type].startswith("(malformed")
+    assert len(warnings) == 1
+
+
+def test_content_credentials():
+    [section] = png.content_credentials_sections(
+        structure_of(png_chunk("caBX", b"jumb" + bytes(100))))
+    assert section.title == "Content Credentials"
+    assert values(section)["caBX"].startswith("104 bytes at offset")
+    assert section.fields[0].sensitive
+
+
+def test_animation():
+    raw = bytes(4 * 13)
+    chunks = (actl(3, 0), fctl(0))
+    data = make_png(fctl(1), fdat(2, raw), fctl(3), fdat(4, raw), before_idat=chunks)
+    [section] = png.animation_sections(png.walk_chunks(data), [])
+    assert values(section) == {"frames": 3, "plays": "forever", "frame_controls": 3,
+                               "frame_data": 2}
+
+
+def test_unknown_chunks_are_listed():
+    s = structure_of(png_chunk("prVt", b"secret"), png_chunk("zzZZ", b"x"))
+    [section] = png.unknown_sections(s)
+    labels = [(f.label, f.value.split(" at ")[0], f.note) for f in section.fields]
+    assert labels == [("prVt", "6 bytes", "ancillary; contents not examined"),
+                      ("zzZZ", "1 bytes", "ancillary; contents not examined")]
+
+
+def test_known_chunks_are_not_unknown():
+    assert png.unknown_sections(structure_of(time_chunk(), text("a", "b"))) == []
