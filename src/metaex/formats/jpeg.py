@@ -12,7 +12,7 @@ from __future__ import annotations
 import struct
 from dataclasses import dataclass, field
 
-from metaex.core import exif, icc, iptc, xmp
+from metaex.core import exif, filetype, icc, iptc, xmp
 from metaex.core.errors import MalformedFileError
 from metaex.core.result import Section
 
@@ -521,6 +521,39 @@ def other_app_sections(structure: JpegStructure) -> list[Section]:
     return [section] if section.fields else []
 
 
+# -- Data after EOI ---------------------------------------------------------------
+
+
+def trailing_sections(structure: JpegStructure, data: bytes, warnings: list[str],
+                      has_mpf: bool = False) -> list[Section]:
+    """Bytes after the end-of-image marker, which viewers ignore.
+
+    Phones append whole files here: "Motion Photo" MP4 videos, extra JPEGs
+    (MPF previews, depth maps), sometimes ZIPs or other data.
+    """
+    if structure.end_of_image is None:
+        return []
+    trailing = data[structure.end_of_image:]
+    if not trailing:
+        return []
+    section = Section("trailing", "Trailing data")
+    section.add("size", "Size", f"{len(trailing)} bytes", sensitive=True)
+    section.add("offset", "Starts at offset", structure.end_of_image)
+    if trailing.strip(b"\x00") == b"" or trailing.strip(b"\xff") == b"":
+        section.add("content", "Content", "padding (only 0x00 or 0xFF bytes)")
+        warnings.append(f"{len(trailing)} bytes of padding after the end of the image")
+        return [section]
+    detected = filetype.detect(trailing)
+    content = detected.name if detected.key != filetype.UNKNOWN.key else "unrecognized data"
+    section.add("content", "Content", content, sensitive=True,
+                note="detected from the first bytes; more may follow")
+    if has_mpf:
+        section.add("mpf", "MPF", "includes the extra images listed in the MPF section")
+    warnings.append(f"CRITICAL: {len(trailing)} bytes after the end of the image "
+                    f"({content}); this can hide a whole video or file")
+    return [section]
+
+
 def parse(data: bytes | bytearray | memoryview) -> dict:
     """Parse a JPEG and return its warnings, report sections and structure.
 
@@ -534,11 +567,13 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     sections += xmp_sections(structure, warnings)
     sections += photoshop_sections(structure, warnings)
     sections += icc_sections(structure, warnings)
-    sections += mpf_sections(structure, data, warnings)
+    mpf = mpf_sections(structure, data, warnings)
+    sections += mpf
     sections += comment_sections(structure)
     sections += app0_sections(structure, warnings)
     sections += adobe_sections(structure)
     sections += other_app_sections(structure)
+    sections += trailing_sections(structure, data, warnings, has_mpf=bool(mpf))
     return {
         "warnings": warnings,
         "sections": sections,

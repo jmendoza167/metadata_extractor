@@ -216,6 +216,45 @@ def test_other_app_segments_are_listed():
     assert "APP9 (no identifier)" in f
 
 
+MP4_HEAD = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00isommp42" + bytes(100)
+
+
+@pytest.mark.parametrize(
+    "trailing,content",
+    [
+        (MP4_HEAD, "MP4"),
+        (make_jpeg(), "JPEG"),
+        (b"PK\x05\x06" + bytes(18), "ZIP"),
+        (b"some secret text", "unrecognized data"),
+    ],
+)
+def test_trailing_data_is_critical(trailing, content):
+    data = make_jpeg(trailing=trailing)
+    result = jpeg.parse(data)
+    f = section_fields(result, "trailing")
+    assert f["Size"].value == f"{len(trailing)} bytes"
+    assert f["Starts at offset"].value == len(data) - len(trailing)
+    assert f["Content"].value == content
+    assert any(w.startswith(f"CRITICAL: {len(trailing)} bytes after the end of the image ({content})")
+               for w in result["warnings"])
+
+
+def test_padding_after_eoi_is_not_critical():
+    result = jpeg.parse(make_jpeg(trailing=bytes(64)))
+    assert section_fields(result, "trailing")["Content"].value.startswith("padding")
+    assert not any(w.startswith("CRITICAL") for w in result["warnings"])
+
+
+def test_no_trailing_section_without_trailing_data_or_eoi():
+    for data in (make_jpeg(), make_jpeg(eoi=False)):
+        assert not [s for s in jpeg.parse(data)["sections"] if s.key == "trailing"]
+
+
+def test_mpf_images_are_cross_referenced_in_trailing_data():
+    result = jpeg.parse(make_mpf_jpeg([(0x010001, make_jpeg())]))
+    assert "MPF" in section_fields(result, "trailing")
+
+
 def test_parse_returns_structure():
     result = jpeg.parse(make_jpeg())
     assert result["structure"].title == "JPEG structure"
