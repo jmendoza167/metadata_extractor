@@ -14,6 +14,7 @@ from metaex.commands import show as show_cmd
 
 PNG = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR" + b"\x00" * 64
 JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00" + b"\x00" * 32
+GIF = b"GIF89a" + b"\x00" * 64
 
 
 def run_show(*args: str) -> subprocess.CompletedProcess:
@@ -26,13 +27,13 @@ def run_show(*args: str) -> subprocess.CompletedProcess:
 
 
 def test_show_text_report(tmp_path):
-    p = tmp_path / "image.png"
-    p.write_bytes(PNG)
+    p = tmp_path / "image.gif"
+    p.write_bytes(GIF)
     result = run_show(str(p))
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
     out = " ".join(result.stdout.split())  # ignore line wrapping
-    for expected in ("File type", "PNG", "planned (not implemented yet)",
+    for expected in ("File type", "GIF", "planned (not implemented yet)",
                      "File system", "Hashes", "SHA-256", "was NOT examined"):
         assert expected in out
 
@@ -154,7 +155,7 @@ def test_show_malformed_jpeg_is_partly_examined(tmp_path):
 @pytest.mark.parametrize(
     "name,content,type_name,support",
     [
-        ("image.png", PNG, "PNG", PLANNED),
+        ("anim.gif", GIF, "GIF", PLANNED),
         ("logo.svg", b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>',
          "SVG", PLANNED),
         ("letter.docx", make_zip({"[Content_Types].xml": "<T/>", "word/document.xml": "<w/>"}),
@@ -352,3 +353,57 @@ def test_main_returns_zero_in_process(tmp_path, capsys):
     p.write_bytes(PNG)
     assert cli.main(["show", str(p), "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["subject"] == str(p)
+
+
+# --- PNG ------------------------------------------------------------------------
+
+
+def _png_with_metadata():
+    from helpers.jpeg import SAMPLE_XMP, icc_profile
+    from helpers.png import chunk, exif_chunk, iccp, itxt, make_png, text, time_chunk
+    from helpers.tiff import ASCII, RATIONAL, build_tiff
+
+    tiff = build_tiff([(0x010F, ASCII, "ExampleCam")],
+                      gps=[(0x0001, ASCII, "N"), (0x0002, RATIONAL, [(48, 1), (51, 1), (0, 1)]),
+                           (0x0003, ASCII, "E"), (0x0004, RATIONAL, [(2, 1), (17, 1), (0, 1)])])
+    return make_png(
+        text("Author", "Jane Doe"), text("parameters", "a cat, Seed: 42"),
+        itxt("XML:com.adobe.xmp", SAMPLE_XMP), time_chunk(), chunk("caBX", bytes(50)),
+        chunk("prVt", b"private"),
+        before_idat=(exif_chunk(tiff), iccp(icc_profile()), chunk("gAMA", bytes(4))),
+        trailing=b"hidden after IEND")
+
+
+def test_show_png_sections(tmp_path):
+    p = tmp_path / "image.png"
+    p.write_bytes(_png_with_metadata())
+    data = show_json(p)
+    assert field(data, "file_type", "name") == "PNG"
+    assert field(data, "file_type", "embedded_metadata") == "examined"
+    assert list(data["sections"]) == [
+        "file_type", "text", "ai", "xmp", "exif", "gps", "time", "icc", "color",
+        "content_credentials", "unknown", "trailing", "file_system", "hashes"]
+    assert field(data, "text", "Author") == "Jane Doe"
+    assert field(data, "ai", "parameters") == "a cat, Seed: 42"
+    assert data["sections"]["ai"]["title"] == "AI generation data"
+    assert field(data, "time", "tIME") == "2024-05-01T12:30:00Z"
+    assert data["warnings"][0].startswith("CRITICAL")
+    assert "structure" not in data["sections"]
+
+
+def test_show_png_structure(tmp_path):
+    p = tmp_path / "image.png"
+    p.write_bytes(_png_with_metadata())
+    result = run_show(str(p), "--structure")
+    assert result.returncode == 0, result.stderr
+    assert "PNG structure" in result.stdout
+    assert "offset 8, 13 bytes, critical" in result.stdout
+
+
+def test_show_malformed_png_is_partly_examined(tmp_path):
+    p = tmp_path / "broken.png"
+    p.write_bytes(PNG)  # an IHDR with a bad CRC followed by zeros
+    data = show_json(p)
+    assert field(data, "file_type", "embedded_metadata") == "partly examined (file is malformed)"
+    assert any("bad CRC" in w for w in data["warnings"])
+    assert any("malformed PNG" in w for w in data["warnings"])

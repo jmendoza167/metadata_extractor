@@ -134,3 +134,29 @@ def test_kitchen_sink_xmp_not_double_counted():
     values = [(p, f.value) for p, f in zip(paths, xmp)]
     assert len(values) == len(set(values))
     assert not any(f.field_key.startswith("(extended) ") for f in xmp)
+
+
+@pytest.mark.parametrize(
+    "section,key,label,level",
+    [
+        ("gps", "coordinates", "Coordinates", CRITICAL),       # from PNG eXIf
+        ("trailing", "size", "Size", CRITICAL),                # data after IEND
+        ("text", "Author", "Author", HIGH),
+        ("text", "My Key", "My Key", HIGH),                    # unknown keywords too
+        ("text", "Creation Time", "Creation Time", HIGH),
+        ("ai", "parameters", "parameters", HIGH),
+        ("ai", "workflow", "workflow", HIGH),
+        ("xmp", "xmpMM:History[1]/stEvt:action", "xmpMM:History[1]/stEvt:action", HIGH),
+        ("time", "tIME", "Last modified", HIGH),
+        ("content_credentials", "caBX", "C2PA manifest", HIGH),
+        ("icc", "profile_name", "Profile name", MEDIUM),
+        ("icc", "device_model", "Device model", MEDIUM),
+        ("color", "mDCv", "Mastering display", MEDIUM),
+        ("unknown", "prVt@50", "prVt", MEDIUM),
+        ("color", "sRGB", "sRGB", LOW),
+        ("color", "pHYs", "Pixel density", LOW),
+        ("animation", "frames", "Frames", LOW),
+    ],
+)
+def test_classify_png_fields(section, key, label, level):
+    assert classify(section, key, label) == level

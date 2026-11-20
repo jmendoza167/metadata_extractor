@@ -604,3 +604,35 @@ def trailing_sections(structure: PngStructure, data: bytes,
     warnings.append(f"CRITICAL: {len(trailing)} bytes after the end of the image "
                     f"({content}); this can hide a whole file")
     return [section]
+
+
+# -- parse -------------------------------------------------------------------------
+
+
+def parse(data: bytes | bytearray | memoryview) -> dict:
+    """Parse a PNG and return its warnings, report sections and structure.
+
+    Raises MalformedFileError if the data is not a PNG at all; problems
+    inside the file (bad CRCs, truncated chunks, decompression over the
+    limit) become warnings.
+    """
+    data = bytes(data)
+    structure = walk_chunks(data)
+    warnings = list(structure.warnings)
+    budget = Budget()  # shared by all compressed text and the ICC profile
+    sections: list[Section] = []
+    sections += text_sections(structure, budget, warnings)
+    sections += exif_sections(structure, warnings)
+    sections += time_sections(structure, warnings)
+    sections += icc_sections(structure, budget, warnings)
+    sections += color_sections(structure, warnings)
+    sections += content_credentials_sections(structure)
+    sections += animation_sections(structure, warnings)
+    sections += unknown_sections(structure)
+    sections += trailing_sections(structure, data, warnings)
+    return {
+        "warnings": warnings,
+        "sections": sections,
+        "structure": structure_section(structure),
+        "complete": structure.error is None,
+    }

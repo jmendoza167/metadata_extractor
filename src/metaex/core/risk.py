@@ -8,8 +8,10 @@ Levels:
   identifies your exact device or you by name (GPS, thumbnails, MPF images,
   data after the end of the image, serial numbers, owner name)
 - high: identifies device model, dates, authors, software, edit history and
-  document IDs, download origin, comments
-- medium: camera settings and ICC device info (fingerprinting)
+  document IDs, download origin, comments, PNG text chunks, AI generation
+  data (prompts, settings), PNG modification time, Content Credentials (C2PA)
+- medium: camera settings, ICC device info and profile names, HDR mastering
+  display info, unknown chunks or segments (fingerprinting, unknown contents)
 - low: everything else
 """
 
@@ -41,7 +43,9 @@ CRITICAL_NAMES = {
 }
 
 # -- high ------------------------------------------------------------------------------
-HIGH_SECTIONS = {"mark_of_the_web", "comments"}
+HIGH_SECTIONS = {"mark_of_the_web", "comments",
+                 # PNG: text chunks, AI prompts/settings, tIME, C2PA manifests
+                 "text", "ai", "time", "content_credentials"}
 HIGH_NAMES = {
     # device
     "Make", "Model", "UniqueCameraModel", "MakerNote", "ImageUniqueID", "CameraFirmware",
@@ -66,12 +70,15 @@ HIGH_NAMES = {
 }
 
 # -- medium ----------------------------------------------------------------------------
-MEDIUM_SECTIONS = {"other_app"}  # contents unknown: could be anything
+MEDIUM_SECTIONS = {"other_app", "unknown"}  # contents unknown: could be anything
 MEDIUM_FIELDS = {
     ("icc", "device_manufacturer"),
     ("icc", "device_model"),
     ("icc", "device_manufacturer_description"),
     ("icc", "device_model_description"),
+    ("icc", "profile_name"),  # PNG iCCP: free text, sometimes names a display
+    ("color", "mDCv"),  # HDR mastering display
+    ("color", "cLLI"),
 }
 MEDIUM_NAMES = {
     "ExposureTime", "FNumber", "ISOSpeedRatings", "ISOSpeed", "PhotographicSensitivity",

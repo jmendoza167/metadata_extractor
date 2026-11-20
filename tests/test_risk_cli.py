@@ -62,8 +62,8 @@ def test_cleaned_file_has_no_critical_or_high(tmp_path):
 
 
 def test_unsupported_type_hint(tmp_path):
-    p = tmp_path / "a.png"
-    p.write_bytes(b"\x89PNG\r\n\x1a\n" + bytes(20))
+    p = tmp_path / "a.gif"
+    p.write_bytes(b"GIF89a" + bytes(20))
     result = run(str(p))
     assert result.returncode == 0
     assert "No embedded metadata found." in result.stdout
