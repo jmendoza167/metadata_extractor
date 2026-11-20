@@ -236,6 +236,32 @@ def structure_section(structure: JpegStructure) -> Section:
     return section
 
 
+# -- EXIF ------------------------------------------------------------------------
+
+
+def exif_sections(structure: JpegStructure, warnings: list[str]) -> list[Section]:
+    """EXIF, GPS and Thumbnail sections for each APP1 "Exif" segment."""
+    segments = [s for s in structure.segments
+                if s.marker == APP1 and s.payload.startswith(exif.EXIF_APP1_PREFIX)]
+    out: list[Section] = []
+    for i, seg in enumerate(segments):
+        suffix = "" if i == 0 else f" (segment {i + 1})"
+        try:
+            st = exif.parse_exif(seg.payload)
+        except MalformedFileError as exc:
+            warnings.append(f"EXIF{suffix} not parsed: {exc}")
+            section = Section("exif", "EXIF" + suffix)
+            section.add("status", "EXIF", "present but not parsed", sensitive=True, note=str(exc))
+            out.append(section)
+            continue
+        warnings.extend(f"EXIF{suffix}: {w}" for w in st.warnings)
+        sections = exif.exif_sections(st, warnings, image_size=image_size)
+        for section in sections:
+            section.title += suffix
+        out += sections
+    return out
+
+
 # -- XMP -------------------------------------------------------------------------
 
 XMP_ID = b"http://ns.adobe.com/xap/1.0/\x00"
@@ -564,6 +590,7 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     structure = walk_segments(data)
     warnings = list(structure.warnings)
     sections: list[Section] = []
+    sections += exif_sections(structure, warnings)
     sections += xmp_sections(structure, warnings)
     sections += photoshop_sections(structure, warnings)
     sections += icc_sections(structure, warnings)
@@ -578,4 +605,5 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
         "warnings": warnings,
         "sections": sections,
         "structure": structure_section(structure),
+        "complete": structure.error is None,
     }

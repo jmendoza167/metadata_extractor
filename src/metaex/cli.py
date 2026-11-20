@@ -50,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"refuse files larger than this many MiB (default {DEFAULT_MAX_SIZE // MIB})",
     )
     show.add_argument(
+        "--structure",
+        action="store_true",
+        help="also list the file's low-level structure (e.g. JPEG segments)",
+    )
+    show.add_argument(
         "--extract-thumbnail",
         metavar="OUT",
         help="save the embedded EXIF thumbnail to OUT (a new file; never overwrites)",
@@ -105,7 +110,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _cmd_show(args: argparse.Namespace) -> int:
     from metaex.commands.show import build_report, extract_thumbnail
 
-    report = build_report(args.path, max_size=args.max_size)
+    report = build_report(args.path, max_size=args.max_size, structure=args.structure)
     saved = None
     if args.extract_thumbnail:
         saved = extract_thumbnail(args.path, args.extract_thumbnail, max_size=args.max_size)

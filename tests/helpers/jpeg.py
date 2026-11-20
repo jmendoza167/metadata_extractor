@@ -174,6 +174,31 @@ SAMPLE_XMP = """<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <?xpacket end="w"?>"""
 
 
+def sample_photo(order: str = "<", trailing: bytes = b"") -> bytes:
+    """A JPEG like a phone photo: EXIF with camera info, GPS and a thumbnail,
+    plus XMP. All values are made up."""
+    from helpers.tiff import ASCII, BYTE, RATIONAL, SHORT, UNDEFINED, build_tiff, exif_payload
+
+    tiff = build_tiff(
+        [(0x010F, ASCII, "ExampleCam"), (0x0110, ASCII, "Model X"), (0x0112, SHORT, 1),
+         (0x0131, ASCII, "Firmware 1.0"), (0x0132, ASCII, "2024:05:01 14:30:00")],
+        exif=[(0x829A, RATIONAL, (1, 250)), (0x829D, RATIONAL, (18, 10)),
+              (0x8827, SHORT, 100), (0x9003, ASCII, "2024:05:01 14:30:00"),
+              (0x9011, ASCII, "+02:00"), (0x9209, SHORT, 0x10),
+              (0x920A, RATIONAL, (42, 10)), (0xA431, ASCII, "SN-0001")],
+        gps=[(0x0000, BYTE, b"\x02\x03\x00\x00"), (0x0001, ASCII, "N"),
+             (0x0002, RATIONAL, [(48, 1), (51, 1), (3012, 100)]), (0x0003, ASCII, "E"),
+             (0x0004, RATIONAL, [(2, 1), (17, 1), (4013, 100)]), (0x0005, BYTE, 0),
+             (0x0006, RATIONAL, (35, 1)), (0x0007, RATIONAL, [(12, 1), (30, 1), (15, 1)]),
+             (0x001D, ASCII, "2024:05:01")],
+        ifd1=[(0x0103, SHORT, 6)],
+        thumbnail=make_jpeg(width=160, height=120),
+        order=order,
+    )
+    return make_jpeg(app(1, exif_payload(tiff)), xmp_segment(SAMPLE_XMP),
+                     width=4000, height=3000, trailing=trailing)
+
+
 def make_jpeg(*segments: bytes, width: int = 8, height: int = 8,
               scan: bytes = SCAN_DATA, eoi: bool = True, trailing: bytes = b"") -> bytes:
     """SOI, the given segments, a minimal frame and scan, EOI, trailing bytes."""

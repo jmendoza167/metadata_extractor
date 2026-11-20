@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import os
+from types import ModuleType
 
 from metaex.core import filetype as ft
-from metaex.core.errors import MetaexError
+from metaex.core.errors import MalformedFileError, MetaexError
 from metaex.core.generic import file_system_section, hashes_section, mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, load_file
 from metaex.core.report import Report
@@ -35,57 +37,82 @@ def extract_thumbnail(path: str | os.PathLike[str], out_path: str | os.PathLike[
     return len(thumb)
 
 
-def build_report(path: str | os.PathLike[str], max_size: int = DEFAULT_MAX_SIZE) -> Report:
-    """load -> detect type -> file system metadata + hashes -> Report."""
+def build_report(path: str | os.PathLike[str], max_size: int = DEFAULT_MAX_SIZE,
+                 structure: bool = False) -> Report:
+    """load -> detect type -> format parser (if any) -> file system + hashes -> Report.
+
+    ``structure`` adds the format's low-level layout (e.g. the JPEG segment list).
+    """
     name = os.fspath(path)
     data = load_file(name, max_size)
     detected = ft.detect(data, name)
 
     report = Report(subject=name)
     report.warnings.extend(detected.warnings)
-    has_parser = has_format_handler(detected)
-    if not has_parser:
-        report.warnings.append(_not_examined_warning(detected))
+    module = format_module(detected)
 
-    report.sections.append(_type_section(detected, has_parser))
+    format_sections: list[Section] = []
+    examined = "not examined"
+    if module is None:
+        report.warnings.append(_not_examined_warning(detected))
+    else:
+        try:
+            parsed = module.parse(data)
+        except MalformedFileError as exc:
+            report.warnings.append(f"{detected.name} structure could not be read: {exc}; "
+                                   "embedded metadata was NOT examined")
+            examined = "not examined (file is malformed)"
+        else:
+            report.warnings.extend(parsed.get("warnings", []))
+            format_sections = list(parsed.get("sections", []))
+            if structure and parsed.get("structure") is not None:
+                format_sections.append(parsed["structure"])
+            examined = ("examined" if parsed.get("complete", True)
+                        else "partly examined (file is malformed)")
+
+    report.sections.append(_type_section(detected, module, examined))
+    report.sections.extend(format_sections)
     report.sections.append(file_system_section(name))
     motw = mark_of_the_web_section(name)
     if motw is not None:
         report.sections.append(motw)
     report.sections.append(hashes_section(name))
+    # Most important first; the sort is stable, so the order is otherwise kept.
+    report.warnings.sort(key=lambda w: not w.startswith("CRITICAL"))
     return report
 
 
-def has_format_handler(filetype: ft.FileType) -> bool:
-    """True if metaex.formats has a complete module (parse and strip) for this type."""
+def format_module(filetype: ft.FileType) -> ModuleType | None:
+    """The metaex.formats module that can parse this type, or None."""
     if not filetype.supported or not filetype.key.isidentifier():
-        return False
+        return None
     name = f"metaex.formats.{filetype.key}"
     if importlib.util.find_spec(name) is None:
-        return False
+        return None
     module = importlib.import_module(name)
-    return callable(getattr(module, "parse", None)) and callable(getattr(module, "strip", None))
+    return module if callable(getattr(module, "parse", None)) else None
 
 
-def support_status(filetype: ft.FileType, has_parser: bool) -> str:
+def support_status(filetype: ft.FileType, module: ModuleType | None) -> str:
     if filetype.key == ft.UNKNOWN.key:
         return "not supported (unrecognized format)"
     if not filetype.supported:
         return "not supported"
-    if has_parser:
+    if module is None:
+        return "planned (not implemented yet)"
+    if callable(getattr(module, "strip", None)):
         return "supported"
-    return "planned (not implemented yet)"
+    return "viewing supported; stripping not implemented yet"
 
 
-def _type_section(detected: ft.FileType, has_parser: bool) -> Section:
+def _type_section(detected: ft.FileType, module: ModuleType | None, examined: str) -> Section:
     section = Section("file_type", "File type")
     section.add("name", "Detected type", detected.name)
     section.add("mime", "MIME type", detected.mime)
     if detected.extensions:
         section.add("extensions", "Usual extensions", list(detected.extensions))
-    section.add("support", "metaex support", support_status(detected, has_parser))
-    section.add("embedded_metadata", "Embedded metadata",
-                "examined" if has_parser else "not examined")
+    section.add("support", "metaex support", support_status(detected, module))
+    section.add("embedded_metadata", "Embedded metadata", examined)
     return section
 
 

@@ -88,12 +88,61 @@ def field(data: dict, section: str, key: str):
 
 PLANNED = "planned (not implemented yet)"
 UNRECOGNIZED = "not supported (unrecognized format)"
+VIEW_ONLY = "viewing supported; stripping not implemented yet"
+
+
+def test_show_jpeg_is_examined(tmp_path):
+    from helpers.jpeg import make_jpeg
+
+    p = tmp_path / "photo.jpg"
+    p.write_bytes(make_jpeg())
+    data = show_json(p)
+    assert field(data, "file_type", "support") == VIEW_ONLY
+    assert field(data, "file_type", "embedded_metadata") == "examined"
+    assert not any("NOT examined" in w for w in data["warnings"])
+
+
+def test_show_jpeg_sections_in_order(tmp_path):
+    from helpers.jpeg import sample_photo
+
+    p = tmp_path / "photo.jpg"
+    p.write_bytes(sample_photo(trailing=b"hidden"))
+    data = show_json(p)
+    assert list(data["sections"]) == [
+        "file_type", "exif", "gps", "thumbnail", "xmp", "trailing",
+        "file_system", "hashes",
+    ]
+    assert field(data, "gps", "coordinates") == "48.858367, 2.294481"
+    assert field(data, "exif", "Make") == "ExampleCam"
+    assert data["warnings"][0].startswith("CRITICAL")
+    critical = [w for w in data["warnings"] if w.startswith("CRITICAL")]
+    assert data["warnings"][: len(critical)] == critical
+
+
+def test_structure_only_with_flag(tmp_path):
+    from helpers.jpeg import sample_photo
+
+    p = tmp_path / "photo.jpg"
+    p.write_bytes(sample_photo())
+    assert "structure" not in show_json(p)["sections"]
+    result = run_show(str(p), "--json", "--structure")
+    segments = json.loads(result.stdout)["sections"]["structure"]["fields"]
+    labels = [f["label"] for f in segments.values()]
+    assert labels[:3] == ["SOI", "APP1", "APP1"]
+    assert labels[-1] == "EOI"
+
+
+def test_show_malformed_jpeg_is_partly_examined(tmp_path):
+    p = tmp_path / "broken.jpg"
+    p.write_bytes(JPEG)  # a JFIF header followed by zeros
+    data = show_json(p)
+    assert field(data, "file_type", "embedded_metadata") == "partly examined (file is malformed)"
+    assert any("malformed JPEG" in w for w in data["warnings"])
 
 
 @pytest.mark.parametrize(
     "name,content,type_name,support",
     [
-        ("photo.jpg", JPEG, "JPEG", PLANNED),
         ("image.png", PNG, "PNG", PLANNED),
         ("logo.svg", b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>',
          "SVG", PLANNED),
