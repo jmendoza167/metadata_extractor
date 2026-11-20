@@ -40,6 +40,82 @@ def sos() -> bytes:
     return segment(0xDA, b"\x01\x01\x00\x00\x3f\x00")
 
 
+XMP_ID = b"http://ns.adobe.com/xap/1.0/\x00"
+XMP_EXTENSION_ID = b"http://ns.adobe.com/xmp/extension/\x00"
+PHOTOSHOP_ID = b"Photoshop 3.0\x00"
+
+
+def xmp_segment(xml) -> bytes:
+    data = xml.encode("utf-8") if isinstance(xml, str) else xml
+    return app(1, XMP_ID + data)
+
+
+def extended_xmp_segments(xml, guid: str = "0123456789ABCDEF0123456789ABCDEF",
+                          chunk_size: int = 100, total=None) -> list[bytes]:
+    data = xml.encode("utf-8") if isinstance(xml, str) else xml
+    total = len(data) if total is None else total
+    out = []
+    for offset in range(0, len(data), chunk_size):
+        chunk = data[offset : offset + chunk_size]
+        out.append(app(1, XMP_EXTENSION_ID + guid.encode("ascii")
+                       + struct.pack(">II", total, offset) + chunk))
+    return out
+
+
+def photoshop_resource(rid: int, data: bytes, name: bytes = b"") -> bytes:
+    pascal = bytes([len(name)]) + name
+    if len(pascal) % 2:
+        pascal += b"\x00"
+    out = b"8BIM" + struct.pack(">H", rid) + pascal + struct.pack(">I", len(data)) + data
+    return out + (b"\x00" if len(data) % 2 else b"")
+
+
+def iim(*datasets) -> bytes:
+    """IPTC-IIM datasets from (record, dataset, value) tuples."""
+    out = b""
+    for record, dataset, value in datasets:
+        value = value.encode("utf-8") if isinstance(value, str) else value
+        out += b"\x1c" + bytes([record, dataset]) + struct.pack(">H", len(value)) + value
+    return out
+
+
+def photoshop_segment(*resources: bytes) -> bytes:
+    return app(13, PHOTOSHOP_ID + b"".join(resources))
+
+
+SAMPLE_XMP = """<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about=""
+    xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+    xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"
+    xmlns:stEvt="http://ns.adobe.com/xap/1.0/sType/ResourceEvent#"
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xmlns:exif="http://ns.adobe.com/exif/1.0/"
+    xmlns:tiff="http://ns.adobe.com/tiff/1.0/"
+    xmp:CreatorTool="Editor 2.0"
+    xmpMM:DocumentID="xmp.did:1234"
+    xmpMM:OriginalDocumentID="xmp.did:abcd"
+    tiff:Orientation="1"
+    exif:GPSLatitude="48,51.502N"
+    exif:GPSLongitude="2,17.669E">
+   <dc:creator><rdf:Seq><rdf:li>Jane Doe</rdf:li></rdf:Seq></dc:creator>
+   <dc:subject><rdf:Bag><rdf:li>holiday</rdf:li><rdf:li>beach</rdf:li></rdf:Bag></dc:subject>
+   <xmpMM:History>
+    <rdf:Seq>
+     <rdf:li stEvt:action="created" stEvt:when="2024-05-01T10:00:00+02:00"/>
+     <rdf:li rdf:parseType="Resource">
+      <stEvt:action>saved</stEvt:action>
+      <stEvt:softwareAgent>Editor 2.0</stEvt:softwareAgent>
+     </rdf:li>
+    </rdf:Seq>
+   </xmpMM:History>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>"""
+
+
 def make_jpeg(*segments: bytes, width: int = 8, height: int = 8,
               scan: bytes = SCAN_DATA, eoi: bool = True, trailing: bytes = b"") -> bytes:
     """SOI, the given segments, a minimal frame and scan, EOI, trailing bytes."""

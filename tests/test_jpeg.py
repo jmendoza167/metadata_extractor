@@ -1,6 +1,9 @@
 import pytest
 
-from helpers.jpeg import EOI, SOI, app, dht, make_jpeg, sos, segment
+from helpers.jpeg import (
+    EOI, PHOTOSHOP_ID, SAMPLE_XMP, SOI, app, dht, extended_xmp_segments, iim, make_jpeg,
+    photoshop_resource, segment, sos, xmp_segment,
+)
 from metaex.core.errors import MalformedFileError
 from metaex.formats import jpeg
 from metaex.formats.jpeg import walk_segments
@@ -96,6 +99,51 @@ def test_image_size():
     assert jpeg.image_size(make_jpeg(width=640, height=480)) == (640, 480)
     assert jpeg.image_size(SOI + EOI) is None
     assert jpeg.image_size(b"not a jpeg") is None
+
+
+def section_fields(result, key):
+    (section,) = [s for s in result["sections"] if s.key == key]
+    return {f.label: f for f in section.fields}
+
+
+def test_parse_reads_xmp():
+    result = jpeg.parse(make_jpeg(xmp_segment(SAMPLE_XMP)))
+    f = section_fields(result, "xmp")
+    assert f["xmpMM:DocumentID"].value == "xmp.did:1234"
+    assert any("XMP contains GPS" in w for w in result["warnings"])
+
+
+def test_parse_reassembles_extended_xmp():
+    ext = extended_xmp_segments(SAMPLE_XMP, chunk_size=200)
+    assert len(ext) > 3
+    result = jpeg.parse(make_jpeg(xmp_segment(SAMPLE_XMP), *reversed(ext)))
+    f = section_fields(result, "xmp")
+    assert f["(extended) xmpMM:OriginalDocumentID"].value == "xmp.did:abcd"
+
+
+def test_incomplete_extended_xmp_is_a_warning():
+    ext = extended_xmp_segments(SAMPLE_XMP, chunk_size=200)
+    result = jpeg.parse(make_jpeg(*ext[:-1]))
+    assert any("incomplete" in w for w in result["warnings"])
+
+
+def test_unsafe_xmp_is_refused_in_jpeg():
+    bomb = b'<!DOCTYPE x [<!ENTITY a "aaaa">]><x>&a;</x>'
+    result = jpeg.parse(make_jpeg(xmp_segment(bomb)))
+    f = section_fields(result, "xmp")
+    assert f["XMP packet status"].value == "present but not parsed"
+    assert any("DOCTYPE or ENTITY" in w for w in result["warnings"])
+
+
+def test_parse_reads_iptc_across_two_app13_segments():
+    resource = photoshop_resource(0x0404, iim((2, 90, "Paris"), (2, 80, "Jane")))
+    first, second = resource[:15], resource[15:]
+    data = make_jpeg(app(13, PHOTOSHOP_ID + first), app(13, PHOTOSHOP_ID + second))
+    result = jpeg.parse(data)
+    f = section_fields(result, "iptc")
+    assert f["City"].value == "Paris"
+    assert f["By-line"].value == "Jane"
+    assert "0x0404 IPTC-NAA record" in section_fields(result, "photoshop")
 
 
 def test_parse_returns_structure():

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from metaex.core import exif
+from metaex.core import exif, iptc, xmp
 from metaex.core.errors import MalformedFileError
 from metaex.core.result import Section
 
@@ -235,6 +235,113 @@ def structure_section(structure: JpegStructure) -> Section:
     return section
 
 
+# -- XMP -------------------------------------------------------------------------
+
+XMP_ID = b"http://ns.adobe.com/xap/1.0/\x00"
+XMP_EXTENSION_ID = b"http://ns.adobe.com/xmp/extension/\x00"
+
+
+def xmp_sections(structure: JpegStructure, warnings: list[str]) -> list[Section]:
+    """Standard XMP packets plus reassembled Extended XMP."""
+    standard = [s for s in structure.segments
+                if s.marker == APP1 and s.payload.startswith(XMP_ID)]
+    extended = [s for s in structure.segments
+                if s.marker == APP1 and s.payload.startswith(XMP_EXTENSION_ID)]
+    if not standard and not extended:
+        return []
+    section = Section("xmp", "XMP")
+    for i, seg in enumerate(standard):
+        label = "XMP packet" if i == 0 else f"XMP packet {i + 1}"
+        _add_xmp(section, seg.payload[len(XMP_ID):], label, "", warnings)
+    for guid, packet in assemble_extended_xmp(extended, warnings).items():
+        _add_xmp(section, packet, f"Extended XMP {guid}", "(extended) ", warnings)
+    return [section]
+
+
+def _add_xmp(section: Section, packet: bytes, label: str, prefix: str,
+             warnings: list[str]) -> None:
+    section.add(f"{label}.size", label, f"{len(packet)} bytes")
+    try:
+        result = xmp.parse_xmp(packet)
+    except MalformedFileError as exc:
+        warnings.append(f"{label} not parsed: {exc}")
+        section.add(f"{label}.status", f"{label} status", "present but not parsed",
+                    sensitive=True, note=str(exc))
+        return
+    warnings.extend(result.warnings)
+    for prop in result.properties:
+        section.add(prefix + prop.path, prefix + prop.path, prop.value,
+                    sensitive=prop.sensitive)
+
+
+def assemble_extended_xmp(segments: list[Segment], warnings: list[str]) -> dict[str, bytes]:
+    """Join Extended XMP chunks by GUID. Incomplete or inconsistent ones are skipped.
+
+    Each chunk is: 32-byte GUID, 4-byte full length, 4-byte offset, data.
+    """
+    groups: dict[str, tuple[int, list[tuple[int, bytes]]]] = {}
+    for seg in segments:
+        body = seg.payload[len(XMP_EXTENSION_ID):]
+        if len(body) < 40:
+            warnings.append(f"Extended XMP chunk at offset {seg.offset} is too short; ignored")
+            continue
+        guid = body[:32].decode("ascii", errors="replace")
+        full_length = int.from_bytes(body[32:36], "big")
+        offset = int.from_bytes(body[36:40], "big")
+        total, chunks = groups.setdefault(guid, (full_length, []))
+        if full_length != total:
+            warnings.append(f"Extended XMP {guid}: chunks disagree on total length; "
+                            "chunk ignored")
+            continue
+        chunks.append((offset, body[40:]))
+
+    packets: dict[str, bytes] = {}
+    for guid, (total, chunks) in groups.items():
+        if total > xmp.MAX_XMP_SIZE:
+            warnings.append(f"Extended XMP {guid} claims {total} bytes; too large, not parsed")
+            continue
+        expected = 0
+        parts = []
+        for offset, chunk in sorted(chunks, key=lambda c: c[0]):
+            if offset != expected:
+                break
+            parts.append(chunk)
+            expected += len(chunk)
+        if expected != total:
+            warnings.append(f"Extended XMP {guid} is incomplete or has overlapping chunks; "
+                            "not parsed")
+            continue
+        packets[guid] = b"".join(parts)
+    return packets
+
+
+# -- Photoshop resources and IPTC ------------------------------------------------------
+
+PHOTOSHOP_ID = b"Photoshop 3.0\x00"
+APP13 = 0xED
+
+
+def photoshop_sections(structure: JpegStructure, warnings: list[str]) -> list[Section]:
+    """APP13 "Photoshop 3.0" image resources, with IPTC-IIM decoded.
+
+    A resource block may continue across several APP13 segments, so their
+    payloads are joined before walking.
+    """
+    payloads = [s.payload[len(PHOTOSHOP_ID):] for s in structure.segments
+                if s.marker == APP13 and s.payload.startswith(PHOTOSHOP_ID)]
+    if not payloads:
+        return []
+    resources = iptc.parse_image_resources(b"".join(payloads), warnings)
+    sections = [iptc.resources_section(resources, warnings)]
+    datasets = []
+    for res in resources:
+        if res.id == iptc.IPTC_NAA:
+            datasets.extend(iptc.parse_iim(res.data, warnings))
+    if datasets:
+        sections.insert(0, iptc.iptc_section(datasets))
+    return sections
+
+
 def parse(data: bytes | bytearray | memoryview) -> dict:
     """Parse a JPEG and return its warnings, report sections and structure.
 
@@ -243,8 +350,12 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     """
     data = bytes(data)
     structure = walk_segments(data)
+    warnings = list(structure.warnings)
+    sections: list[Section] = []
+    sections += xmp_sections(structure, warnings)
+    sections += photoshop_sections(structure, warnings)
     return {
-        "warnings": list(structure.warnings),
-        "sections": [],
+        "warnings": warnings,
+        "sections": sections,
         "structure": structure_section(structure),
     }
