@@ -36,11 +36,11 @@ def test_no_arguments_prints_help():
         assert command in result.stdout
 
 
-@pytest.mark.parametrize("command", ["risk"])
-def test_placeholder_subcommands_exit_with_code_1(command):
+@pytest.mark.parametrize("command", ["show", "strip", "verify", "risk"])
+def test_subcommands_without_path_are_usage_errors(command):
     result = run_cli(command)
-    assert result.returncode == 1
-    assert "not implemented yet" in result.stderr
+    assert result.returncode == 2
+    assert "path" in result.stderr
 
 
 def test_unknown_subcommand_is_a_usage_error():

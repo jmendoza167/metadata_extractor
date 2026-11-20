@@ -18,11 +18,6 @@ EXIT_ERROR = 1
 EXIT_USAGE = 2
 EXIT_NOT_CLEAN = 3
 
-# Subcommand name -> one-line help text for commands not implemented yet.
-PLACEHOLDERS = {
-    "risk": "summarize the privacy risk of a file's metadata",
-}
-
 
 def _add_common_options(sub: argparse.ArgumentParser) -> None:
     sub.add_argument(
@@ -98,9 +93,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common_options(verify)
     verify.set_defaults(handler=_cmd_verify)
 
-    for name, help_text in PLACEHOLDERS.items():
-        sub = subparsers.add_parser(name, help=help_text, description=help_text)
-        sub.set_defaults(handler=_not_implemented)
+    risk_help = "summarize what a file's metadata reveals, by risk level"
+    risk = subparsers.add_parser("risk", help=risk_help, description=risk_help)
+    risk.add_argument("path", help="file to examine")
+    risk.add_argument("--json", action="store_true", help="print the findings as JSON")
+    risk.add_argument("--no-color", action="store_true", help="never use colors")
+    _add_common_options(risk)
+    risk.set_defaults(handler=_cmd_risk)
     return parser
 
 
@@ -202,9 +201,20 @@ def _confirm_overwrite(path: str) -> None:
         raise MetaexError("not confirmed; nothing changed")
 
 
-def _not_implemented(args: argparse.Namespace) -> int:
-    print(f"metaex {args.command}: not implemented yet", file=sys.stderr)
-    return EXIT_ERROR
+def _cmd_risk(args: argparse.Namespace) -> int:
+    import json
+
+    from metaex.commands.risk import assess_file, risk_lines, risk_to_dict, use_color
+
+    report, findings, strippable = assess_file(args.path, max_size=args.max_size)
+    if args.json:
+        write_text(json.dumps(risk_to_dict(args.path, report, findings, strippable), indent=2,
+                              ensure_ascii=True) + "\n")
+    else:
+        lines = risk_lines(args.path, report, findings, strippable,
+                           color=use_color(args.no_color))
+        write_text("\n".join(lines) + "\n")
+    return EXIT_OK
 
 
 def _size_in_mib(text: str) -> int:
