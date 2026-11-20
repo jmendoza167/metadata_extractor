@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 import stat
 import sys
 from dataclasses import dataclass, field
@@ -74,17 +75,33 @@ FIXED_TIME = 946684800.0  # 2000-01-01T00:00:00Z
 FIXED_TIME_TEXT = "2000-01-01T00:00:00Z"
 
 
+def random_output_path(path: str, filetype: ft.FileType, attempts: int = 20) -> str:
+    """img_<8 random hex digits>.<ext> in the same folder, not yet existing.
+
+    The extension is the canonical one for the detected type, not the
+    original's, so the name reveals nothing about the original file.
+    """
+    directory = os.path.dirname(path)
+    ext = filetype.extensions[0] if filetype.extensions else ""
+    for _ in range(attempts):
+        candidate = os.path.join(directory, f"img_{secrets.token_hex(4)}{ext}")
+        if not os.path.lexists(candidate):
+            return candidate
+    raise MetaexError("could not find an unused random file name; no file written")
+
+
 def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | None = None, *,
                paranoid: bool = False, keep_orientation: bool = True,
                max_size: int = DEFAULT_MAX_SIZE, in_place: bool = False,
-               fixed_time: bool = False) -> StripOutcome:
+               fixed_time: bool = False, rename: bool = False) -> StripOutcome:
     """load -> detect -> strip -> temp file -> verify -> move into place.
 
     With ``in_place`` the original is replaced (still via a verified temp
     file and os.replace, keeping its permission bits); the caller is
     responsible for asking the user first. The output never gets the
     original's timestamps; with ``fixed_time`` its modified and accessed
-    times are set to 2000-01-01T00:00:00Z.
+    times are set to 2000-01-01T00:00:00Z. With ``rename`` the output gets a
+    random name (img_<hex>.<ext>) in the original's folder.
 
     Raises (and writes nothing) for unsupported types, malformed input, an
     existing output file, or a failed verification.
@@ -98,10 +115,12 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
                 else f"{detected.name} files yet")
         raise UnsupportedFormatError(f"metaex can't strip {what}; no file written")
 
-    if in_place and output is not None:
-        raise MetaexError("--in-place and -o cannot be combined")
+    if sum((in_place, output is not None, rename)) > 1:
+        raise MetaexError("choose only one of --in-place, -o and --rename")
     if in_place:
         target = source
+    elif rename:
+        target = random_output_path(source, detected)
     else:
         target = os.fspath(output) if output is not None else default_output_path(source, detected)
         if os.path.lexists(target):

@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -213,6 +214,42 @@ def test_output_has_no_zone_identifier_on_windows(photo):
 def test_zone_identifier_not_reported_elsewhere(photo):
     data = json.loads(run("strip", str(photo), "--json").stdout)
     assert data["zone_identifier"] is None
+
+
+# --- --rename ------------------------------------------------------------------------
+
+
+def test_rename_uses_random_name_with_real_extension(tmp_path):
+    p = tmp_path / "Holiday in Paris (Jane).JPEG"
+    p.write_bytes(kitchen_sink_jpeg())
+    data = json.loads(run("strip", str(p), "--rename", "--json").stdout)
+    name = os.path.basename(data["output"])
+    assert re.fullmatch(r"img_[0-9a-f]{8}\.jpg", name)
+    assert os.path.dirname(data["output"]) == str(tmp_path)
+    assert verify((tmp_path / name).read_bytes()).clean
+    assert sorted(os.listdir(tmp_path)) == sorted([p.name, name])
+
+
+def test_rename_names_differ(photo):
+    first = json.loads(run("strip", str(photo), "--rename", "--json").stdout)["output"]
+    second = json.loads(run("strip", str(photo), "--rename", "--json").stdout)["output"]
+    assert first != second
+
+
+def test_rename_skips_existing_names(photo, monkeypatch):
+    from metaex.commands import strip as strip_cmd
+    from metaex.core import filetype as ft
+
+    tokens = iter(["aaaaaaaa", "bbbbbbbb"])
+    monkeypatch.setattr(strip_cmd.secrets, "token_hex", lambda n: next(tokens))
+    photo.with_name("img_aaaaaaaa.jpg").write_bytes(b"taken")
+    path = strip_cmd.random_output_path(str(photo), ft.JPEG)
+    assert os.path.basename(path) == "img_bbbbbbbb.jpg"
+
+
+@pytest.mark.parametrize("extra", [["--in-place"], ["-o", "x.jpg"]])
+def test_rename_conflicts_with_other_targets(photo, extra):
+    assert run("strip", str(photo), "--rename", *extra).returncode == 2
 
 
 # --- write_verified -----------------------------------------------------------------

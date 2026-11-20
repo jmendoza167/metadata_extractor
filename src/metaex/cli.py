@@ -73,6 +73,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="where to write the cleaned copy (default: <name>_clean.<ext>)")
     target.add_argument("--in-place", action="store_true",
                         help="replace the original file (asks for confirmation)")
+    target.add_argument("--rename", action="store_true",
+                        help="write to a random name like img_8f3a2c1d.jpg in the same folder")
     strip.add_argument("--yes", action="store_true",
                        help="don't ask for confirmation with --in-place")
     strip.add_argument("--paranoid", action="store_true",
@@ -155,7 +157,8 @@ def _cmd_strip(args: argparse.Namespace) -> int:
         _confirm_overwrite(args.path)
     outcome = strip_file(args.path, args.output, paranoid=args.paranoid,
                          keep_orientation=not args.no_orientation, max_size=args.max_size,
-                         in_place=args.in_place, fixed_time=args.fixed_time)
+                         in_place=args.in_place, fixed_time=args.fixed_time,
+                         rename=args.rename)
     if args.json:
         write_text(json.dumps(outcome.to_dict(), indent=2, ensure_ascii=True) + "\n")
     else:
