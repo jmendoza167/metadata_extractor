@@ -155,6 +155,46 @@ class TiffStructure:
         return None
 
 
+# -- Orientation-only EXIF (written by strip) -------------------------------------
+
+ORIENTATION_TAG = 0x0112
+MINIMAL_ORIENTATION_TIFF_SIZE = 8 + 2 + 12 + 4  # header, one-entry IFD0, next-IFD offset
+
+
+def orientation(st: TiffStructure) -> int | None:
+    """The Orientation tag (1-8) from IFD0, or None if missing or invalid."""
+    ifd0 = st.ifd("IFD0")
+    value = ifd0.value(ORIENTATION_TAG) if ifd0 is not None else None
+    if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 8:
+        return value
+    return None
+
+
+def minimal_orientation_tiff(value: int) -> bytes:
+    """New TIFF data with only IFD0 holding the Orientation tag (26 bytes, big-endian)."""
+    if not 1 <= value <= 8:
+        raise ValueError(f"invalid orientation {value}")
+    return (b"MM\x00\x2a" + (8).to_bytes(4, "big")
+            + (1).to_bytes(2, "big")
+            + struct.pack(">HHIHH", ORIENTATION_TAG, SHORT, 1, value, 0)
+            + (0).to_bytes(4, "big"))
+
+
+def is_orientation_only_tiff(tiff: bytes) -> bool:
+    """TIFF data holding only IFD0 with the Orientation tag, and no unused bytes."""
+    try:
+        st = parse_tiff(tiff)
+    except MalformedFileError:
+        return False
+    if [ifd.name for ifd in st.ifds] != ["IFD0"] or st.warnings:
+        return False
+    ifd0 = st.ifds[0]
+    return ([e.tag for e in ifd0.entries] == [ORIENTATION_TAG]
+            and ifd0.next_offset == 0
+            and st.header.ifd0_offset == 8
+            and len(tiff) == MINIMAL_ORIENTATION_TIFF_SIZE)
+
+
 def parse_exif(payload: bytes) -> TiffStructure:
     """Parse an APP1 "Exif\\0\\0" payload."""
     return parse_tiff(tiff_from_exif_payload(payload))

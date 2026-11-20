@@ -732,31 +732,20 @@ def _minimal_adobe(seg: Segment) -> bytes:
     return _make_segment(APP14, ADOBE_ID + p[5:12])
 
 
-ORIENTATION_TAG = 0x0112
-
-
 def original_orientation(structure: JpegStructure) -> int | None:
     """EXIF Orientation (1-8) from the first EXIF segment, or None."""
     seg = _first_app(structure, APP1, exif.EXIF_APP1_PREFIX)
     if seg is None:
         return None
     try:
-        ifd0 = exif.parse_exif(seg.payload).ifd("IFD0")
+        return exif.orientation(exif.parse_exif(seg.payload))
     except MalformedFileError:
         return None
-    value = ifd0.value(ORIENTATION_TAG) if ifd0 is not None else None
-    if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 8:
-        return value
-    return None
 
 
 def minimal_orientation_exif(orientation: int) -> bytes:
     """A new EXIF APP1 containing only IFD0 with the Orientation tag."""
-    tiff = (b"MM\x00\x2a" + (8).to_bytes(4, "big")
-            + (1).to_bytes(2, "big")
-            + struct.pack(">HHIHH", ORIENTATION_TAG, exif.SHORT, 1, orientation, 0)
-            + (0).to_bytes(4, "big"))
-    return _make_segment(APP1, b"Exif\x00\x00" + tiff)
+    return _make_segment(APP1, b"Exif\x00\x00" + exif.minimal_orientation_tiff(orientation))
 
 
 ICC_CHUNK_DATA = 65519  # 65533-byte APP2 payload minus "ICC_PROFILE\0" + 2 bytes
@@ -832,23 +821,13 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
 
 # -- Verification -------------------------------------------------------------------
 
-MINIMAL_EXIF_TIFF_SIZE = 8 + 2 + 12 + 4  # header, one-entry IFD0, next-IFD offset
-
-
 def _is_orientation_only_exif(payload: bytes) -> bool:
     """EXIF holding only IFD0 with the Orientation tag, and no unused bytes."""
     try:
-        st = exif.parse_exif(payload)
+        tiff = exif.tiff_from_exif_payload(payload)
     except MalformedFileError:
         return False
-    tiff = exif.tiff_from_exif_payload(payload)
-    if [ifd.name for ifd in st.ifds] != ["IFD0"] or st.warnings:
-        return False
-    ifd0 = st.ifds[0]
-    return ([e.tag for e in ifd0.entries] == [ORIENTATION_TAG]
-            and ifd0.next_offset == 0
-            and st.header.ifd0_offset == 8
-            and len(tiff) == MINIMAL_EXIF_TIFF_SIZE)
+    return exif.is_orientation_only_tiff(tiff)
 
 
 def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:

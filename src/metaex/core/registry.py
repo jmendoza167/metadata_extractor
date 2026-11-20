@@ -8,6 +8,10 @@ from types import ModuleType
 
 from metaex.core.filetype import FileType
 
+# Formats whose strip() and verification are finished and enabled. A format
+# module can have a strip() under development without being offered here.
+STRIPPABLE = frozenset({"jpeg"})
+
 
 def format_module(filetype: FileType) -> ModuleType | None:
     """The metaex.formats module that can parse this type, or None."""
@@ -21,4 +25,7 @@ def format_module(filetype: FileType) -> ModuleType | None:
 
 
 def can_strip(module: ModuleType | None) -> bool:
-    return module is not None and callable(getattr(module, "strip", None))
+    """True if metaex strips (and verifies) this format."""
+    return (module is not None
+            and module.__name__.rsplit(".", 1)[-1] in STRIPPABLE
+            and callable(getattr(module, "strip", None)))

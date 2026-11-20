@@ -606,6 +606,188 @@ def trailing_sections(structure: PngStructure, data: bytes,
     return [section]
 
 
+# -- Stripping ---------------------------------------------------------------------
+
+# Chunks that define the image: copied byte-for-byte, never re-encoded.
+IMAGE_CHUNKS = ("IHDR", "PLTE", "tRNS", "IDAT", "IEND", "acTL", "fcTL", "fdAT")
+# Color and display chunks kept by default, with the exact size each must have
+# (a chunk of any other size is dropped, so nothing can hide in it).
+KEPT_COLOR_SIZES = {"sRGB": 1, "gAMA": 4, "cHRM": 32, "cICP": 4, "mDCv": 24, "cLLI": 8,
+                    "pHYs": 9}
+PARANOID_COLOR = ("sRGB",)
+
+# Report sections (and field keys; None = every field) that a stripped PNG may
+# still contain. Anything else found by verify is a leftover.
+KEPT_BY_DESIGN: dict[str, set[str] | None] = {
+    "exif": {"byte_order", "Orientation"},
+    "icc": None,
+    "color": set(KEPT_COLOR_SIZES),
+    "animation": None,
+}
+
+
+def make_chunk(chunk_type: str, data: bytes) -> bytes:
+    """A new chunk with a freshly computed CRC."""
+    raw_type = chunk_type.encode("ascii")
+    return (len(data).to_bytes(4, "big") + raw_type + data
+            + zlib.crc32(raw_type + data).to_bytes(4, "big"))
+
+
+def _chunk_bytes(data: bytes, chunk: Chunk) -> bytes:
+    """The chunk as stored: length, type, data and CRC."""
+    return data[chunk.offset : chunk.end]
+
+
+def checked_structure(data: bytes) -> PngStructure:
+    """Walk a PNG for stripping or verification: anything malformed raises.
+
+    Unlike parse(), which reports what it can of a damaged file, this
+    refuses truncated files, bad CRCs, files without IHDR, IDAT or IEND, and
+    critical chunks metaex doesn't know (dropping those could break the
+    image).
+    """
+    structure = walk_chunks(data)
+    if structure.error:
+        raise MalformedFileError(structure.error)
+    if structure.crc_errors:
+        raise MalformedFileError(structure.crc_errors[0])
+    if structure.end_of_image is None:
+        raise MalformedFileError("missing IEND chunk; the file may be truncated")
+    first = structure.chunks[0]
+    if first.type != "IHDR" or first.length != 13:
+        raise MalformedFileError("the file does not start with a valid IHDR chunk")
+    for chunk in structure.chunks:
+        if chunk.critical and chunk.type not in KNOWN_CHUNKS:
+            raise MalformedFileError(
+                f"unsupported critical chunk {chunk.type} at offset {chunk.offset}")
+        if chunk.type == "IHDR" and chunk is not first:
+            raise MalformedFileError(f"second IHDR chunk at offset {chunk.offset}")
+    if structure.first("IDAT") is None:
+        raise MalformedFileError("no image data (IDAT) found")
+    return structure
+
+
+def _record(chunk_type: str, payload: bytes) -> bytes:
+    return chunk_type.encode("ascii") + len(payload).to_bytes(8, "big") + payload
+
+
+def image_data(data: bytes | bytearray | memoryview) -> bytes:
+    """The image-defining data, in file order, for comparing two files.
+
+    IHDR, PLTE, tRNS and the APNG chunks (acTL, fcTL, fdAT) each contribute
+    their type and data; consecutive IDAT chunks contribute their data joined
+    together, so how it is split into chunks doesn't matter. Two files with
+    the same image data decode to the same picture.
+    Raises MalformedFileError like checked_structure().
+    """
+    structure = checked_structure(bytes(data))
+    parts: list[bytes] = []
+    idat: list[bytes] = []
+    for chunk in structure.chunks:
+        if chunk.type not in IMAGE_CHUNKS or chunk.type == "IEND":
+            continue
+        if chunk.type == "IDAT":
+            idat.append(chunk.data)
+            continue
+        if idat:
+            parts.append(_record("IDAT", b"".join(idat)))
+            idat = []
+        parts.append(_record(chunk.type, chunk.data))
+    if idat:
+        parts.append(_record("IDAT", b"".join(idat)))
+    return b"".join(parts)
+
+
+def original_orientation(structure: PngStructure) -> int | None:
+    """EXIF Orientation (1-8) from the first eXIf chunk, or None."""
+    chunk = structure.first("eXIf")
+    if chunk is None:
+        return None
+    try:
+        return exif.orientation(exif.parse_tiff(exif_tiff(chunk)))
+    except MalformedFileError:
+        return None
+
+
+def minimal_orientation_exif(orientation: int) -> bytes:
+    """A new eXIf chunk holding only the Orientation tag."""
+    return make_chunk("eXIf", exif.minimal_orientation_tiff(orientation))
+
+
+def usable_icc_profile(chunk: Chunk) -> bytes | None:
+    """The compressed profile to keep from an iCCP chunk, or None to drop it.
+
+    The original compressed data is kept as it is when it decompresses
+    cleanly to something that looks like a real ICC profile. If extra bytes
+    follow the compressed stream, the profile is compressed again so they
+    are not carried over. Broken profiles are dropped.
+    """
+    try:
+        iccp = split_iccp(chunk)
+        inflated = inflate(iccp.compressed, Budget())
+    except MetaexError:
+        return None
+    profile = inflated.data
+    if len(profile) < 128 or profile[36:40] != b"acsp":
+        return None
+    return iccp.compressed if inflated.extra == 0 else zlib.compress(profile, 9)
+
+
+def iccp_chunk(compressed: bytes) -> bytes:
+    """A new iCCP chunk with the generic profile name."""
+    return make_chunk("iCCP", GENERIC_ICC_NAME.encode("latin-1") + b"\x00\x00" + compressed)
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return a copy of the PNG with all metadata removed (whitelist).
+
+    Kept byte-for-byte and in their original order: IHDR, PLTE, tRNS, every
+    IDAT, IEND and the APNG chunks (acTL, fcTL, fdAT). Kept by default: the
+    color chunks sRGB, gAMA, cHRM, cICP, mDCv and cLLI, the pixel density
+    (pHYs), and the ICC profile (iCCP), rewritten with the generic name "ICC
+    profile" and the same compressed profile. If the original EXIF
+    Orientation is 2-8, a new eXIf chunk with only that tag is written unless
+    ``keep_orientation`` is False. ``paranoid`` also drops iCCP, gAMA, cHRM,
+    cICP, mDCv, cLLI and pHYs (sRGB stays). Everything else is dropped: all
+    text, tIME, eXIf, caBX, bKGD, sPLT, hIST, sBIT, unknown chunks and any
+    data after IEND. Only the chunks metaex writes itself get a new CRC.
+
+    Raises MalformedFileError for malformed, damaged (bad CRC), truncated or
+    unsupported input; nothing is ever partly stripped.
+    """
+    data = bytes(data)
+    structure = checked_structure(data)
+    keep_color = set(PARANOID_COLOR) if paranoid else set(KEPT_COLOR_SIZES)
+    orientation = original_orientation(structure)
+    new_exif = b""
+    if keep_orientation and orientation is not None and orientation != 1:
+        new_exif = minimal_orientation_exif(orientation)
+
+    out = bytearray(SIGNATURE)
+    written: set[str] = set()
+    for chunk in structure.chunks:
+        if chunk.type in IMAGE_CHUNKS:
+            out += _chunk_bytes(data, chunk)
+            if chunk.type == "IHDR":
+                out += new_exif
+        elif chunk.type in keep_color and chunk.type not in written:
+            if chunk.length == KEPT_COLOR_SIZES[chunk.type]:
+                out += _chunk_bytes(data, chunk)
+                written.add(chunk.type)
+        elif chunk.type == "iCCP" and not paranoid and "iCCP" not in written:
+            written.add("iCCP")
+            compressed = usable_icc_profile(chunk)
+            if compressed is not None:
+                out += iccp_chunk(compressed)
+        # Anything else is metadata (or unknown) and is dropped.
+    cleaned = bytes(out)
+    # Self-check: the output must be a well-formed PNG with identical image data.
+    if image_data(cleaned) != image_data(data):
+        raise MalformedFileError("internal check failed: image data changed while stripping")
+    return cleaned
+
+
 # -- parse -------------------------------------------------------------------------
 
 
