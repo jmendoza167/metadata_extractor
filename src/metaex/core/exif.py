@@ -320,22 +320,34 @@ def tag_name(ifd_name: str, tag: int) -> str | None:
     if base == "Interop":
         return exif_tags.INTEROP_TAGS.get(tag)
     if base == "GPS":
-        return None
+        return exif_tags.GPS_TAGS.get(tag)
     return exif_tags.MAIN_TAGS.get(tag)
 
 
-def exif_sections(st: TiffStructure) -> list[Section]:
-    """Report sections for parsed EXIF data. Every tag is listed, known or not."""
+def exif_sections(st: TiffStructure, warnings: list[str] | None = None) -> list[Section]:
+    """Report sections for parsed EXIF data. Every tag is listed, known or not.
+
+    Problems found while interpreting values (e.g. invalid GPS coordinates)
+    and critical findings are appended to ``warnings`` if given.
+    """
+    if warnings is None:
+        warnings = []
     section = Section("exif", "EXIF")
     order = "little-endian (II)" if st.header.byte_order == "little" else "big-endian (MM)"
     section.add("byte_order", "Byte order", order)
     ctx = _context(st)
+    gps_ifd = st.ifd("GPS")
     for ifd in st.ifds:
+        if ifd is gps_ifd:
+            continue
         for entry in ifd.entries:
             if entry.tag in exif_tags.STRUCTURAL_TAGS:
                 continue
             _add_entry(section, ifd, entry, ctx)
-    return [section]
+    sections = [section]
+    if gps_ifd is not None:
+        sections.append(gps_section(gps_ifd, ctx, warnings))
+    return sections
 
 
 def _context(st: TiffStructure) -> dict[str, Any]:
@@ -353,14 +365,16 @@ def _context(st: TiffStructure) -> dict[str, Any]:
     return ctx
 
 
-def _add_entry(section: Section, ifd: Ifd, entry: IfdEntry, ctx: dict[str, Any]) -> None:
+def _add_entry(section: Section, ifd: Ifd, entry: IfdEntry, ctx: dict[str, Any],
+               *, prefix: bool = True, sensitive: bool | None = None) -> None:
     name = tag_name(ifd.name, entry.tag)
     label = name or f"Unknown tag 0x{entry.tag:04X}"
     key = name or f"tag_0x{entry.tag:04x}"
-    if base_ifd_name(ifd.name) not in _PLAIN_IFDS:
+    if prefix and base_ifd_name(ifd.name) not in _PLAIN_IFDS:
         label = f"{ifd.name} {label}"
         key = f"{ifd.name}.{key}"
-    sensitive = name is not None and exif_tags.is_sensitive_name(name)
+    if sensitive is None:
+        sensitive = name is not None and exif_tags.is_sensitive_name(name)
     if entry.error:
         value, note = "(not readable)", entry.error
     else:
@@ -393,6 +407,8 @@ def format_entry(entry: IfdEntry, name: str | None, ctx: dict[str, Any]) -> tupl
         return format_version(v), None
     if name == "ComponentsConfiguration" and isinstance(v, bytes):
         return format_components(v), None
+    if name == "GPSVersionID" and isinstance(v, tuple) and len(v) == 4:
+        return ".".join(str(b) for b in v), None
     table = exif_tags.ENUMS.get(entry.tag) if exif_tags.MAIN_TAGS.get(entry.tag) == name else None
     if table is not None and isinstance(v, int):
         if v in table:
@@ -526,3 +542,188 @@ def decode_user_comment(raw: bytes, byte_order: str) -> str:
     else:
         text = raw.decode("utf-8", errors="replace")
     return text.replace("\x00", "").strip() or "(empty)"
+
+
+# -- GPS ----------------------------------------------------------------------------
+
+GPS_LATITUDE_REF, GPS_LATITUDE, GPS_LONGITUDE_REF, GPS_LONGITUDE = 0x0001, 0x0002, 0x0003, 0x0004
+GPS_ALTITUDE_REF, GPS_ALTITUDE, GPS_TIMESTAMP = 0x0005, 0x0006, 0x0007
+GPS_SPEED_REF, GPS_SPEED = 0x000C, 0x000D
+GPS_IMG_DIRECTION_REF, GPS_IMG_DIRECTION = 0x0010, 0x0011
+GPS_PROCESSING_METHOD, GPS_DATESTAMP = 0x001B, 0x001D
+
+MAX_ALTITUDE_M = 100_000.0
+MAX_SPEED = 100_000.0
+
+
+@dataclass(frozen=True)
+class Coordinates:
+    latitude: float
+    longitude: float
+
+    def __str__(self) -> str:
+        return f"{self.latitude:.6f}, {self.longitude:.6f}"
+
+
+def gps_coordinates(gps: Ifd, warnings: list[str] | None = None) -> Coordinates | None:
+    """Decimal-degree coordinates, or None if missing or invalid."""
+    problems: list[str] = [] if warnings is None else warnings
+    lat = _coordinate(gps, GPS_LATITUDE, GPS_LATITUDE_REF, ("N", "S"), 90.0, "latitude", problems)
+    lon = _coordinate(gps, GPS_LONGITUDE, GPS_LONGITUDE_REF, ("E", "W"), 180.0, "longitude", problems)
+    if lat is None or lon is None:
+        return None
+    return Coordinates(lat, lon)
+
+
+def gps_section(gps: Ifd, ctx: dict[str, Any], warnings: list[str]) -> Section:
+    """Interpreted GPS values. Every field is sensitive: this is a location."""
+    section = Section("gps", "GPS")
+    consumed: set[int] = set()
+
+    coords = gps_coordinates(gps, warnings)
+    if coords is not None:
+        section.add("coordinates", "Coordinates", str(coords), sensitive=True,
+                    note="decimal degrees")
+        section.add("latitude", "Latitude", f"{coords.latitude:.6f}", sensitive=True)
+        section.add("longitude", "Longitude", f"{coords.longitude:.6f}", sensitive=True)
+        consumed |= {GPS_LATITUDE, GPS_LATITUDE_REF, GPS_LONGITUDE, GPS_LONGITUDE_REF}
+        warnings.append(f"CRITICAL: GPS coordinates found ({coords}): they reveal "
+                        "where the photo was taken")
+    elif gps.entries:
+        warnings.append("CRITICAL: GPS data found (no valid coordinates)")
+
+    altitude = _gps_altitude(gps, warnings)
+    if altitude is not None:
+        section.add("altitude", "Altitude", altitude, sensitive=True)
+        consumed |= {GPS_ALTITUDE, GPS_ALTITUDE_REF}
+
+    moment = _gps_datetime(gps, warnings)
+    if moment is not None:
+        section.add("datetime_utc", "Date/time (UTC)", moment, sensitive=True)
+        consumed |= {GPS_DATESTAMP, GPS_TIMESTAMP}
+
+    direction = _gps_measure(gps, GPS_IMG_DIRECTION, GPS_IMG_DIRECTION_REF, "image direction",
+                             {"T": "true north", "M": "magnetic north"}, "deg", 360.0, warnings)
+    if direction is not None:
+        section.add("image_direction", "Image direction", direction, sensitive=True)
+        consumed |= {GPS_IMG_DIRECTION, GPS_IMG_DIRECTION_REF}
+
+    speed = _gps_measure(gps, GPS_SPEED, GPS_SPEED_REF, "speed",
+                         {"K": "km/h", "M": "mph", "N": "knots"}, None, MAX_SPEED, warnings,
+                         default_ref="K")
+    if speed is not None:
+        section.add("speed", "Speed", speed, sensitive=True)
+        consumed |= {GPS_SPEED, GPS_SPEED_REF}
+
+    method = gps.get(GPS_PROCESSING_METHOD)
+    if method is not None and method.error is None and isinstance(method.value, bytes):
+        section.add("processing_method", "Processing method",
+                    decode_user_comment(method.raw, ctx["byte_order"]), sensitive=True)
+        consumed.add(GPS_PROCESSING_METHOD)
+
+    for entry in gps.entries:
+        if entry.tag not in consumed:
+            _add_entry(section, gps, entry, ctx, prefix=False, sensitive=True)
+    return section
+
+
+def _floats(value: Any, n: int) -> list[float] | None:
+    """n rationals (or one if n == 1) as floats; None if wrong shape or zero denominator."""
+    values = (value,) if n == 1 and isinstance(value, Rational) else value
+    if not isinstance(values, tuple) or len(values) != n:
+        return None
+    out = []
+    for v in values:
+        f = v.as_float() if isinstance(v, Rational) else None
+        if f is None:
+            return None
+        out.append(f)
+    return out
+
+
+def _ref(gps: Ifd, tag: int) -> str | None:
+    value = gps.value(tag)
+    return value.strip().upper() if isinstance(value, str) else None
+
+
+def _coordinate(gps: Ifd, value_tag: int, ref_tag: int, refs: tuple[str, str],
+                limit: float, what: str, warnings: list[str]) -> float | None:
+    entry = gps.get(value_tag)
+    if entry is None or entry.error:
+        return None
+    parts = _floats(entry.value, 3)
+    ref = _ref(gps, ref_tag)
+    problems = []
+    if parts is None:
+        problems.append("expected 3 rationals (degrees, minutes, seconds) with "
+                        "non-zero denominators")
+    else:
+        d, m, s = parts
+        if not (0 <= d <= limit and 0 <= m < 60 and 0 <= s < 60):
+            problems.append(f"out of range: {d:g} deg {m:g} min {s:g} sec")
+        elif d + m / 60 + s / 3600 > limit:
+            problems.append(f"more than {limit:g} degrees")
+    if ref not in refs:
+        problems.append(f"reference is {ref!r}, expected {refs[0]} or {refs[1]}")
+    if problems:
+        warnings.append(f"GPS {what} is invalid ({'; '.join(problems)}); shown raw")
+        return None
+    d, m, s = parts
+    degrees = d + m / 60 + s / 3600
+    return -degrees if ref == refs[1] else degrees
+
+
+def _gps_altitude(gps: Ifd, warnings: list[str]) -> str | None:
+    entry = gps.get(GPS_ALTITUDE)
+    if entry is None or entry.error:
+        return None
+    parts = _floats(entry.value, 1)
+    ref = gps.value(GPS_ALTITUDE_REF)
+    if isinstance(ref, bytes) and len(ref) == 1:
+        ref = ref[0]
+    if parts is None or not 0 <= parts[0] <= MAX_ALTITUDE_M or ref not in (None, 0, 1):
+        warnings.append("GPS altitude is invalid; shown raw")
+        return None
+    where = "below sea level" if ref == 1 else "above sea level"
+    text = f"{parts[0]:.1f} m {where}"
+    return text if ref is not None else text + " (reference missing; assumed above)"
+
+
+def _gps_datetime(gps: Ifd, warnings: list[str]) -> str | None:
+    date_entry, time_entry = gps.get(GPS_DATESTAMP), gps.get(GPS_TIMESTAMP)
+    if time_entry is None or time_entry.error:
+        return None
+    parts = _floats(time_entry.value, 3)
+    if parts is None or not (0 <= parts[0] < 24 and 0 <= parts[1] < 60 and 0 <= parts[2] < 61):
+        warnings.append("GPS time stamp is invalid; shown raw")
+        return None
+    h, m, s = parts
+    clock = f"{int(h):02d}:{int(m):02d}:{s:06.3f}".rstrip("0").rstrip(".")
+    if len(clock) < 8:
+        clock = f"{int(h):02d}:{int(m):02d}:{int(s):02d}"
+    if date_entry is None or date_entry.error or not isinstance(date_entry.value, str):
+        return f"{clock} UTC (no date recorded)"
+    try:
+        day = datetime.strptime(date_entry.value.strip(), "%Y:%m:%d").date()
+    except ValueError:
+        warnings.append("GPS date stamp is invalid; shown raw")
+        return None
+    return f"{day.isoformat()}T{clock}Z"
+
+
+def _gps_measure(gps: Ifd, value_tag: int, ref_tag: int, what: str, refs: dict[str, str],
+                 unit: str | None, limit: float, warnings: list[str],
+                 default_ref: str | None = None) -> str | None:
+    entry = gps.get(value_tag)
+    if entry is None or entry.error:
+        return None
+    parts = _floats(entry.value, 1)
+    ref = _ref(gps, ref_tag) or default_ref
+    if parts is None or not 0 <= parts[0] <= limit or (ref is not None and ref not in refs):
+        warnings.append(f"GPS {what} is invalid; shown raw")
+        return None
+    unit_text = unit if unit is not None else refs.get(ref or "", "")
+    text = f"{parts[0]:g} {unit_text}".strip()
+    if unit is not None and ref is not None:
+        text += f" ({refs[ref]})"
+    return text

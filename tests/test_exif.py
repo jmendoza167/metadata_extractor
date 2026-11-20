@@ -317,6 +317,99 @@ def test_unknown_enum_value_is_noted():
     assert f["Orientation"].note == "unknown value"
 
 
+GPS_PARIS = [
+    (0x0000, BYTE, b"\x02\x03\x00\x00"),
+    (0x0001, ASCII, "N"),
+    (0x0002, RATIONAL, [(48, 1), (51, 1), (3012, 100)]),
+    (0x0003, ASCII, "E"),
+    (0x0004, RATIONAL, [(2, 1), (17, 1), (4013, 100)]),
+    (0x0005, BYTE, 0),
+    (0x0006, RATIONAL, (3456, 10)),
+    (0x0007, RATIONAL, [(12, 1), (30, 1), (15, 1)]),
+    (0x000C, ASCII, "K"),
+    (0x000D, RATIONAL, (5, 1)),
+    (0x0010, ASCII, "T"),
+    (0x0011, RATIONAL, (12345, 100)),
+    (0x001B, UNDEFINED, b"ASCII\x00\x00\x00GPS"),
+    (0x001D, ASCII, "2024:05:01"),
+]
+
+
+def gps_result(entries, order="<"):
+    warnings = []
+    sections = exif_sections(parse_tiff(build_tiff([(0x010F, ASCII, "M")], gps=entries,
+                                                   order=order)), warnings)
+    gps = {f.label: f for f in sections[-1].fields}
+    return sections, gps, warnings
+
+
+@pytest.mark.parametrize("order", ["<", ">"])
+def test_gps_section(order):
+    sections, gps, warnings = gps_result(GPS_PARIS, order)
+    assert [s.title for s in sections] == ["EXIF", "GPS"]
+    assert gps["Coordinates"].value == "48.858367, 2.294481"
+    assert gps["Latitude"].value == "48.858367"
+    assert gps["Longitude"].value == "2.294481"
+    assert gps["Altitude"].value == "345.6 m above sea level"
+    assert gps["Date/time (UTC)"].value == "2024-05-01T12:30:15Z"
+    assert gps["Image direction"].value == "123.45 deg (true north)"
+    assert gps["Speed"].value == "5 km/h"
+    assert gps["Processing method"].value == "GPS"
+    assert gps["GPSVersionID"].value == "2.3.0.0"
+    assert all(f.sensitive for f in sections[-1].fields)
+    assert any(w.startswith("CRITICAL: GPS coordinates found (48.858367, 2.294481)") for w in warnings)
+
+
+def test_gps_entries_are_not_repeated_in_exif_section():
+    sections, _, _ = gps_result(GPS_PARIS)
+    assert not any("GPS" in f.label for f in sections[0].fields)
+
+
+def test_southern_and_western_hemispheres_and_below_sea_level():
+    entries = [
+        (0x0001, ASCII, "S"), (0x0002, RATIONAL, [(33, 1), (52, 1), (0, 1)]),
+        (0x0003, ASCII, "W"), (0x0004, RATIONAL, [(70, 1), (30, 1), (0, 1)]),
+        (0x0005, BYTE, 1), (0x0006, RATIONAL, (12, 1)),
+    ]
+    _, gps, _ = gps_result(entries)
+    assert gps["Coordinates"].value == "-33.866667, -70.500000"
+    assert gps["Altitude"].value == "12.0 m below sea level"
+
+
+@pytest.mark.parametrize(
+    "lat,ref",
+    [
+        ([(91, 1), (0, 1), (0, 1)], "N"),
+        ([(10, 1), (60, 1), (0, 1)], "N"),
+        ([(10, 1), (0, 1), (0, 0)], "N"),
+        ([(10, 1), (0, 1)], "N"),
+        ([(10, 1), (0, 1), (0, 1)], "X"),
+    ],
+)
+def test_invalid_coordinates_are_shown_raw_with_warning(lat, ref):
+    entries = [(0x0001, ASCII, ref), (0x0002, RATIONAL, lat),
+               (0x0003, ASCII, "E"), (0x0004, RATIONAL, [(2, 1), (0, 1), (0, 1)])]
+    sections, gps, warnings = gps_result(entries)
+    assert "Coordinates" not in gps
+    assert "GPSLatitude" in gps and "GPSLatitudeRef" in gps
+    assert any("GPS latitude is invalid" in w for w in warnings)
+    assert any("CRITICAL: GPS data found" in w for w in warnings)
+    assert all(f.sensitive for f in sections[-1].fields)
+
+
+def test_invalid_gps_time_and_date():
+    entries = [(0x0007, RATIONAL, [(25, 1), (0, 1), (0, 1)]), (0x001D, ASCII, "2024:02:30")]
+    _, gps, warnings = gps_result(entries)
+    assert "Date/time (UTC)" not in gps
+    assert "GPSTimeStamp" in gps
+    assert any("GPS time stamp is invalid" in w for w in warnings)
+
+
+def test_gps_time_without_date():
+    _, gps, _ = gps_result([(0x0007, RATIONAL, [(8, 1), (5, 1), (30, 2)])])
+    assert gps["Date/time (UTC)"].value == "08:05:15 UTC (no date recorded)"
+
+
 def test_unreadable_entry_is_listed():
     f = fields_of(build_tiff([(0x010F, ASCII, 100, struct.pack("<I", 5000))]))
     assert f["Make"].value == "(not readable)"
