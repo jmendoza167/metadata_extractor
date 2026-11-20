@@ -9,9 +9,10 @@ or a restart marker (RST0-7).
 
 from __future__ import annotations
 
+import struct
 from dataclasses import dataclass, field
 
-from metaex.core import exif, iptc, xmp
+from metaex.core import exif, icc, iptc, xmp
 from metaex.core.errors import MalformedFileError
 from metaex.core.result import Section
 
@@ -342,6 +343,184 @@ def photoshop_sections(structure: JpegStructure, warnings: list[str]) -> list[Se
     return sections
 
 
+# -- Comments, ICC, MPF, JFIF, Adobe, other APPn ---------------------------------------
+
+APP2 = 0xE2
+APP14 = 0xEE
+ICC_ID = b"ICC_PROFILE\x00"
+MPF_ID = b"MPF\x00"
+MAX_MPF_IMAGES = 100
+
+MPF_TYPES = {
+    0x030000: "Baseline MP primary image",
+    0x010001: "Large thumbnail (VGA equivalent)",
+    0x010002: "Large thumbnail (full HD equivalent)",
+    0x020001: "Multi-frame image (panorama)",
+    0x020002: "Multi-frame image (disparity)",
+    0x020003: "Multi-frame image (multi-angle)",
+    0x000000: "Undefined",
+}
+
+
+def _decode_text(raw: bytes) -> str:
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
+
+
+def comment_sections(structure: JpegStructure) -> list[Section]:
+    comments = [s for s in structure.segments if s.marker == COM]
+    if not comments:
+        return []
+    section = Section("comments", "Comments")
+    for i, seg in enumerate(comments, 1):
+        text = _decode_text(seg.payload).rstrip("\x00").strip()
+        section.add(f"comment_{i}", f"Comment {i}", text or "(empty)", sensitive=True)
+    return [section]
+
+
+def icc_sections(structure: JpegStructure, warnings: list[str]) -> list[Section]:
+    """Reassemble a multi-chunk ICC profile (sequence number, chunk count, data)."""
+    chunks = [s for s in structure.segments if s.marker == APP2 and s.payload.startswith(ICC_ID)]
+    if not chunks:
+        return []
+    parts: dict[int, bytes] = {}
+    totals = set()
+    for seg in chunks:
+        body = seg.payload[len(ICC_ID):]
+        if len(body) < 2:
+            warnings.append(f"ICC profile chunk at offset {seg.offset} is too short")
+            continue
+        seq, total = body[0], body[1]
+        totals.add(total)
+        if seq == 0 or seq > total or seq in parts:
+            warnings.append(f"ICC profile chunk at offset {seg.offset} has invalid or "
+                            f"duplicate sequence number {seq} of {total}")
+            continue
+        parts[seq] = body[2:]
+    if len(totals) != 1 or sorted(parts) != list(range(1, next(iter(totals)) + 1)):
+        warnings.append("ICC profile chunks are missing or inconsistent; profile not parsed")
+        return []
+    profile = b"".join(parts[i] for i in sorted(parts))
+    try:
+        return [icc.icc_section(profile, warnings)]
+    except MalformedFileError as exc:
+        warnings.append(f"ICC profile not parsed: {exc}")
+        return []
+
+
+def mpf_sections(structure: JpegStructure, data: bytes, warnings: list[str]) -> list[Section]:
+    """Multi-Picture Format: extra images (large previews, stereo/disparity
+    views, panorama frames) stored after the primary image's EOI."""
+    segs = [s for s in structure.segments if s.marker == APP2 and s.payload.startswith(MPF_ID)]
+    if not segs:
+        return []
+    seg = segs[0]
+    header_offset = seg.payload_offset + len(MPF_ID)  # MPF offsets are relative to this
+    try:
+        mp = exif.parse_tiff(seg.payload[len(MPF_ID):], sub_ifd_tags={})
+    except MalformedFileError as exc:
+        warnings.append(f"MPF data not parsed: {exc}")
+        return []
+    warnings.extend(f"MPF: {w}" for w in mp.warnings)
+    index = mp.ifd("IFD0")
+    section = Section("mpf", "MPF (multi-picture)")
+    count = index.value(0xB001) if index else None
+    entries = index.get(0xB002) if index else None
+    if not isinstance(count, int) or entries is None or not isinstance(entries.value, bytes):
+        warnings.append("MPF index is incomplete; images not listed")
+        section.add("status", "MPF", "present, index incomplete", sensitive=True)
+        return [section]
+    section.add("images", "Number of images", count)
+    if count > MAX_MPF_IMAGES or len(entries.value) < 16 * count:
+        warnings.append(f"MPF index claims {count} images but has room for "
+                        f"{len(entries.value) // 16}; only those are listed")
+    n = min(count, MAX_MPF_IMAGES, len(entries.value) // 16)
+    order = "<" if mp.header.byte_order == "little" else ">"
+    extra = []
+    for i in range(n):
+        attr, size, offset, _dep1, _dep2 = struct.unpack_from(order + "IIIHH", entries.value, 16 * i)
+        kind = MPF_TYPES.get(attr & 0x00FFFFFF, f"type 0x{attr & 0x00FFFFFF:06X}")
+        if i == 0:
+            section.add("image_1", "Image 1", f"{kind}, {size} bytes (the main image)")
+            continue
+        start = header_offset + offset
+        if offset == 0 or start + size > len(data):
+            where, note = f"offset {start}", "outside the file"
+        else:
+            looks = "JPEG" if data[start : start + 2] == b"\xff\xd8" else "unrecognized data"
+            where, note = f"offset {start}", looks
+        section.add(f"image_{i + 1}", f"Image {i + 1}", f"{kind}, {size} bytes at {where}",
+                    sensitive=True, note=note)
+        extra.append(kind)
+    if extra:
+        warnings.append(f"CRITICAL: {len(extra)} extra image(s) hidden in the file (MPF): "
+                        + "; ".join(extra))
+    return [section]
+
+
+def app0_sections(structure: JpegStructure, warnings: list[str]) -> list[Section]:
+    section = Section("jfif", "JFIF")
+    for seg in structure.segments:
+        if seg.marker != APP0:
+            continue
+        p = seg.payload
+        if p.startswith(b"JFIF\x00"):
+            if len(p) < 14:
+                warnings.append(f"JFIF segment at offset {seg.offset} is too short")
+                continue
+            units = {0: "(aspect ratio only)", 1: "dpi", 2: "dots/cm"}.get(p[7], f"unit {p[7]}")
+            x, y = int.from_bytes(p[8:10], "big"), int.from_bytes(p[10:12], "big")
+            section.add("version", "Version", f"{p[5]}.{p[6]:02d}")
+            section.add("density", "Density", f"{x} x {y} {units}")
+            if p[12] and p[13]:
+                section.add("thumbnail", "JFIF thumbnail",
+                            f"{p[12]} x {p[13]} pixels, uncompressed RGB", sensitive=True)
+                warnings.append(f"JFIF {exif.THUMBNAIL_WARNING}")
+        elif p.startswith(b"JFXX\x00"):
+            kinds = {0x10: "JPEG", 0x11: "1-byte palette", 0x13: "RGB"}
+            kind = kinds.get(p[5], "unknown format") if len(p) > 5 else "unknown format"
+            section.add("jfxx_thumbnail", "JFXX thumbnail", f"{kind}, {len(p) - 6} bytes",
+                        sensitive=True)
+            warnings.append(f"JFXX {exif.THUMBNAIL_WARNING}")
+    return [section] if section.fields else []
+
+
+def adobe_sections(structure: JpegStructure) -> list[Section]:
+    for seg in structure.segments:
+        p = seg.payload
+        if seg.marker == APP14 and p.startswith(b"Adobe") and len(p) >= 12:
+            section = Section("adobe", "Adobe")
+            section.add("version", "DCT encode version", int.from_bytes(p[5:7], "big"))
+            transforms = {0: "Unknown (RGB or CMYK)", 1: "YCbCr", 2: "YCCK"}
+            section.add("transform", "Color transform", transforms.get(p[11], str(p[11])))
+            return [section]
+    return []
+
+
+def _is_known_app(seg: Segment) -> bool:
+    p = seg.payload
+    return (
+        (seg.marker == APP0 and p.startswith((b"JFIF\x00", b"JFXX\x00")))
+        or (seg.marker == APP1 and p.startswith((exif.EXIF_APP1_PREFIX, XMP_ID, XMP_EXTENSION_ID)))
+        or (seg.marker == APP2 and p.startswith((ICC_ID, MPF_ID)))
+        or (seg.marker == APP13 and p.startswith(PHOTOSHOP_ID))
+        or (seg.marker == APP14 and p.startswith(b"Adobe"))
+    )
+
+
+def other_app_sections(structure: JpegStructure) -> list[Section]:
+    section = Section("other_app", "Other APP segments")
+    for seg in structure.segments:
+        if is_app(seg.marker) and not _is_known_app(seg):
+            ident = f' "{seg.identifier}"' if seg.identifier else " (no identifier)"
+            section.add(f"{seg.name}@{seg.offset}", f"{seg.name}{ident}",
+                        f"{len(seg.payload)} bytes at offset {seg.offset}",
+                        sensitive=True, note="contents not examined")
+    return [section] if section.fields else []
+
+
 def parse(data: bytes | bytearray | memoryview) -> dict:
     """Parse a JPEG and return its warnings, report sections and structure.
 
@@ -354,6 +533,12 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     sections: list[Section] = []
     sections += xmp_sections(structure, warnings)
     sections += photoshop_sections(structure, warnings)
+    sections += icc_sections(structure, warnings)
+    sections += mpf_sections(structure, data, warnings)
+    sections += comment_sections(structure)
+    sections += app0_sections(structure, warnings)
+    sections += adobe_sections(structure)
+    sections += other_app_sections(structure)
     return {
         "warnings": warnings,
         "sections": sections,

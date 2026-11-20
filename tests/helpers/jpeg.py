@@ -83,6 +83,64 @@ def photoshop_segment(*resources: bytes) -> bytes:
     return app(13, PHOTOSHOP_ID + b"".join(resources))
 
 
+def icc_profile(description: str = "Test RGB profile", manufacturer: bytes = b"ACME",
+                model: bytes = b"X100", creator: bytes = b"meta",
+                copyright_text: str = "Copyright Test") -> bytes:
+    """A small ICC v4 profile with a 'desc' (v2 text) and a 'cprt' (mluc) tag."""
+    header = bytearray(128)
+    header[4:8] = b"lcms"
+    header[8], header[9] = 4, 0x30
+    header[12:16], header[16:20], header[20:24] = b"mntr", b"RGB ", b"XYZ "
+    struct.pack_into(">6H", header, 24, 2024, 5, 1, 12, 30, 0)
+    header[36:40], header[40:44] = b"acsp", b"APPL"
+    header[48:52], header[52:56] = manufacturer.ljust(4), model.ljust(4)
+    header[80:84] = creator
+    text = description.encode("latin-1") + b"\x00"
+    desc = b"desc" + bytes(4) + struct.pack(">I", len(text)) + text
+    desc += bytes(-len(desc) % 4)
+    utf16 = copyright_text.encode("utf-16-be")
+    cprt = b"mluc" + bytes(4) + struct.pack(">II", 1, 12) + b"enUS" + struct.pack(">II", len(utf16), 28) + utf16
+    table_size = 4 + 12 * 2
+    desc_offset = 128 + table_size
+    cprt_offset = desc_offset + len(desc)
+    table = struct.pack(">I", 2) + b"desc" + struct.pack(">II", desc_offset, len(desc))
+    table += b"cprt" + struct.pack(">II", cprt_offset, len(cprt))
+    profile = bytearray(header + table + desc + cprt)
+    struct.pack_into(">I", profile, 0, len(profile))
+    return bytes(profile)
+
+
+def icc_segments(profile: bytes, chunk_size: int = 65519) -> list[bytes]:
+    chunks = [profile[i : i + chunk_size] for i in range(0, len(profile), chunk_size)]
+    return [app(2, b"ICC_PROFILE\x00" + bytes([i + 1, len(chunks)]) + c)
+            for i, c in enumerate(chunks)]
+
+
+def make_mpf_jpeg(extra_images, order: str = "<") -> bytes:
+    """A JPEG whose APP2 MPF index lists the given (type, image_bytes) extras,
+    which are appended after the primary image's EOI."""
+    from helpers.tiff import LONG, UNDEFINED, ifd_bytes, tiff_header
+
+    def build(offsets):
+        bo = "<" if order == "<" else ">"
+        entries = struct.pack(bo + "IIIHH", 0x20030000, 0, 0, 0, 0)
+        for (kind, image), offset in zip(extra_images, offsets):
+            entries += struct.pack(bo + "IIIHH", kind, len(image), offset, 0, 0)
+        ifd = [(0xB000, UNDEFINED, b"0100"), (0xB001, LONG, 1 + len(extra_images)),
+               (0xB002, UNDEFINED, entries)]
+        tiff = tiff_header(order) + ifd_bytes(ifd, 8, order)
+        return make_jpeg(app(2, b"MPF\x00" + tiff))
+
+    primary = build([0] * len(extra_images))
+    header_offset = 2 + 4 + 4  # SOI, APP2 marker + length, "MPF\0"
+    offsets, position = [], len(primary)
+    for _, image in extra_images:
+        offsets.append(position - header_offset)
+        position += len(image)
+    primary = build(offsets)
+    return primary + b"".join(image for _, image in extra_images)
+
+
 SAMPLE_XMP = """<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">

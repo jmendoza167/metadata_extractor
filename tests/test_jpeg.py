@@ -1,8 +1,8 @@
 import pytest
 
 from helpers.jpeg import (
-    EOI, PHOTOSHOP_ID, SAMPLE_XMP, SOI, app, dht, extended_xmp_segments, iim, make_jpeg,
-    photoshop_resource, segment, sos, xmp_segment,
+    EOI, PHOTOSHOP_ID, SAMPLE_XMP, SOI, app, dht, extended_xmp_segments, icc_profile,
+    icc_segments, iim, make_jpeg, make_mpf_jpeg, photoshop_resource, segment, sos, xmp_segment,
 )
 from metaex.core.errors import MalformedFileError
 from metaex.formats import jpeg
@@ -144,6 +144,76 @@ def test_parse_reads_iptc_across_two_app13_segments():
     assert f["City"].value == "Paris"
     assert f["By-line"].value == "Jane"
     assert "0x0404 IPTC-NAA record" in section_fields(result, "photoshop")
+
+
+def test_comments_are_sensitive_text():
+    result = jpeg.parse(make_jpeg(segment(0xFE, b"Shot by Jane at home"), segment(0xFE, b"\xe9t\xe9")))
+    f = section_fields(result, "comments")
+    assert f["Comment 1"].value == "Shot by Jane at home"
+    assert f["Comment 2"].value == chr(0xE9) + "t" + chr(0xE9)
+    assert f["Comment 1"].sensitive
+
+
+@pytest.mark.parametrize("chunk_size", [65519, 100])
+def test_icc_profile_single_and_multi_chunk(chunk_size):
+    segments = icc_segments(icc_profile(), chunk_size)
+    result = jpeg.parse(make_jpeg(*segments))
+    f = section_fields(result, "icc")
+    assert f["Description"].value == "Test RGB profile"
+    assert f["Copyright"].value == "Copyright Test"
+    assert f["Device manufacturer"].value == "ACME"
+    assert f["Device model"].value == "X100"
+    assert f["Profile creator"].value == "meta"
+    assert f["Device class"].value == "Display device"
+    assert f["Profile created"].value == "2024-05-01T12:30:00"
+    assert f["Version"].value == "4.3.0"
+
+
+def test_icc_missing_chunk_is_a_warning():
+    segments = icc_segments(icc_profile(), 100)
+    result = jpeg.parse(make_jpeg(*segments[:1], *segments[2:]))
+    assert not [s for s in result["sections"] if s.key == "icc"]
+    assert any("ICC profile chunks are missing" in w for w in result["warnings"])
+
+
+def test_mpf_extra_images_are_critical():
+    extras = [(0x010001, make_jpeg(width=640, height=480)), (0x020002, make_jpeg())]
+    data = make_mpf_jpeg(extras)
+    result = jpeg.parse(data)
+    f = section_fields(result, "mpf")
+    assert f["Number of images"].value == 3
+    assert f["Image 2"].value.startswith("Large thumbnail (VGA equivalent), ")
+    assert f["Image 2"].note == "JPEG"
+    assert f["Image 3"].value.startswith("Multi-frame image (disparity), ")
+    assert f["Image 2"].sensitive
+    assert any(w.startswith("CRITICAL: 2 extra image(s) hidden in the file (MPF)")
+               for w in result["warnings"])
+
+
+def test_jfif_density_and_thumbnail():
+    jfif = b"JFIF\x00\x01\x02\x01\x00\x48\x00\x48\x02\x02" + bytes(12)
+    result = jpeg.parse(make_jpeg(app(0, jfif), app(0, b"JFXX\x00\x10" + make_jpeg())))
+    f = section_fields(result, "jfif")
+    assert f["Version"].value == "1.02"
+    assert f["Density"].value == "72 x 72 dpi"
+    assert f["JFIF thumbnail"].value == "2 x 2 pixels, uncompressed RGB"
+    assert f["JFXX thumbnail"].value.startswith("JPEG, ")
+    assert f["JFXX thumbnail"].sensitive
+    assert sum("thumbnail" in w for w in result["warnings"]) == 2
+
+
+def test_adobe_segment_is_not_sensitive():
+    result = jpeg.parse(make_jpeg(app(14, b"Adobe\x00\x64\x00\x00\x00\x00\x01")))
+    f = section_fields(result, "adobe")
+    assert f["Color transform"].value == "YCbCr"
+    assert not any(x.sensitive for x in f.values())
+
+
+def test_other_app_segments_are_listed():
+    result = jpeg.parse(make_jpeg(app(12, b"Ducky\x00\x01\x02"), app(9, b"\x00\x01")))
+    f = section_fields(result, "other_app")
+    assert f['APP12 "Ducky"'].value.startswith("8 bytes at offset")
+    assert "APP9 (no identifier)" in f
 
 
 def test_parse_returns_structure():
