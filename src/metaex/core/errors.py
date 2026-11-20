@@ -19,3 +19,7 @@ class UnsupportedFormatError(MetaexError):
 
 class FileTooLargeError(MetaexError):
     """The file exceeds the configured size limit."""
+
+
+class FileAccessError(MetaexError):
+    """The file could not be opened: missing, a directory, no permission..."""
