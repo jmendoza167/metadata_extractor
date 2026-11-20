@@ -407,10 +407,24 @@ def comment_sections(structure: JpegStructure) -> list[Section]:
 
 
 def icc_sections(structure: JpegStructure, warnings: list[str]) -> list[Section]:
-    """Reassemble a multi-chunk ICC profile (sequence number, chunk count, data)."""
+    profile = assemble_icc_profile(structure, warnings)
+    if profile is None:
+        return []
+    try:
+        return [icc.icc_section(profile, warnings)]
+    except MalformedFileError as exc:
+        warnings.append(f"ICC profile not parsed: {exc}")
+        return []
+
+
+def assemble_icc_profile(structure: JpegStructure, warnings: list[str]) -> bytes | None:
+    """Reassemble a multi-chunk ICC profile (sequence number, chunk count, data).
+
+    None if there is no profile or its chunks are missing or inconsistent.
+    """
     chunks = [s for s in structure.segments if s.marker == APP2 and s.payload.startswith(ICC_ID)]
     if not chunks:
-        return []
+        return None
     parts: dict[int, bytes] = {}
     totals = set()
     for seg in chunks:
@@ -427,13 +441,8 @@ def icc_sections(structure: JpegStructure, warnings: list[str]) -> list[Section]
         parts[seq] = body[2:]
     if len(totals) != 1 or sorted(parts) != list(range(1, next(iter(totals)) + 1)):
         warnings.append("ICC profile chunks are missing or inconsistent; profile not parsed")
-        return []
-    profile = b"".join(parts[i] for i in sorted(parts))
-    try:
-        return [icc.icc_section(profile, warnings)]
-    except MalformedFileError as exc:
-        warnings.append(f"ICC profile not parsed: {exc}")
-        return []
+        return None
+    return b"".join(parts[i] for i in sorted(parts))
 
 
 def mpf_sections(structure: JpegStructure, data: bytes, warnings: list[str]) -> list[Section]:
@@ -655,15 +664,18 @@ def _first_app(structure: JpegStructure, marker: int, prefix: bytes) -> Segment 
     return None
 
 
-def _minimal_jfif(seg: Segment) -> bytes:
-    """A new JFIF APP0 with the original version and density, without thumbnail."""
+def _minimal_jfif(seg: Segment, paranoid: bool = False) -> bytes:
+    """A new JFIF APP0 with the original version and density, without thumbnail.
+
+    In paranoid mode the density is replaced by a plain 1:1 aspect ratio.
+    """
     p = seg.payload
     if len(p) < 14:
         raise MalformedFileError(f"JFIF segment at offset {seg.offset} is too short")
     units = p[7]
     x_density, y_density = int.from_bytes(p[8:10], "big"), int.from_bytes(p[10:12], "big")
-    if units not in (0, 1, 2) or x_density == 0 or y_density == 0:
-        units, x_density, y_density = 0, 1, 1  # invalid density: plain 1:1 aspect
+    if paranoid or units not in (0, 1, 2) or x_density == 0 or y_density == 0:
+        units, x_density, y_density = 0, 1, 1  # plain 1:1 aspect
     payload = (JFIF_ID + bytes([p[5], p[6], units]) + x_density.to_bytes(2, "big")
                + y_density.to_bytes(2, "big") + b"\x00\x00")
     return _make_segment(APP0, payload)
@@ -707,7 +719,30 @@ def minimal_orientation_exif(orientation: int) -> bytes:
     return _make_segment(APP1, b"Exif\x00\x00" + tiff)
 
 
-def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True) -> bytes:
+ICC_CHUNK_DATA = 65519  # 65533-byte APP2 payload minus "ICC_PROFILE\0" + 2 bytes
+
+
+def icc_profile_segments(profile: bytes) -> bytes:
+    """APP2 ICC_PROFILE segments carrying ``profile``, written fresh."""
+    chunks = [profile[i : i + ICC_CHUNK_DATA] for i in range(0, len(profile), ICC_CHUNK_DATA)]
+    if not 1 <= len(chunks) <= 255:
+        raise MalformedFileError("ICC profile is too large to store in a JPEG")
+    return b"".join(_make_segment(APP2, ICC_ID + bytes([i + 1, len(chunks)]) + chunk)
+                    for i, chunk in enumerate(chunks))
+
+
+def _usable_icc_profile(structure: JpegStructure) -> bytes | None:
+    """The original ICC profile if it is complete and looks like a real profile."""
+    profile = assemble_icc_profile(structure, [])
+    if profile is None or len(profile) < 128 or profile[36:40] != b"acsp":
+        return None
+    if len(profile) > ICC_CHUNK_DATA * 255:
+        return None
+    return profile
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
     """Return a copy of the JPEG with all metadata removed (whitelist).
 
     Kept: SOI, frame headers (SOFn), DHT, DAC, DQT, DRI, DNL, SOS with its
@@ -715,8 +750,10 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     APP0 (if the original had one) and APP14 Adobe. If the original EXIF
     Orientation is 2-8 (the image is displayed rotated or mirrored), a new
     minimal EXIF with only that tag is written unless ``keep_orientation``
-    is False. Everything else is dropped: every other APPn segment,
-    comments, and any data after EOI.
+    is False. The ICC color profile is kept, because removing it can shift
+    colors, unless ``paranoid`` is True; paranoid mode also replaces the
+    JFIF density with a 1:1 aspect ratio. Everything else is dropped: every
+    other APPn segment, comments, and any data after EOI.
 
     Raises MalformedFileError for malformed, truncated or unsupported
     input; nothing is ever partly stripped.
@@ -726,10 +763,14 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     out = bytearray(b"\xff\xd8")
     jfif = _first_app(structure, APP0, JFIF_ID)
     if jfif is not None:
-        out += _minimal_jfif(jfif)
+        out += _minimal_jfif(jfif, paranoid=paranoid)
     orientation = original_orientation(structure)
     if keep_orientation and orientation is not None and orientation != 1:
         out += minimal_orientation_exif(orientation)
+    if not paranoid:
+        profile = _usable_icc_profile(structure)
+        if profile is not None:
+            out += icc_profile_segments(profile)
     adobe = _first_app(structure, APP14, ADOBE_ID)
     if adobe is not None:
         out += _minimal_adobe(adobe)

@@ -48,7 +48,8 @@ def test_everything_else_is_dropped():
 
 def test_kitchen_sink_loses_every_metadata_section():
     cleaned = jpeg.strip(kitchen_sink_jpeg())
-    assert set(section_keys(cleaned)) <= {"jfif", "adobe"}
+    assert set(section_keys(cleaned)) == {"jfif", "adobe", "icc"}  # kept by design
+    assert set(section_keys(jpeg.strip(kitchen_sink_jpeg(), paranoid=True))) == {"jfif", "adobe"}
 
 
 def photo_with_orientation(value, order="<"):
@@ -88,6 +89,40 @@ def test_orientation_follows_jfif():
     with_jfif = original[:2] + app(0, JFIF_WITH_THUMB) + original[2:]
     names = [s.name for s in jpeg.walk_segments(jpeg.strip(with_jfif)).segments]
     assert names[:3] == ["SOI", "APP0", "APP1"]
+
+
+def icc_bytes(data):
+    return jpeg.assemble_icc_profile(jpeg.walk_segments(data), [])
+
+
+@pytest.mark.parametrize("chunk_size", [65519, 100])
+def test_icc_profile_is_kept_by_default(chunk_size):
+    from helpers.jpeg import icc_profile, icc_segments
+
+    profile = icc_profile()
+    cleaned = jpeg.strip(make_jpeg(*icc_segments(profile, chunk_size)))
+    assert icc_bytes(cleaned) == profile
+    assert section_keys(cleaned) == ["icc"]
+
+
+def test_paranoid_removes_icc_and_jfif_density():
+    from helpers.jpeg import icc_profile, icc_segments
+
+    data = make_jpeg(app(0, JFIF_WITH_THUMB), *icc_segments(icc_profile(), 100))
+    cleaned = jpeg.strip(data, paranoid=True)
+    assert icc_bytes(cleaned) is None
+    (section,) = jpeg.parse(cleaned)["sections"]
+    assert {f.label: f.value for f in section.fields}["Density"] == "1 x 1 (aspect ratio only)"
+
+
+def test_broken_icc_profile_is_dropped():
+    from helpers.jpeg import icc_profile, icc_segments
+
+    segs = icc_segments(icc_profile(), 100)
+    cleaned = jpeg.strip(make_jpeg(*segs[:-1]))
+    assert icc_bytes(cleaned) is None
+    not_icc = make_jpeg(*icc_segments(b"x" * 200))
+    assert icc_bytes(jpeg.strip(not_icc)) is None
 
 
 @pytest.mark.parametrize(
