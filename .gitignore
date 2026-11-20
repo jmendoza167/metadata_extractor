@@ -19,3 +19,18 @@ build/
 
 # Real files for manual testing; never committed (see CLAUDE.md)
 private_samples/
+
+# Secrets and credentials; this project needs none (see CLAUDE.md)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+secrets.*
+credentials.*
+*.token
+.pypirc
