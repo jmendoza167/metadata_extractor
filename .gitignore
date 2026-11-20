@@ -16,3 +16,6 @@ build/
 
 # metaex output files (e.g. photo_clean.jpg)
 *_clean.*
+
+# Real files for manual testing; never committed (see CLAUDE.md)
+private_samples/
