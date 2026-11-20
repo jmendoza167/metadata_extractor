@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import stat
 import sys
@@ -152,3 +153,39 @@ def parse_zone_identifier(raw: bytes) -> list[tuple[str, str]]:
         if len(entries) >= ZONE_IDENTIFIER_MAX_ENTRIES:
             break
     return entries
+
+
+# -- Hashes ----------------------------------------------------------------------
+
+HASH_CHUNK_SIZE = 1024 * 1024
+
+
+def hash_file(path: str | os.PathLike[str]) -> dict[str, str]:
+    """MD5, SHA-1 and SHA-256 of a file, read from disk in 1 MiB chunks.
+
+    MD5 and SHA-1 are included because many tools and databases still list
+    them; they identify files, they are not used for any security decision.
+    """
+    name = os.fspath(path)
+    digests = {
+        "md5": hashlib.md5(usedforsecurity=False),
+        "sha1": hashlib.sha1(usedforsecurity=False),
+        "sha256": hashlib.sha256(),
+    }
+    try:
+        with open(name, "rb") as f:
+            while chunk := f.read(HASH_CHUNK_SIZE):
+                for digest in digests.values():
+                    digest.update(chunk)
+    except OSError as exc:
+        raise FileAccessError(f"{name}: cannot read file for hashing ({exc.strerror or exc})") from None
+    return {algo: digest.hexdigest() for algo, digest in digests.items()}
+
+
+def hashes_section(path: str | os.PathLike[str]) -> Section:
+    hashes = hash_file(path)
+    section = Section("hashes", "Hashes")
+    section.add("md5", "MD5", hashes["md5"])
+    section.add("sha1", "SHA-1", hashes["sha1"])
+    section.add("sha256", "SHA-256", hashes["sha256"])
+    return section

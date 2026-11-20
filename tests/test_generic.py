@@ -1,3 +1,5 @@
+import builtins
+import hashlib
 import os
 import sys
 from datetime import datetime
@@ -10,6 +12,8 @@ from metaex.core.errors import FileAccessError
 from metaex.core.generic import (
     UNAVAILABLE,
     file_system_section,
+    hash_file,
+    hashes_section,
     mark_of_the_web_section,
     parse_zone_identifier,
 )
@@ -163,3 +167,71 @@ def test_oversized_stream_is_not_read(sample):
     write_zone_stream(sample, b"A=" + b"x" * (generic.ZONE_IDENTIFIER_MAX_SIZE + 10))
     section = mark_of_the_web_section(sample)
     assert section.fields[0].value == "present but not read"
+
+
+# --- hashes ---------------------------------------------------------------------
+
+
+def test_hashes_of_empty_file(tmp_path):
+    p = tmp_path / "empty"
+    p.write_bytes(b"")
+    assert hash_file(p) == {
+        "md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    }
+
+
+def test_hashes_match_hashlib_across_chunk_boundaries(tmp_path, monkeypatch):
+    data = bytes(range(256)) * 41  # not a multiple of the chunk size
+    p = tmp_path / "data.bin"
+    p.write_bytes(data)
+    monkeypatch.setattr(generic, "HASH_CHUNK_SIZE", 1000)
+    assert hash_file(p) == {
+        "md5": hashlib.md5(data).hexdigest(),
+        "sha1": hashlib.sha1(data).hexdigest(),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
+
+
+def test_hashing_streams_in_chunks(tmp_path, monkeypatch):
+    p = tmp_path / "data.bin"
+    p.write_bytes(b"z" * 5000)
+    monkeypatch.setattr(generic, "HASH_CHUNK_SIZE", 1024)
+    sizes = []
+    real_open = builtins.open
+
+    class Spy:
+        def __init__(self, f):
+            self.f = f
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.f.close()
+
+        def read(self, n=-1):
+            sizes.append(n)
+            return self.f.read(n)
+
+    monkeypatch.setattr(builtins, "open", lambda *a, **k: Spy(real_open(*a, **k)))
+    hash_file(p)
+    assert sizes and all(n == 1024 for n in sizes)
+
+
+def test_default_chunk_size_is_1_mib():
+    assert generic.HASH_CHUNK_SIZE == 1024 * 1024
+
+
+def test_hashes_section(tmp_path):
+    p = tmp_path / "a"
+    p.write_bytes(b"abc")
+    section = hashes_section(p)
+    assert [f.key for f in section.fields] == ["md5", "sha1", "sha256"]
+    assert section.get("sha256").value == hashlib.sha256(b"abc").hexdigest()
+
+
+def test_hashing_missing_file_raises_clean_error(tmp_path):
+    with pytest.raises(FileAccessError):
+        hash_file(tmp_path / "missing")
