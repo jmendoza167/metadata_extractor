@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-import importlib.util
 import os
 from types import ModuleType
 
@@ -11,6 +9,7 @@ from metaex.core import filetype as ft
 from metaex.core.errors import MalformedFileError, MetaexError
 from metaex.core.generic import file_system_section, hashes_section, mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, load_file
+from metaex.core.registry import can_strip, format_module
 from metaex.core.report import Report, unique_warnings
 from metaex.core.result import Section
 from metaex.core.writer import write_new_file
@@ -84,17 +83,6 @@ def build_report(path: str | os.PathLike[str], max_size: int = DEFAULT_MAX_SIZE,
     return report
 
 
-def format_module(filetype: ft.FileType) -> ModuleType | None:
-    """The metaex.formats module that can parse this type, or None."""
-    if not filetype.supported or not filetype.key.isidentifier():
-        return None
-    name = f"metaex.formats.{filetype.key}"
-    if importlib.util.find_spec(name) is None:
-        return None
-    module = importlib.import_module(name)
-    return module if callable(getattr(module, "parse", None)) else None
-
-
 def support_status(filetype: ft.FileType, module: ModuleType | None) -> str:
     if filetype.key == ft.UNKNOWN.key:
         return "not supported (unrecognized format)"
@@ -102,7 +90,7 @@ def support_status(filetype: ft.FileType, module: ModuleType | None) -> str:
         return "not supported"
     if module is None:
         return "planned (not implemented yet)"
-    if callable(getattr(module, "strip", None)):
+    if can_strip(module):
         return "supported"
     return "viewing supported; stripping not implemented yet"
 

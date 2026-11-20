@@ -591,6 +591,15 @@ def trailing_sections(structure: JpegStructure, data: bytes, warnings: list[str]
 
 # -- Stripping ---------------------------------------------------------------------
 
+# Report sections (and field keys; None = every field) that a stripped JPEG
+# may still contain. Anything else found by verify is a leftover.
+KEPT_BY_DESIGN: dict[str, set[str] | None] = {
+    "jfif": {"version", "density"},
+    "exif": {"byte_order", "Orientation"},
+    "icc": None,
+    "adobe": None,
+}
+
 DHT, DAC, DQT, DNL, DRI = 0xC4, 0xCC, 0xDB, 0xDC, 0xDD
 # Segments that define the image. They are copied byte-for-byte, never
 # re-encoded: frame headers, tables, restart interval, scan headers.
