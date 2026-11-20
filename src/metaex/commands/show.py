@@ -34,10 +34,14 @@ def build_report(path: str | os.PathLike[str], max_size: int = DEFAULT_MAX_SIZE)
 
 
 def has_format_handler(filetype: ft.FileType) -> bool:
-    """True if metaex.formats has a module for this (supported) type."""
+    """True if metaex.formats has a complete module (parse and strip) for this type."""
     if not filetype.supported or not filetype.key.isidentifier():
         return False
-    return importlib.util.find_spec(f"metaex.formats.{filetype.key}") is not None
+    name = f"metaex.formats.{filetype.key}"
+    if importlib.util.find_spec(name) is None:
+        return False
+    module = importlib.import_module(name)
+    return callable(getattr(module, "parse", None)) and callable(getattr(module, "strip", None))
 
 
 def support_status(filetype: ft.FileType, has_parser: bool) -> str:
