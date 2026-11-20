@@ -138,15 +138,46 @@ def classify(section_key: str, field_key: str, label: str = "") -> str:
     return LOW
 
 
+EXTENDED_XMP_PREFIX = "(extended) "
+
+
+def _dedup_key(finding: RiskFinding) -> tuple[str, str, str] | None:
+    """Findings with the same key describe the same property.
+
+    Standard and Extended XMP often repeat the same properties; each is
+    counted once. None means the finding is never merged.
+    """
+    if finding.section_key != "xmp":
+        return None
+    path = finding.field_key
+    if path.startswith(EXTENDED_XMP_PREFIX):
+        path = path[len(EXTENDED_XMP_PREFIX):]
+    return (finding.section_key, path, finding.value)
+
+
 def assess(sections: list[Section]) -> list[RiskFinding]:
-    """Classify every metadata field, most severe first (stable within a level)."""
-    findings = []
+    """Classify every metadata field, most severe first (stable within a level).
+
+    A property found in both standard and Extended XMP with the same value
+    is listed once, at the higher of the two levels.
+    """
+    findings: list[RiskFinding] = []
+    merged: dict[tuple[str, str, str], int] = {}
     for section in sections:
         if section.key in NOT_METADATA_SECTIONS:
             continue
         for f in section.fields:
-            findings.append(RiskFinding(classify(section.key, f.key, f.label), section.title,
-                                        f.label, format_value(f.value), section.key, f.key))
+            finding = RiskFinding(classify(section.key, f.key, f.label), section.title,
+                                  f.label, format_value(f.value), section.key, f.key)
+            key = _dedup_key(finding)
+            if key is not None and key in merged:
+                i = merged[key]
+                if LEVELS.index(finding.level) < LEVELS.index(findings[i].level):
+                    findings[i] = finding
+                continue
+            if key is not None:
+                merged[key] = len(findings)
+            findings.append(finding)
     findings.sort(key=lambda finding: LEVELS.index(finding.level))
     return findings
 

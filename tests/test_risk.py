@@ -85,3 +85,52 @@ def test_stripped_file_has_only_low_findings():
     findings = assess(jpeg.parse(jpeg.strip(kitchen_sink_jpeg()))["sections"])
     assert {f.level for f in findings} <= {LOW, MEDIUM}
     assert all(f.section == "ICC profile" for f in findings if f.level == MEDIUM)
+
+
+def _xmp(*fields):
+    section = Section("xmp", "XMP")
+    for key, value in fields:
+        section.add(key, key, value)
+    return section
+
+
+def test_standard_and_extended_xmp_are_counted_once():
+    section = _xmp(("dc:creator", "Jane Doe"), ("xmp:CreatorTool", "Editor 2.0"),
+                   ("(extended) dc:creator", "Jane Doe"),
+                   ("(extended) xmp:CreatorTool", "Editor 2.0"),
+                   ("(extended) exif:GPSLatitude", "48,51.502N"))
+    findings = assess([section])
+    assert [f.label for f in findings] == ["(extended) exif:GPSLatitude", "dc:creator",
+                                           "xmp:CreatorTool"]
+    assert counts(findings) == {CRITICAL: 1, HIGH: 2, MEDIUM: 0, LOW: 0}
+
+
+def test_merged_xmp_keeps_the_highest_level(monkeypatch):
+    from metaex.core import risk
+
+    monkeypatch.setattr(risk, "classify",
+                        lambda section, key, label="": HIGH if key.startswith("(ext") else LOW)
+    findings = assess([_xmp(("xmp:Rating", "5"), ("(extended) xmp:Rating", "5"))])
+    assert [(f.level, f.field_key) for f in findings] == [(HIGH, "(extended) xmp:Rating")]
+
+
+def test_different_values_are_not_merged():
+    findings = assess([_xmp(("dc:creator", "Jane Doe"), ("(extended) dc:creator", "John"))])
+    assert len(findings) == 2
+
+
+def test_same_names_outside_xmp_are_not_merged():
+    exif = Section("exif", "EXIF")
+    exif.add("Make", "Make", "ExampleCam")
+    exif.add("Make", "Make", "ExampleCam")
+    assert len(assess([exif])) == 2
+
+
+def test_kitchen_sink_xmp_not_double_counted():
+    parsed = jpeg.parse(kitchen_sink_jpeg())
+    findings = assess(parsed["sections"])
+    xmp = [f for f in findings if f.section_key == "xmp"]
+    paths = [f.field_key.replace("(extended) ", "") for f in xmp]
+    values = [(p, f.value) for p, f in zip(paths, xmp)]
+    assert len(values) == len(set(values))
+    assert not any(f.field_key.startswith("(extended) ") for f in xmp)
