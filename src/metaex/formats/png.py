@@ -9,6 +9,7 @@ ends with the IEND chunk; anything after it is ignored by viewers.
 
 from __future__ import annotations
 
+import hashlib
 import zlib
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -786,6 +787,84 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     if image_data(cleaned) != image_data(data):
         raise MalformedFileError("internal check failed: image data changed while stripping")
     return cleaned
+
+
+# -- Verification -------------------------------------------------------------------
+
+
+def _iccp_problem(chunk: Chunk) -> str | None:
+    """Why an iCCP chunk is not one strip() would write; None if it is."""
+    try:
+        iccp = split_iccp(chunk)
+        inflated = inflate(iccp.compressed, Budget())
+    except MetaexError as exc:
+        return f"ICC profile can't be read ({exc})"
+    if iccp.name != GENERIC_ICC_NAME:
+        return "ICC profile has a non-generic name"
+    if inflated.extra:
+        return f"{inflated.extra} extra bytes after the compressed ICC profile"
+    profile = inflated.data
+    if len(profile) < 128 or profile[36:40] != b"acsp":
+        return "not a valid ICC profile"
+    return None
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """PNG-specific verification, beyond the field-level whitelist.
+
+    - The file must be complete, with a valid CRC on every chunk.
+    - Chunk whitelist: only image chunks, one of each kept color chunk (with
+      its exact size), one Orientation-only eXIf and one iCCP with the
+      generic name and a cleanly compressed profile may remain. Anything
+      else is a leftover.
+    - SHA-256 of the image data (IHDR, PLTE, tRNS, IDAT data and APNG
+      chunks); compared with the original's if one is given.
+    """
+    out: dict = {"leftovers": [], "problems": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None}
+    try:
+        image = image_data(cleaned)
+    except MalformedFileError as exc:
+        out["problems"].append(f"not a complete, undamaged PNG: {exc}")
+        return out
+    out["image_sha256"] = hashlib.sha256(image).hexdigest()
+
+    seen: set[str] = set()
+    for chunk in walk_chunks(cleaned).chunks:
+        if chunk.type in IMAGE_CHUNKS:
+            continue
+        first = chunk.type not in seen
+        seen.add(chunk.type)
+        if chunk.type in KEPT_COLOR_SIZES and first:
+            expected = KEPT_COLOR_SIZES[chunk.type]
+            if chunk.length == expected:
+                continue
+            problem = f"{chunk.type} should have {expected} bytes"
+        elif chunk.type == "eXIf" and first:
+            if exif.is_orientation_only_tiff(chunk.data):
+                continue
+            problem = "eXIf contains more than the Orientation tag, or unused bytes"
+        elif chunk.type == "iCCP" and first:
+            problem = _iccp_problem(chunk)
+            if problem is None:
+                continue
+        else:
+            problem = f"{chunk.type} chunk is not allowed in a cleaned PNG"
+        out["leftovers"].append(("PNG structure", f"{chunk.type} at offset {chunk.offset}",
+                                 f"{problem} ({chunk.length} bytes)"))
+
+    if original is not None:
+        try:
+            original_image = image_data(original)
+        except MalformedFileError as exc:
+            out["problems"].append(f"original is not a complete, undamaged PNG ({exc}); "
+                                   "image data not compared")
+        else:
+            out["original_image_sha256"] = hashlib.sha256(original_image).hexdigest()
+            out["image_data_match"] = original_image == image
+            if original_image != image:
+                out["problems"].append("image data differs from the original")
+    return out
 
 
 # -- parse -------------------------------------------------------------------------

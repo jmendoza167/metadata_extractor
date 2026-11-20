@@ -188,3 +188,85 @@ def test_png_is_not_offered_for_stripping_yet():
     from metaex.core.registry import can_strip
 
     assert not can_strip(png)
+
+
+# -- verification ---------------------------------------------------------------------
+
+
+def test_verify_details_clean_output():
+    original = metadata_png(idat_parts=2)
+    cleaned = png.strip(original)
+    d = png.verify_details(cleaned, original)
+    assert d["leftovers"] == [] and d["problems"] == []
+    assert d["image_data_match"] is True
+    assert d["image_sha256"] == d["original_image_sha256"]
+    assert len(d["image_sha256"]) == 64
+
+
+def test_verify_details_paranoid_output():
+    original = metadata_png()
+    d = png.verify_details(png.strip(original, paranoid=True), original)
+    assert d["leftovers"] == [] and d["image_data_match"] is True
+
+
+def test_image_hash_ignores_how_idat_is_split():
+    assert png.image_data(make_png(idat_parts=1)) == png.image_data(make_png(idat_parts=4))
+
+
+def test_image_hash_changes_with_pixels_palette_or_frames():
+    base = png.image_data(make_png())
+    assert png.image_data(make_png(seed=2)) != base
+    assert png.image_data(make_png(width=5)) != base
+    plte = chunk("PLTE", bytes(range(12)))
+    assert png.image_data(make_png(before_idat=(plte,), color=PALETTE)) != png.image_data(
+        make_png(before_idat=(chunk("PLTE", bytes(12)),), color=PALETTE))
+    raw = bytes(4 * 13)
+    a = make_png(fctl(1), fdat(2, raw), before_idat=(actl(2), fctl(0)))
+    b = make_png(fctl(1), fdat(2, b"\x01" * 52), before_idat=(actl(2), fctl(0)))
+    assert png.image_data(a) != png.image_data(b)
+
+
+def test_different_image_is_reported():
+    d = png.verify_details(png.strip(make_png()), make_png(seed=9))
+    assert d["image_data_match"] is False
+    assert "image data differs from the original" in d["problems"]
+
+
+@pytest.mark.parametrize(
+    "extra,problem",
+    [
+        (text("Author", "Jane"), "tEXt chunk is not allowed"),
+        (time_chunk(), "tIME chunk is not allowed"),
+        (chunk("caBX", bytes(10)), "caBX chunk is not allowed"),
+        (chunk("prVt", b"x"), "prVt chunk is not allowed"),
+        (chunk("gAMA", bytes(8)), "gAMA should have 4 bytes"),
+        (exif_chunk(exif_tiff(6)), "eXIf contains more than the Orientation tag"),
+        (iccp(icc_profile(), "Jane's display"), "non-generic name"),
+        (iccp(icc_profile(), "ICC profile", compressed=zlib.compress(icc_profile()) + b"xx"),
+         "2 extra bytes"),
+        (iccp(b"short", "ICC profile"), "not a valid ICC profile"),
+    ],
+)
+def test_leftovers_are_found(extra, problem):
+    d = png.verify_details(make_png(extra))
+    [(section, label, value)] = d["leftovers"]
+    assert section == "PNG structure"
+    assert problem in value
+
+
+def test_duplicate_kept_chunks_are_leftovers():
+    d = png.verify_details(make_png(before_idat=(GAMA, GAMA)))
+    assert len(d["leftovers"]) == 1
+
+
+def test_bad_crc_or_truncation_is_a_problem():
+    for data in (make_png(chunk("gAMA", bytes(4), crc=7)), make_png(iend=False)):
+        d = png.verify_details(data)
+        assert d["problems"] and d["problems"][0].startswith("not a complete, undamaged PNG")
+        assert d["image_sha256"] is None
+
+
+def test_damaged_original_is_reported():
+    d = png.verify_details(png.strip(make_png()), make_png(iend=False))
+    assert d["image_data_match"] is None
+    assert "original is not a complete, undamaged PNG" in d["problems"][0]
