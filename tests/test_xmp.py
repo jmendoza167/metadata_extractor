@@ -77,3 +77,15 @@ def test_unknown_namespace_uses_declared_prefix():
            '<rdf:Description xmlns:foo="http://example.com/foo/" foo:Bar="baz"/></rdf:RDF>')
     p, _ = props(xml)
     assert p["foo:Bar"].value == "baz"
+
+
+def test_typed_nodes_are_read_like_descriptions():
+    """RDF typed nodes (<cc:Work> in SVG metadata) are a shorthand for rdf:Description."""
+    packet = (b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
+              b'xmlns:cc="http://creativecommons.org/ns#" '
+              b'xmlns:dc="http://purl.org/dc/elements/1.1/">'
+              b'<cc:Work rdf:about=""><dc:date>2024</dc:date>'
+              b'<dc:creator><cc:Agent><dc:title>Jane</dc:title></cc:Agent></dc:creator>'
+              b'</cc:Work></rdf:RDF>')
+    props = {p.path: p.value for p in parse_xmp(packet).properties}
+    assert props == {"dc:date": "2024", "dc:creator/cc:Agent/dc:title": "Jane"}

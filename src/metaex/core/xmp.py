@@ -117,8 +117,11 @@ def parse_xmp(packet: bytes) -> XmpResult:
     if rdf is None:
         walker.result.warnings.append("XMP packet has no rdf:RDF element; no properties read")
         return walker.result
-    for description in rdf.findall(_RDF + "Description"):
-        walker.description(description, "", 0)
+    # rdf:Description nodes, and typed nodes such as <cc:Work> (an RDF
+    # shorthand for a Description with an rdf:type, used in SVG metadata).
+    for node in rdf:
+        if isinstance(node.tag, str):
+            walker.description(node, "", 0)
     if walker.truncated:
         walker.result.warnings.append(
             f"XMP has more than {MAX_PROPERTIES} properties; the rest are not shown")
