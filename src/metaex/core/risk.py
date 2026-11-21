@@ -10,7 +10,8 @@ Levels:
   numbers, owner name)
 - high: identifies device model, dates, authors, software, edit history and
   document IDs, download origin, comments, PNG text chunks, AI generation
-  data (prompts, settings), PNG modification time, Content Credentials (C2PA)
+  data (prompts, settings), PNG modification time, Content Credentials (C2PA),
+  GIF plain text and unknown application extensions (contents unknown)
 - medium: camera settings, ICC device info and profile names, HDR mastering
   display info, unknown chunks or segments (fingerprinting, unknown contents)
 - low: everything else (including zero padding after the end of the image,
@@ -48,7 +49,9 @@ CRITICAL_NAMES = {
 # -- high ------------------------------------------------------------------------------
 HIGH_SECTIONS = {"mark_of_the_web", "comments",
                  # PNG: text chunks, AI prompts/settings, tIME, C2PA manifests
-                 "text", "ai", "time", "content_credentials"}
+                 "text", "ai", "time", "content_credentials",
+                 # GIF: Plain Text extensions, unknown application extensions
+                 "plain_text", "app_extensions"}
 HIGH_NAMES = {
     # device
     "Make", "Model", "UniqueCameraModel", "MakerNote", "ImageUniqueID", "CameraFirmware",

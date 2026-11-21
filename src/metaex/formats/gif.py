@@ -389,3 +389,31 @@ def structure_section(structure: GifStructure) -> Section:
             value += f", {block.app_id}"
         section.add(f"block_{i}", block.name, value)
     return section
+
+
+# -- parse -------------------------------------------------------------------------
+
+
+def parse(data: bytes | bytearray | memoryview) -> dict:
+    """Parse a GIF and return its warnings, report sections and structure.
+
+    Raises MalformedFileError if the header or screen descriptor is broken;
+    problems later in the file become warnings.
+    """
+    data = bytes(data)
+    structure = walk_blocks(data)
+    warnings = list(structure.warnings)
+    sections: list[Section] = []
+    sections += comment_sections(structure)
+    sections += plain_text_sections(structure, warnings)
+    sections += xmp_sections(structure, data, warnings)
+    sections += icc_sections(structure, warnings)
+    sections += animation_sections(structure, warnings)
+    sections += app_extension_sections(structure)
+    sections += trailing_sections(structure, data, warnings)
+    return {
+        "warnings": warnings,
+        "sections": sections,
+        "structure": structure_section(structure),
+        "complete": structure.error is None,
+    }

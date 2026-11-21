@@ -14,7 +14,7 @@ from metaex.commands import show as show_cmd
 
 PNG = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR" + b"\x00" * 64
 JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00" + b"\x00" * 32
-GIF = b"GIF89a" + b"\x00" * 64
+FLAC = b"fLaC" + b"\x00" * 64  # a format metaex plans to support but can't read yet
 
 
 def run_show(*args: str) -> subprocess.CompletedProcess:
@@ -27,13 +27,13 @@ def run_show(*args: str) -> subprocess.CompletedProcess:
 
 
 def test_show_text_report(tmp_path):
-    p = tmp_path / "image.gif"
-    p.write_bytes(GIF)
+    p = tmp_path / "song.flac"
+    p.write_bytes(FLAC)
     result = run_show(str(p))
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
     out = " ".join(result.stdout.split())  # ignore line wrapping
-    for expected in ("File type", "GIF", "planned (not implemented yet)",
+    for expected in ("File type", "FLAC", "planned (not implemented yet)",
                      "File system", "Hashes", "SHA-256", "was NOT examined"):
         assert expected in out
 
@@ -155,7 +155,7 @@ def test_show_malformed_jpeg_is_partly_examined(tmp_path):
 @pytest.mark.parametrize(
     "name,content,type_name,support",
     [
-        ("anim.gif", GIF, "GIF", PLANNED),
+        ("song.flac", FLAC, "FLAC", PLANNED),
         ("logo.svg", b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>',
          "SVG", PLANNED),
         ("letter.docx", make_zip({"[Content_Types].xml": "<T/>", "word/document.xml": "<w/>"}),
@@ -407,3 +407,58 @@ def test_show_malformed_png_is_partly_examined(tmp_path):
     assert field(data, "file_type", "embedded_metadata") == "partly examined (file is malformed)"
     assert any("bad CRC" in w for w in data["warnings"])
     assert any("malformed PNG" in w for w in data["warnings"])
+
+
+# -- GIF -----------------------------------------------------------------------------------
+
+
+def _gif_with_metadata():
+    from helpers.gif import (application, comment, graphic_control, icc_extension, image,
+                             loop, make_gif, plain_text, xmp_extension)
+    from helpers.jpeg import SAMPLE_XMP, icc_profile
+
+    return make_gif(comment("Made by Jane Doe"), loop(0), icc_extension(icc_profile()),
+                    xmp_extension(SAMPLE_XMP), graphic_control(), image(),
+                    plain_text("hello"), graphic_control(), image(seed=4),
+                    application(b"MGK8BIM0000", b"x" * 30), trailing=b"after the trailer")
+
+
+def test_show_gif_sections(tmp_path):
+    p = tmp_path / "anim.gif"
+    p.write_bytes(_gif_with_metadata())
+    data = show_json(p)
+    assert field(data, "file_type", "name") == "GIF"
+    assert field(data, "file_type", "embedded_metadata") == "examined"
+    assert field(data, "file_type", "support") == "viewing supported; stripping not implemented yet"
+    assert list(data["sections"]) == [
+        "file_type", "comments", "plain_text", "xmp", "icc", "animation", "app_extensions",
+        "trailing", "file_system", "hashes"]
+    assert field(data, "comments", "comment_1") == "Made by Jane Doe"
+    assert field(data, "plain_text", "plain_text_1") == "hello"
+    assert field(data, "animation", "frames") == 2
+    assert field(data, "animation", "loop_count") == "forever"
+    critical = [w for w in data["warnings"] if w.startswith("CRITICAL")]
+    assert len(critical) == 2  # XMP GPS, data after the trailer
+
+
+def test_show_gif_structure(tmp_path):
+    p = tmp_path / "anim.gif"
+    p.write_bytes(_gif_with_metadata())
+    result = run_show(str(p), "--structure")
+    assert result.returncode == 0, result.stderr
+    assert "GIF structure" in result.stdout and "NETSCAPE2.0" in result.stdout
+
+
+def test_show_malformed_gif_is_partly_examined(tmp_path):
+    p = tmp_path / "broken.gif"
+    p.write_bytes(b"GIF89a" + bytes(20))  # a zero byte where a block should start
+    data = show_json(p)
+    assert field(data, "file_type", "embedded_metadata") == "partly examined (file is malformed)"
+    assert any("malformed GIF" in w for w in data["warnings"])
+
+
+def test_show_gif_with_broken_header(tmp_path):
+    p = tmp_path / "broken.gif"
+    p.write_bytes(b"GIF89a\x01")
+    data = show_json(p)
+    assert field(data, "file_type", "embedded_metadata") == "not examined (file is malformed)"

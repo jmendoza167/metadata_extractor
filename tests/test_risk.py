@@ -160,3 +160,35 @@ def test_kitchen_sink_xmp_not_double_counted():
 )
 def test_classify_png_fields(section, key, label, level):
     assert classify(section, key, label) == level
+
+
+@pytest.mark.parametrize(
+    "section,key,label,level",
+    [
+        ("comments", "comment_1", "Comment", HIGH),
+        ("plain_text", "plain_text_1", "Plain text", HIGH),
+        ("app_extensions", "MGK8BIM0000@20", "MGK8BIM0000", HIGH),
+        ("app_extensions", "Extension 0x42@20", "Extension 0x42", HIGH),
+        ("xmp", "exif:GPSLatitude", "exif:GPSLatitude", CRITICAL),
+        ("xmp", "xmp:CreatorTool", "xmp:CreatorTool", HIGH),
+        ("trailing", "size", "Size", CRITICAL),
+        ("padding", "size", "Size", LOW),
+        ("animation", "loop_count", "Loop count", LOW),
+        ("animation", "frames", "Frames", LOW),
+    ],
+)
+def test_classify_gif_fields(section, key, label, level):
+    assert classify(section, key, label) == level
+
+
+def test_assess_gif():
+    from helpers.gif import application, comment, image, loop, make_gif, xmp_extension
+    from helpers.jpeg import SAMPLE_XMP
+    from metaex.formats import gif
+
+    data = make_gif(comment("Jane"), loop(), xmp_extension(SAMPLE_XMP), image(),
+                    application(b"MGK8BIM0000", b"x"), trailing=b"secret")
+    found = {(f.section_key, f.level) for f in assess(gif.parse(data)["sections"])}
+    assert ("comments", HIGH) in found and ("app_extensions", HIGH) in found
+    assert ("xmp", CRITICAL) in found and ("trailing", CRITICAL) in found
+    assert ("animation", LOW) in found
