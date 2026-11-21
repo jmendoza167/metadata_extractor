@@ -391,6 +391,172 @@ def structure_section(structure: GifStructure) -> Section:
     return section
 
 
+# -- Stripping ---------------------------------------------------------------------
+
+GCE_RESERVED_BITS = 0xE0
+"""Bits 5-7 of the Graphic Control packed byte are reserved (always 0)."""
+ICC_SUB_BLOCK = 255
+
+
+def checked_structure(data: bytes) -> GifStructure:
+    """Walk a GIF for stripping or verification: anything malformed raises.
+
+    Unlike parse(), which reports what it can of a damaged file, this refuses
+    truncated files, files without a trailer or an image, and Graphic
+    Control extensions with an invalid size.
+    """
+    structure = walk_blocks(data)
+    if structure.error:
+        raise MalformedFileError(structure.error)
+    if structure.end_of_image is None:
+        raise MalformedFileError("missing GIF trailer; the file may be truncated")
+    if not structure.images:
+        raise MalformedFileError("no image found")
+    for block in structure.extensions(GRAPHIC_CONTROL):
+        if not block.sub_blocks or len(block.sub_blocks[0]) != 4:
+            raise MalformedFileError(f"Graphic Control extension at offset {block.offset} "
+                                     "is malformed")
+    return structure
+
+
+def graphic_control_extension(fields: bytes) -> bytes:
+    """A Graphic Control extension with these 4 bytes (packed, delay, transparent
+    index), reserved bits cleared, and nothing else."""
+    return (b"\x21\xf9\x04" + bytes([fields[0] & ~GCE_RESERVED_BITS & 0xFF]) + fields[1:4]
+            + b"\x00")
+
+
+def loop_extension(app_id: str, count: int) -> bytes:
+    """A NETSCAPE2.0 / ANIMEXTS1.0 extension with only the loop count."""
+    return (b"\x21\xff\x0b" + app_id.encode("latin-1") + b"\x03\x01"
+            + count.to_bytes(2, "little") + b"\x00")
+
+
+def usable_icc_profile(block: Block) -> bytes | None:
+    """The ICC profile to keep, cut to the size its header declares, or None
+    if it doesn't look like a real profile (it is then dropped)."""
+    profile = icc_profile(block)
+    if len(profile) < 128 or profile[36:40] != b"acsp":
+        return None
+    declared = int.from_bytes(profile[0:4], "big")
+    if not 128 <= declared <= len(profile):
+        return None
+    return profile[:declared]
+
+
+def icc_extension(profile: bytes) -> bytes:
+    """An ICCRGBG1012 application extension holding exactly ``profile``."""
+    subs = b"".join(bytes([len(profile[i : i + ICC_SUB_BLOCK])]) + profile[i : i + ICC_SUB_BLOCK]
+                    for i in range(0, len(profile), ICC_SUB_BLOCK))
+    return b"\x21\xff\x0b" + ICC_ID.encode("latin-1") + subs + b"\x00"
+
+
+@dataclass
+class Rendered:
+    """What a viewer uses from a GIF, in order: the screen descriptor and
+    global color table, then each image with the Graphic Control extension
+    that applies to it, and the animation loop count."""
+    screen: bytes
+    items: list[tuple[str, Block, bytes | None]] = field(default_factory=list)
+    """("image", block, its graphic control fields or None) and ("loop", block, None)."""
+    loop: tuple[str, int] | None = None
+    """(identifier, count) of the first valid loop extension."""
+
+
+def rendered(structure: GifStructure, data: bytes) -> Rendered:
+    """The blocks that affect how the GIF looks, in file order.
+
+    A Graphic Control extension applies to the next graphic block (an image
+    or a Plain Text extension); one that precedes a Plain Text extension, or
+    no graphic block at all, is not used. If several precede one image, the
+    last one counts.
+    """
+    out = Rendered(data[6 : structure.screen_end])
+    pending: bytes | None = None
+    for block in structure.blocks:
+        if block.kind == "image":
+            out.items.append(("image", block, pending))
+            pending = None
+        elif block.kind == "extension" and block.label == GRAPHIC_CONTROL:
+            pending = block.sub_blocks[0] if block.sub_blocks else None
+        elif block.kind == "extension" and block.label == PLAIN_TEXT:
+            pending = None  # its Graphic Control extension belongs to the text
+        elif block.app_id in LOOP_IDS and out.loop is None:
+            count = loop_count(block)
+            if count is not None:
+                out.loop = (block.app_id, count)
+                out.items.append(("loop", block, None))
+    return out
+
+
+def image_data(data: bytes | bytearray | memoryview) -> bytes:
+    """The image-defining data, for comparing two files: the screen
+    descriptor and global color table, then for each image its Graphic
+    Control fields (reserved bits cleared), image descriptor, local color
+    table, LZW code size and LZW data (without the sub-block framing), and
+    the loop count. Raises MalformedFileError like checked_structure()."""
+    data = bytes(data)
+    r = rendered(checked_structure(data), data)
+    parts = [b"screen", len(r.screen).to_bytes(4, "big"), r.screen]
+    for kind, block, gce in r.items:
+        if kind == "loop":
+            parts.append(b"loop" + r.loop[1].to_bytes(2, "big"))
+            continue
+        if gce is not None:
+            parts.append(b"gce" + graphic_control_extension(gce)[3:7])
+        lzw = b"".join(block.sub_blocks)
+        parts += [b"image", block.descriptor, len(block.color_table).to_bytes(4, "big"),
+                  block.color_table, bytes([block.min_code_size]),
+                  len(lzw).to_bytes(8, "big"), lzw]
+    return b"".join(parts)
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return a copy of the GIF with all metadata removed (whitelist).
+
+    Kept byte-for-byte: the header, screen descriptor, global color table,
+    every image (descriptor, local color table, LZW data) and the trailer.
+    Kept in a minimal rewritten form: the Graphic Control extension that
+    applies to each image (timing, transparency; reserved bits cleared),
+    the animation loop count (NETSCAPE2.0 / ANIMEXTS1.0, first one only)
+    and, unless ``paranoid``, the ICC color profile (ICCRGBG1012, the
+    profile bytes unchanged). Dropped: comments, Plain Text extensions (and
+    their Graphic Control extensions), XMP, all other application and
+    unknown extensions, and any data after the trailer. GIF has no
+    orientation, so ``keep_orientation`` has no effect.
+
+    Raises MalformedFileError for malformed, truncated or unsupported input;
+    nothing is ever partly stripped.
+    """
+    data = bytes(data)
+    structure = checked_structure(data)
+    r = rendered(structure, data)
+    out = bytearray(data[: structure.screen_end])
+    icc_written = False
+    for kind, block, gce in r.items:
+        if kind == "loop":
+            out += loop_extension(*r.loop)
+            continue
+        if not icc_written and not paranoid:
+            # The ICC profile goes before the first image, where it applies to all.
+            icc_written = True
+            block_icc = next((b for b in structure.applications() if b.app_id == ICC_ID),
+                             None)
+            profile = usable_icc_profile(block_icc) if block_icc is not None else None
+            if profile is not None:
+                out += icc_extension(profile)
+        if gce is not None:
+            out += graphic_control_extension(gce)
+        out += data[block.offset : block.end]
+    out += bytes([TRAILER])
+    cleaned = bytes(out)
+    # Self-check: the output must be a well-formed GIF with identical image data.
+    if image_data(cleaned) != image_data(data):
+        raise MalformedFileError("internal check failed: image data changed while stripping")
+    return cleaned
+
+
 # -- parse -------------------------------------------------------------------------
 
 
