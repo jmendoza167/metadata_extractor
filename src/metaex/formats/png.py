@@ -16,7 +16,7 @@ from datetime import datetime
 
 from metaex.core import exif, filetype, icc, xmp
 from metaex.core.errors import MalformedFileError, MetaexError
-from metaex.core.inflate import Budget, DecompressionLimitError, inflate
+from metaex.core.inflate import Budget, DecompressionLimitError, inflate, inflate_stream
 from metaex.core.result import Field, Section
 
 SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -556,6 +556,247 @@ def animation_sections(structure: PngStructure, warnings: list[str]) -> list[Sec
     return [section]
 
 
+# -- image data: hidden bytes inside the compressed stream ---------------------------
+
+MAX_CHECKED_IMAGE_SIZE = 1024**3
+"""Image data is only checked while the decompressed sizes add up to at most 1 GiB."""
+EXTRA_COUNT_LIMIT = 16 * 1024 * 1024
+"""Extra decompressed bytes are counted up to this many ("at least ...")."""
+CHANNELS = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}
+VALID_DEPTHS = {0: (1, 2, 4, 8, 16), 2: (8, 16), 3: (1, 2, 4, 8), 4: (8, 16), 6: (8, 16)}
+ADAM7 = ((0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2),
+         (0, 1, 1, 2))
+"""Adam7 interlace passes: first column, first row, column step, row step."""
+
+
+@dataclass(frozen=True)
+class ImageHeader:
+    width: int
+    height: int
+    depth: int
+    color: int
+    interlace: int
+
+
+def image_header(chunk: Chunk) -> ImageHeader:
+    """The IHDR fields; raises MalformedFileError if they are invalid."""
+    d = chunk.data
+    if len(d) != 13:
+        raise MalformedFileError(f"IHDR chunk has {len(d)} bytes instead of 13")
+    width, height = int.from_bytes(d[0:4], "big"), int.from_bytes(d[4:8], "big")
+    depth, color, compression, filter_method, interlace = d[8:13]
+    if not (1 <= width <= MAX_CHUNK_LENGTH and 1 <= height <= MAX_CHUNK_LENGTH):
+        raise MalformedFileError(f"IHDR has an invalid image size {width} x {height}")
+    if depth not in VALID_DEPTHS.get(color, ()):
+        raise MalformedFileError(f"IHDR has an invalid bit depth {depth} for color type {color}")
+    if compression != 0 or filter_method != 0 or interlace not in (0, 1):
+        raise MalformedFileError("IHDR uses an unknown compression, filter or interlace method")
+    return ImageHeader(width, height, depth, color, interlace)
+
+
+def raw_size(header: ImageHeader, width: int | None = None, height: int | None = None) -> int:
+    """Exact size of the decompressed image data: per scanline one filter byte
+    plus the pixels, for each Adam7 pass if interlaced (empty passes have no
+    scanlines). ``width``/``height`` override the IHDR size (APNG frames)."""
+    width = header.width if width is None else width
+    height = header.height if height is None else height
+    bits = CHANNELS[header.color] * header.depth
+
+    def rows(w: int, h: int) -> int:
+        return h * (1 + (w * bits + 7) // 8) if w > 0 and h > 0 else 0
+
+    if not header.interlace:
+        return rows(width, height)
+    return sum(rows(-(-(width - x0) // dx), -(-(height - y0) // dy))
+               for x0, y0, dx, dy in ADAM7)
+
+
+@dataclass
+class ImageStream:
+    """One zlib stream of image data: the default image (all IDAT chunks
+    together) or one APNG frame (its fdAT chunks, without sequence numbers)."""
+    name: str
+    chunk_type: str
+    width: int
+    height: int
+    offset: int
+    """Offset of its first chunk."""
+    parts: list[bytes] = field(default_factory=list)
+
+
+def image_streams(structure: PngStructure, header: ImageHeader) -> list[ImageStream]:
+    """The image data streams in file order; raises MalformedFileError if the
+    IDAT/fdAT/fcTL layout is broken."""
+    streams: list[ImageStream] = []
+    idat: ImageStream | None = None
+    frame: tuple[int, int, int] | None = None  # (frame number, width, height) from fcTL
+    current: ImageStream | None = None  # the APNG frame being collected
+    frames = 0
+    previous = ""
+    for chunk in structure.chunks:
+        previous, before = chunk.type, previous
+        if chunk.type == "fcTL":
+            if len(chunk.data) != 26:
+                raise MalformedFileError(f"fcTL chunk at offset {chunk.offset} has "
+                                         f"{len(chunk.data)} bytes instead of 26")
+            if frame is not None and idat is not None and current is None:
+                raise MalformedFileError(f"animation frame {frame[0]} has no image data")
+            frames += 1
+            width, height = _u32s(chunk.data[4:12])
+            if width == 0 or height == 0:
+                raise MalformedFileError(f"fcTL chunk at offset {chunk.offset} has an "
+                                         "empty frame")
+            frame, current = (frames, width, height), None
+        elif chunk.type == "IDAT":
+            if idat is None:
+                if streams and streams[-1].chunk_type == "fdAT":
+                    raise MalformedFileError(f"IDAT chunk at offset {chunk.offset} after "
+                                             "animation frames")
+                idat = ImageStream("image data (IDAT)", "IDAT", header.width, header.height,
+                                   chunk.offset)
+                streams.append(idat)
+                frame = None  # an fcTL just before IDAT describes the default image
+            elif before != "IDAT":
+                raise MalformedFileError(f"IDAT chunk at offset {chunk.offset} is not next "
+                                         "to the other IDAT chunks")
+            idat.parts.append(chunk.data)
+        elif chunk.type == "fdAT":
+            if len(chunk.data) < 4:
+                raise MalformedFileError(f"fdAT chunk at offset {chunk.offset} is too short")
+            if current is None:
+                if frame is None:
+                    raise MalformedFileError(f"fdAT chunk at offset {chunk.offset} without "
+                                             "a frame control chunk (fcTL)")
+                current = ImageStream(f"animation frame {frame[0]} (fdAT)", "fdAT",
+                                      frame[1], frame[2], chunk.offset)
+                streams.append(current)
+            current.parts.append(chunk.data[4:])
+    if frame is not None and current is None and idat is not None:
+        raise MalformedFileError(f"animation frame {frame[0]} has no image data")
+    return streams
+
+
+@dataclass
+class StreamCheck:
+    stream: ImageStream
+    expected: int
+    """Decompressed size the image (or frame) needs."""
+    size: int = 0
+    """Decompressed bytes found (counted up to expected + EXTRA_COUNT_LIMIT)."""
+    after_end: int = 0
+    """Bytes after the end of the zlib stream."""
+    problem: str | None = None
+    """Why the stream is malformed (too short, invalid, not terminated)."""
+    skipped: bool = False
+    """Not decompressed: over the MAX_CHECKED_IMAGE_SIZE limit."""
+
+    @property
+    def extra(self) -> int:
+        """Decompressed bytes beyond what the image needs."""
+        return max(0, self.size - self.expected)
+
+    @property
+    def extra_capped(self) -> bool:
+        return self.size >= self.expected + EXTRA_COUNT_LIMIT
+
+    @property
+    def hidden(self) -> bool:
+        return bool(self.extra or self.after_end)
+
+
+@dataclass
+class ImageDataCheck:
+    streams: list[StreamCheck] = field(default_factory=list)
+    error: str | None = None
+    """Set when the image data could not be checked at all (bad IHDR, layout)."""
+
+    @property
+    def hidden(self) -> list[StreamCheck]:
+        return [s for s in self.streams if s.hidden]
+
+    @property
+    def problems(self) -> list[str]:
+        out = [self.error] if self.error else []
+        return out + [s.problem for s in self.streams if s.problem]
+
+    @property
+    def skipped(self) -> list[StreamCheck]:
+        return [s for s in self.streams if s.skipped]
+
+
+def check_image_data(structure: PngStructure) -> ImageDataCheck:
+    """Decompress each image data stream (discarding the output) and compare
+    its size with the exact size the IHDR (or fcTL) implies.
+
+    Extra decompressed bytes and bytes after the end of the zlib stream are
+    ignored by viewers, so they can hide data. A stream that is too short or
+    invalid is malformed. Streams are checked while their sizes add up to at
+    most MAX_CHECKED_IMAGE_SIZE; later ones are marked ``skipped``.
+    """
+    result = ImageDataCheck()
+    first = structure.chunks[0] if structure.chunks else None
+    if first is None or first.type != "IHDR":
+        result.error = "no IHDR chunk at the start of the file"
+        return result
+    try:
+        header = image_header(first)
+        streams = image_streams(structure, header)
+    except MalformedFileError as exc:
+        result.error = str(exc)
+        return result
+    if not any(s.chunk_type == "IDAT" for s in streams):
+        result.error = "no image data (IDAT) found"
+        return result
+    total = 0
+    for stream in streams:
+        check = StreamCheck(stream, raw_size(header, stream.width, stream.height))
+        result.streams.append(check)
+        total += check.expected
+        if total > MAX_CHECKED_IMAGE_SIZE:
+            check.skipped = True
+            continue
+        try:
+            r = inflate_stream(stream.parts, check.expected + EXTRA_COUNT_LIMIT)
+        except MalformedFileError as exc:
+            check.problem = f"{stream.name} is not valid compressed data: {exc}"
+            continue
+        check.size, check.after_end = r.size, r.unused
+        if r.size < check.expected:
+            check.problem = (f"{stream.name} is too short: {r.size} of the "
+                             f"{check.expected} bytes the image needs")
+        elif not r.complete and not r.more:
+            check.problem = f"{stream.name}: the compressed stream does not end properly"
+    return result
+
+
+def image_data_sections(check: ImageDataCheck, warnings: list[str]) -> list[Section]:
+    """Hidden data found inside the image data streams, plus warnings for
+    malformed and unchecked streams."""
+    for problem in check.problems:
+        warnings.append(f"malformed PNG: {problem}")
+    for s in check.skipped:
+        warnings.append(f"{s.stream.name} was not checked for hidden data: the image "
+                        f"needs {s.expected} bytes uncompressed, more than the "
+                        f"{MAX_CHECKED_IMAGE_SIZE // 1024**3} GiB limit")
+    section = Section("hidden_image_data", "Hidden data in image data")
+    for i, s in enumerate(check.streams):
+        name = s.stream.name
+        if s.extra:
+            amount = f"at least {s.extra}" if s.extra_capped else str(s.extra)
+            section.add(f"{i}.extra", f"{name}: extra data",
+                        f"{amount} bytes beyond the {s.expected} the image needs",
+                        sensitive=True, note="decompressed, but not part of the picture")
+            warnings.append(f"CRITICAL: {name} holds {amount} bytes more than the image "
+                            "needs; viewers don't show them, so they can hide a whole file")
+        if s.after_end:
+            section.add(f"{i}.after_end", f"{name}: after the compressed data",
+                        f"{s.after_end} bytes", sensitive=True,
+                        note="after the end of the zlib stream")
+            warnings.append(f"CRITICAL: {s.after_end} bytes after the end of the "
+                            f"compressed {name}; viewers ignore them, so they can hide data")
+    return [section] if section.fields else []
+
+
 KNOWN_CHUNKS = ({"IHDR", "PLTE", "IDAT", "IEND", "tRNS", "tIME", "eXIf", "iCCP", "caBX"}
                 | TEXT_CHUNKS | set(COLOR_CHUNKS) | set(ANIMATION_CHUNKS))
 
@@ -764,10 +1005,19 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     data after IEND. Only the chunks metaex writes itself get a new CRC.
 
     Raises MalformedFileError for malformed, damaged (bad CRC), truncated or
-    unsupported input; nothing is ever partly stripped.
+    unsupported input, for image data that is too short or invalid, and for
+    image data that hides extra bytes (see check_image_data()); nothing is
+    ever partly stripped.
     """
     data = bytes(data)
     structure = checked_structure(data)
+    check = check_image_data(structure)
+    if check.problems:
+        raise MalformedFileError(check.problems[0])
+    if check.hidden:
+        s = check.hidden[0]
+        raise MalformedFileError(f"hidden data found inside the {s.stream.name}; "
+                                 "it can't be removed by copying the image data")
     keep_color = set(PARANOID_COLOR) if paranoid else set(KEPT_COLOR_SIZES)
     orientation = original_orientation(structure)
     new_exif = b""
@@ -837,6 +1087,10 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
         out["problems"].append(f"not a complete, undamaged PNG: {exc}")
         return out
     out["image_sha256"] = hashlib.sha256(image).hexdigest()
+    # Hidden data inside the image data is reported by parse() as a leftover
+    # section; malformed image data is a problem.
+    out["problems"] += [f"image data is malformed: {p}"
+                        for p in check_image_data(walk_chunks(cleaned)).problems]
 
     seen: set[str] = set()
     for chunk in walk_chunks(cleaned).chunks:
@@ -899,6 +1153,8 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     sections += content_credentials_sections(structure)
     sections += animation_sections(structure, warnings)
     sections += unknown_sections(structure)
+    if structure.error is None:
+        sections += image_data_sections(check_image_data(structure), warnings)
     sections += trailing_sections(structure, data, warnings)
     return {
         "warnings": warnings,

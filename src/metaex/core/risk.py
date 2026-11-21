@@ -6,7 +6,8 @@ here, so the rules stay consistent across formats and easy to review.
 Levels:
 - critical: reveals where you were, hidden extra images or files, or
   identifies your exact device or you by name (GPS, thumbnails, MPF images,
-  data after the end of the image, serial numbers, owner name)
+  data after the end of the image or hidden inside the image data, serial
+  numbers, owner name)
 - high: identifies device model, dates, authors, software, edit history and
   document IDs, download origin, comments, PNG text chunks, AI generation
   data (prompts, settings), PNG modification time, Content Credentials (C2PA)
@@ -30,7 +31,8 @@ LEVELS = (CRITICAL, HIGH, MEDIUM, LOW)
 NOT_METADATA_SECTIONS = {"file_type", "file_system", "hashes", "structure"}
 
 # -- critical --------------------------------------------------------------------------
-CRITICAL_SECTIONS = {"gps", "mpf", "trailing"}
+CRITICAL_SECTIONS = {"gps", "mpf", "trailing",
+                     "hidden_image_data"}  # PNG: extra bytes inside the image data
 CRITICAL_FIELDS = {
     ("thumbnail", "embedded_thumbnail"),
     ("jfif", "thumbnail"),

@@ -246,7 +246,9 @@ def test_mutations_either_raise_or_produce_clean_output():
         assert result.clean, (i, result.leftovers, result.problems)
         assert result.image_data_match is True
         assert png.strip(cleaned, paranoid=paranoid) == cleaned
-    assert stripped > 150  # with CRCs fixed, many mutations stay strippable
+    # With CRCs fixed, many mutations stay strippable (damaged image data is
+    # refused, since the image data stream is checked).
+    assert stripped > 100
 
 
 def test_unknown_critical_chunk_and_icc_profile_are_handled():

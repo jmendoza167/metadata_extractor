@@ -51,3 +51,72 @@ def test_invalid_or_incomplete_streams(data):
 def test_negative_limit_is_rejected():
     with pytest.raises(ValueError):
         Budget(-1)
+
+
+# -- inflate_stream ----------------------------------------------------------------------
+
+from metaex.core.inflate import inflate_stream  # noqa: E402
+
+DATA = bytes(range(256)) * 4000  # ~1 MB, compresses well but not trivially
+
+
+def pieces(data: bytes, size: int) -> list[bytes]:
+    return [data[i : i + size] for i in range(0, len(data), size)]
+
+
+@pytest.mark.parametrize("piece", [1, 7, 1000, 10**7])
+@pytest.mark.parametrize("step", [1, 4096, 1 << 20])
+def test_stream_output_matches_zlib(piece, step):
+    if piece == 1 or step == 1:
+        data = DATA[:5000]  # byte-sized steps are slow; a small input is enough
+    else:
+        data = DATA
+    out = []
+    compressed = zlib.compress(data, 9)
+    r = inflate_stream(pieces(compressed, piece), len(data) + 10, out.append, step=step)
+    assert b"".join(out) == data
+    assert (r.size, r.complete, r.more, r.unused) == (len(data), True, False, 0)
+    assert max(len(p) for p in out) <= step
+
+
+def test_stream_counts_input_after_the_end():
+    compressed = zlib.compress(DATA)
+    r = inflate_stream([compressed[:-2], compressed[-2:] + b"abc", b"defg"], len(DATA))
+    assert r.complete and r.unused == 7 and r.size == len(DATA)
+
+
+def test_stream_stops_at_the_limit():
+    out = []
+    r = inflate_stream([zlib.compress(DATA)], 1000, out.append)
+    assert (r.size, r.complete, r.more) == (1000, False, True)
+    assert b"".join(out) == DATA[:1000]
+    exact = inflate_stream([zlib.compress(DATA)], len(DATA))
+    assert exact.complete and not exact.more
+
+
+def test_stream_bomb_is_bounded():
+    import time
+
+    start = time.monotonic()
+    r = inflate_stream([zlib_bomb(256 * 1024 * 1024)], 16 * 1024 * 1024)
+    assert r.more and r.size == 16 * 1024 * 1024
+    assert time.monotonic() - start < 10
+
+
+def test_stream_incomplete_and_invalid():
+    c = zlib.compressobj()
+    partial = c.compress(DATA) + c.flush(zlib.Z_SYNC_FLUSH)
+    r = inflate_stream([partial], len(DATA) + 1)
+    assert r.size == len(DATA) and not r.complete and not r.more
+    short = inflate_stream([zlib.compress(DATA)[:100]], len(DATA))
+    assert not short.complete and short.size < len(DATA)
+    with pytest.raises(MalformedFileError):
+        inflate_stream([b"not zlib data at all"], 100)
+    assert inflate_stream([], 100) == inflate_stream([b""], 100)
+
+
+def test_stream_rejects_bad_arguments():
+    with pytest.raises(ValueError):
+        inflate_stream([b""], -1)
+    with pytest.raises(ValueError):
+        inflate_stream([b""], 1, step=0)
