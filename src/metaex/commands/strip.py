@@ -15,6 +15,7 @@ from metaex.core.errors import MalformedFileError, MetaexError, UnsupportedForma
 from metaex.core.generic import mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, format_size, load_file
 from metaex.core.registry import can_strip, format_module
+from metaex.core.report import format_value
 from metaex.core.verify import Finding, VerifyResult, verify
 from metaex.core.writer import write_verified
 
@@ -243,15 +244,28 @@ def group_for(section_key: str, field_key: str) -> str | None:
 
 
 def removed_groups(parsed: dict, kept: list[Finding]) -> dict[str, list[str]]:
-    kept_keys = {(f.section, f.label) for f in kept}
+    """Labels of the original's fields that are not in the cleaned file, by group.
+
+    A field that is still there but with a different value (e.g. a PNG ICC
+    profile renamed to the generic "ICC profile") counts as removed too, and
+    its label says what the value was and what it became.
+    """
+    kept_values: dict[tuple[str, str], list[str]] = {}
+    for f in kept:
+        kept_values.setdefault((f.section, f.label), []).append(f.value)
     groups: dict[str, list[str]] = {}
     for section in parsed.get("sections", []):
         for f in section.fields:
-            if (section.title, f.label) in kept_keys:
-                continue
+            label = f.label
+            values = kept_values.get((section.title, f.label))
+            if values is not None:
+                value = format_value(f.value)
+                if value in values:
+                    continue
+                label = f'{f.label} "{value}" (replaced with "{values[0]}")'
             group = group_for(section.key, f.key)
             if group is not None:
-                groups.setdefault(group, []).append(f.label)
+                groups.setdefault(group, []).append(label)
     return groups
 
 

@@ -113,3 +113,26 @@ def test_kept_color_chunks_are_summarized_by_name(image):
     assert line == ("  Color and display: kept so the image displays correctly: sRGB, Gamma, "
                     "Chromaticities, Color coding (cICP), Mastering display, "
                     "Content light level, Pixel density")
+
+
+def test_renamed_icc_profile_name_is_listed_as_removed(image):
+    result = run("strip", str(image))
+    assert result.returncode == 0, result.stderr
+    line = next(l for l in result.stdout.splitlines() if l.startswith("  ICC profile "))
+    assert "Profile name" in line and "Jane's display" in line
+    assert '(replaced with "ICC profile")' in line
+    data = json.loads(run("strip", str(image), "-o", str(image.with_name("b.png")),
+                          "--json").stdout)
+    assert data["removed"]["ICC profile"] == [
+        'Profile name "Jane\'s display" (replaced with "ICC profile")']
+
+
+def test_generic_icc_profile_name_is_not_listed_as_removed(tmp_path):
+    from helpers.jpeg import icc_profile
+    from helpers.png import iccp
+
+    p = tmp_path / "g.png"
+    p.write_bytes(make_png(text("Author", "x"), before_idat=(iccp(icc_profile()),)))
+    data = json.loads(run("strip", str(p), "--json").stdout)
+    assert "ICC profile" not in data["removed"]
+    assert data["removed"]["Text"] == ["Author"]
