@@ -183,3 +183,67 @@ def make_gif(*blocks: bytes, width: int = 4, height: int = 4, colors: int = 4,
     body = b"".join(blocks) if blocks else image(width, height, colors=colors)
     return (b"GIF" + version + struct.pack("<HHBBB", width, height, flags, background, 0)
             + gct + body + (b"\x3b" if trailer else b"") + trailing)
+
+
+# -- variants and kitchen sink -------------------------------------------------------------
+
+
+def animated_gif(*extra: bytes, frames: int = 3, width: int = 6, height: int = 5,
+                 count: int = 0) -> bytes:
+    """An animation: loop extension, then per frame a Graphic Control
+    extension and an image (the second frame has a local color table)."""
+    blocks = [loop(count)]
+    for i in range(frames):
+        blocks.append(graphic_control(delay=10 * (i + 1), transparent=i % 4 if i else None,
+                                      disposal=i % 3))
+        local = palette(4, seed=50) if i == 1 else None
+        blocks.append(image(width - i % 2, height - i % 2, i % 2, i % 2, seed=i + 1,
+                            local_table=local))
+    return make_gif(*blocks, *extra, width=width, height=height)
+
+
+def variants() -> dict[str, bytes]:
+    """Small real GIFs of every common kind, each with a comment."""
+    note = comment("Generator 1.0")
+    return {
+        "static": make_gif(note, image(5, 3, colors=4), width=5, height=3),
+        "two_colors": make_gif(note, image(9, 2, colors=2), width=9, height=2, colors=2),
+        "256_colors": make_gif(note, image(40, 30, colors=256), width=40, height=30,
+                               colors=256),
+        "gif87a": make_gif(image(), version=b"87a"),
+        "local_table_only": make_gif(note, image(local_table=palette(4, 9)),
+                                     global_table=False),
+        "interlaced": make_gif(note, image(7, 9, interlace=True), width=7, height=9),
+        "transparent": make_gif(note, graphic_control(transparent=3), image()),
+        "animated": animated_gif(note),
+        "big_lzw": make_gif(note, image(64, 64, colors=256, seed=3), width=64, height=64,
+                            colors=256),
+    }
+
+
+def kitchen_sink_gif() -> bytes:
+    """Every block type metaex reads: comments (UTF-8 and Latin-1), Plain
+    Text, XMP with GPS (with the magic trailer), an ICC profile naming a
+    device, the loop extension, Graphic Control extensions, three frames
+    (one interlaced, one with a local color table), unknown application and
+    extension blocks and data after the trailer. Values are made up."""
+    from helpers.jpeg import SAMPLE_XMP, icc_profile
+
+    return make_gif(
+        comment("Created by Jane Doe with Editor 2.0"),
+        loop(0),
+        icc_extension(icc_profile()),
+        xmp_extension(SAMPLE_XMP),
+        application(b"MGK8BIM0000", b"8BIM\x04\x04" + bytes(20)),
+        graphic_control(delay=20, disposal=1),
+        image(8, 8, colors=4, seed=1),
+        comment(b"caf\xe9 at 5"),
+        graphic_control(delay=5),
+        plain_text("meet at the cafe at 5", 2, 3),
+        graphic_control(delay=30, transparent=2),
+        image(6, 6, 1, 1, seed=2, local_table=palette(4, 40), interlace=True),
+        b"\x21\x42" + sub_blocks(b"unknown extension data"),
+        graphic_control(delay=40),
+        image(8, 8, seed=3),
+        application(b"ImageMagick", b"gamma=0.45455"),
+        width=8, height=8, trailing=b"secret after trailer")
