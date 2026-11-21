@@ -337,6 +337,204 @@ def structure_section(structure: WebpStructure) -> Section:
     return section
 
 
+# -- Stripping ---------------------------------------------------------------------
+
+# Top-level chunks that define the image: copied byte-for-byte (ANMF frames
+# are rebuilt only to drop sub-chunks that are not image data).
+KEPT_IMAGE_CHUNKS = ("VP8 ", "VP8L", "ALPH", "ANIM", "ANMF")
+
+# Report sections (and field keys; None = every field) that a stripped WebP
+# may still contain. Anything else found by verify is a leftover.
+KEPT_BY_DESIGN: dict[str, set[str] | None] = {
+    "exif": {"byte_order", "Orientation"},
+    "icc": None,
+    "animation": None,
+}
+
+
+def make_chunk(fourcc: str, payload: bytes) -> bytes:
+    """A chunk with its size and, for an odd size, a zero padding byte."""
+    return (fourcc.encode("latin-1") + len(payload).to_bytes(4, "little") + payload
+            + (b"\x00" if len(payload) % 2 else b""))
+
+
+def _check_frame(chunks: list[Chunk], where: str) -> None:
+    """One image: an optional ALPH followed by VP8, or a VP8L."""
+    image = [c for c in chunks if c.fourcc in FRAME_CHUNKS]
+    kinds = [c.fourcc for c in image]
+    if kinds not in (["VP8 "], ["VP8L"], ["ALPH", "VP8 "]):
+        raise MalformedFileError(f"{where} does not hold exactly one image "
+                                 f"(found: {', '.join(k.strip() for k in kinds) or 'none'})")
+
+
+def checked_structure(data: bytes) -> WebpStructure:
+    """Walk a WebP for stripping or verification: anything malformed raises.
+
+    Unlike parse(), which reports what it can of a damaged file, this refuses
+    truncated files, a VP8X chunk that is not first or too short, and files
+    without exactly one image (or, if animated, frames that each hold one
+    image, after an ANIM chunk).
+    """
+    structure = walk_chunks(data)
+    if structure.error:
+        raise MalformedFileError(structure.error)
+    chunks = structure.chunks
+    if not chunks:
+        raise MalformedFileError("no image found")
+    for i, chunk in enumerate(chunks):
+        if chunk.fourcc == "VP8X" and i != 0:
+            raise MalformedFileError(f"VP8X chunk at offset {chunk.offset} is not the first chunk")
+    if chunks[0].fourcc == "VP8X":
+        if len(chunks[0].data) < 10:
+            raise MalformedFileError("VP8X chunk is too short")
+        top = chunks[1:]
+    else:
+        if chunks[0].fourcc not in ("VP8 ", "VP8L"):
+            raise MalformedFileError(f"the first chunk is {chunks[0].label!r}, not an image or "
+                                     "VP8X")
+        top = chunks
+    frames = [c for c in top if c.fourcc == "ANMF"]
+    stills = [c for c in top if c.fourcc in FRAME_CHUNKS]
+    if frames:
+        if stills:
+            raise MalformedFileError("the file has both animation frames and a still image")
+        anim = next((i for i, c in enumerate(top) if c.fourcc == "ANIM"), None)
+        first_frame = next(i for i, c in enumerate(top) if c.fourcc == "ANMF")
+        if anim is None or anim > first_frame or len(top[anim].data) != 6:
+            raise MalformedFileError("animation frames without a valid ANIM chunk before them")
+        for frame in frames:
+            _check_frame(frame.children, f"ANMF frame at offset {frame.offset}")
+    else:
+        _check_frame(stills, "the file")
+    return structure
+
+
+def _canvas(structure: WebpStructure) -> tuple[int, int] | None:
+    """The canvas size: from VP8X, or from the bitstream of a simple file."""
+    return canvas_size(structure.chunks[0])
+
+
+def kept_image_chunks(structure: WebpStructure) -> list[Chunk]:
+    """The top-level chunks that define the image, in file order (ANIM only
+    if there are animation frames)."""
+    animated = structure.first("ANMF") is not None
+    return [c for c in structure.chunks if c.fourcc in KEPT_IMAGE_CHUNKS
+            and (c.fourcc != "ANIM" or animated)]
+
+
+def _record(fourcc: str, payload: bytes) -> bytes:
+    return fourcc.encode("latin-1") + len(payload).to_bytes(8, "big") + payload
+
+
+def image_data(data: bytes | bytearray | memoryview) -> bytes:
+    """The image-defining data, in file order, for comparing two files: the
+    canvas size, then the VP8, VP8L, ALPH and ANIM chunks and each ANMF
+    frame (its header and image sub-chunks). Raises MalformedFileError like
+    checked_structure()."""
+    structure = checked_structure(bytes(data))
+    size = _canvas(structure)
+    parts = [b"canvas" + repr(size).encode("ascii")]
+    for chunk in kept_image_chunks(structure):
+        if chunk.fourcc == "ANMF":
+            parts.append(_record("ANMF", chunk.data[:ANMF_HEADER_SIZE]))
+            parts += [_record(c.fourcc, c.data) for c in chunk.children
+                      if c.fourcc in FRAME_CHUNKS]
+        else:
+            parts.append(_record(chunk.fourcc, chunk.data))
+    return b"".join(parts)
+
+
+def original_orientation(structure: WebpStructure) -> int | None:
+    """EXIF Orientation (1-8) from the first EXIF chunk, or None."""
+    chunk = structure.first("EXIF")
+    if chunk is None:
+        return None
+    try:
+        return exif.orientation(exif.parse_tiff(exif.tiff_from_chunk(chunk.data)))
+    except MalformedFileError:
+        return None
+
+
+def usable_icc_profile(chunk: Chunk) -> bytes | None:
+    """The ICC profile to keep, cut to the size its header declares, or None
+    if it doesn't look like a real profile (it is then dropped)."""
+    profile = chunk.data
+    if len(profile) < 128 or profile[36:40] != b"acsp":
+        return None
+    declared = int.from_bytes(profile[0:4], "big")
+    if not 128 <= declared <= len(profile):
+        return None
+    return profile[:declared]
+
+
+def _kept_chunk(data: bytes, chunk: Chunk) -> bytes:
+    """An image chunk as stored (payload byte-for-byte, padding byte zero); an
+    ANMF frame keeps only its header and image sub-chunks."""
+    if chunk.fourcc == "ANMF":
+        children = [c for c in chunk.children if c.fourcc in FRAME_CHUNKS]
+        payload = chunk.data[:ANMF_HEADER_SIZE] + b"".join(_kept_chunk(data, c)
+                                                           for c in children)
+        return make_chunk("ANMF", payload)
+    return make_chunk(chunk.fourcc, chunk.data)
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return a copy of the WebP with all metadata removed (whitelist).
+
+    Kept, payloads byte-for-byte and in their original order: VP8, VP8L,
+    ALPH, ANIM and ANMF frames (with only their image sub-chunks). Kept by
+    default: the ICC profile (ICCP), unless ``paranoid``. If the original
+    EXIF Orientation is 2-8, a new EXIF chunk with only that tag is written
+    unless ``keep_orientation`` is False. Dropped: EXIF, XMP, unknown chunks
+    (also inside frames) and any data after the RIFF data. A new VP8X chunk
+    is written whose flags match exactly the chunks kept (the canvas size
+    and the alpha flag are copied); a simple file stays simple unless it
+    needs VP8X for the orientation. Padding bytes are written as zero and
+    the RIFF size is recomputed.
+
+    Raises MalformedFileError for malformed, truncated or unsupported input;
+    nothing is ever partly stripped.
+    """
+    data = bytes(data)
+    structure = checked_structure(data)
+    chunks = structure.chunks
+    extended_input = chunks[0].fourcc == "VP8X"
+    orientation = original_orientation(structure)
+    new_exif = b""
+    if keep_orientation and orientation is not None and orientation != 1:
+        new_exif = make_chunk("EXIF", exif.minimal_orientation_tiff(orientation))
+    icc_chunk = structure.first("ICCP")
+    profile = usable_icc_profile(icc_chunk) if icc_chunk is not None and not paranoid else None
+
+    image = b"".join(_kept_chunk(data, c) for c in kept_image_chunks(structure))
+    if extended_input or new_exif or profile is not None:
+        canvas = _canvas(structure)
+        if canvas is None:
+            raise MalformedFileError("the image size can't be read from the bitstream")
+        if extended_input:
+            alpha = chunks[0].data[0] & ALPHA_FLAG
+        else:  # a simple lossless image may announce alpha in its header
+            first = chunks[0]
+            alpha = ALPHA_FLAG if (first.fourcc == "VP8L"
+                                   and int.from_bytes(first.data[1:5], "little") >> 28 & 1) else 0
+        flags = (alpha | (ICC_FLAG if profile is not None else 0)
+                 | (EXIF_FLAG if new_exif else 0)
+                 | (ANIMATION_FLAG if structure.first("ANMF") is not None else 0))
+        width, height = canvas
+        vp8x = make_chunk("VP8X", bytes([flags, 0, 0, 0]) + (width - 1).to_bytes(3, "little")
+                          + (height - 1).to_bytes(3, "little"))
+        body = (vp8x + (make_chunk("ICCP", profile) if profile is not None else b"")
+                + image + new_exif)
+    else:
+        body = image
+    cleaned = b"RIFF" + (4 + len(body)).to_bytes(4, "little") + b"WEBP" + body
+    # Self-check: the output must be a well-formed WebP with identical image data.
+    if image_data(cleaned) != image_data(data):
+        raise MalformedFileError("internal check failed: image data changed while stripping")
+    return cleaned
+
+
 # -- parse -------------------------------------------------------------------------
 
 
