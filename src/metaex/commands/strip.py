@@ -11,7 +11,7 @@ from typing import Any
 
 from metaex.core import filetype as ft
 from metaex.core import icc
-from metaex.core.errors import (HiddenDataError, MalformedFileError, MetaexError,
+from metaex.core.errors import (CannotCleanError, MalformedFileError, MetaexError,
                                 UnsupportedFormatError)
 from metaex.core.generic import mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, format_size, load_file
@@ -149,7 +149,7 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     try:
         cleaned = module.strip(data, keep_orientation=keep_orientation, paranoid=paranoid,
                                **options)
-    except (MalformedFileError, HiddenDataError) as exc:
+    except (MalformedFileError, CannotCleanError) as exc:
         raise type(exc)(f"{source}: {exc}; no file written") from None
 
     def check(on_disk: bytes) -> VerifyResult:

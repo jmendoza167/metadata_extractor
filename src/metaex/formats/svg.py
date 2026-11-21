@@ -798,6 +798,184 @@ def _parse(data: bytes, depth: int) -> dict:
             "complete": True}
 
 
+# -- Stripping ---------------------------------------------------------------------
+
+TEXT_CONTEXT = {"text", "style", "script", "title", "desc", "foreignObject"}
+"""Inside these elements whitespace can matter, so it is never tidied away."""
+MAX_LISTED_PATHS = 5
+
+
+def in_text_context(element: Element | None) -> bool:
+    while element is not None:
+        if element.local in TEXT_CONTEXT:
+            return True
+        element = element.parent
+    return False
+
+
+def dropped_by_strip(node: Node, paranoid: bool) -> bool:
+    """True for the nodes strip() removes, with their contents: comments,
+    processing instructions, <metadata>, elements in editor namespaces and,
+    with ``paranoid``, <title> and <desc>."""
+    if isinstance(node, (Comment, PI)):
+        return True
+    if isinstance(node, Element):
+        if node.is_svg("metadata") or editor_tool(node.uri):
+            return True
+        if paranoid and (node.is_svg("title") or node.is_svg("desc")):
+            return True
+    return False
+
+
+def _drop_plan(doc: Document, paranoid: bool) -> set[int]:
+    """ids of the nodes to leave out: the dropped ones, and the whitespace
+    that indented them (outside text, where it doesn't render)."""
+    drop: set[int] = set()
+    for node in doc.prolog + doc.epilog:
+        if dropped_by_strip(node, paranoid):
+            drop.add(id(node))
+    for element in iter_elements(doc.root, skip=lambda e: id(e) in drop):
+        previous = None
+        for child in element.children:
+            if dropped_by_strip(child, paranoid):
+                drop.add(id(child))
+                if (isinstance(previous, Text) and not previous.cdata
+                        and not previous.value.strip() and not in_text_context(element)):
+                    drop.add(id(previous))
+            previous = child
+    return drop
+
+
+def _kept_attributes(element: Element) -> list[tuple[str, str]]:
+    """Attributes outside editor namespaces (declarations are decided later)."""
+    return [(name, value) for name, value in element.attrs
+            if is_namespace_declaration(name) or not editor_tool(element.attr_uri(name))]
+
+
+def _strip_embedded(item: Embedded, n: int, keep_orientation: bool, paranoid: bool,
+                    depth: int) -> str:
+    """The embedded image stripped with its own format's rules, as a new
+    base64 data: URI; raises CannotCleanError if it can't be."""
+    from metaex.core.errors import CannotCleanError, MetaexError
+    from metaex.core.registry import can_strip, format_module
+
+    where = f"{item.attribute} of <{item.element.name}> at line {item.element.line}"
+    if item.data is None:
+        raise CannotCleanError(f"embedded image {n} ({where}) can't be checked: {item.problem}")
+    kind = item.detected.name if item.detected.key != filetype.UNKNOWN.key else (
+        item.mime or "unknown data")
+    try:
+        if item.detected.key == "svg":
+            if depth >= MAX_NESTED_SVG:
+                raise CannotCleanError(f"SVG images nested more than {MAX_NESTED_SVG} deep")
+            cleaned = _strip(item.data, keep_orientation, paranoid, depth + 1)
+        else:
+            module = format_module(item.detected)
+            if not can_strip(module):
+                raise CannotCleanError(f"metaex can't strip {kind} files")
+            cleaned = module.strip(item.data, keep_orientation=keep_orientation,
+                                   paranoid=paranoid)
+    except MetaexError as exc:
+        raise CannotCleanError(f"embedded image {n} ({kind}, {where}) can't be stripped: "
+                               f"{exc}") from None
+    return f"data:{item.detected.mime};base64," + base64.b64encode(cleaned).decode("ascii")
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return a copy of the SVG with all metadata removed.
+
+    SVG is text, so the copy is written again from the parsed document
+    rather than copied byte-for-byte: every element, attribute and text that
+    is kept comes out as parsed, and prefixes (the default SVG namespace,
+    xlink:) stay exactly as written. Removed: <metadata>, comments,
+    processing instructions (the XML declaration stays), every element and
+    attribute in an editor namespace (sodipodi:namedview, inkscape:*,
+    Illustrator i:*, ...) and the declarations of those namespaces and of
+    any other namespace no longer used. <title> and <desc> are kept (they
+    are for accessibility) unless ``paranoid``. Embedded data: URI images
+    are stripped with their own format's rules (``keep_orientation`` and
+    ``paranoid`` apply to them) and written back as base64.
+
+    Refused, with nothing written: files parse() refuses, embedded data
+    that can't be stripped (an unsupported or damaged image, data in CSS),
+    and local file paths in attributes that are kept (an image linked from
+    C:\\Users\\<name>\\... can't be removed without breaking the drawing).
+    """
+    return _strip(bytes(data), keep_orientation, paranoid, 0)
+
+
+def _strip(data: bytes, keep_orientation: bool, paranoid: bool, depth: int) -> bytes:
+    from metaex.core.errors import CannotCleanError
+
+    doc = parse_document(data)
+    drop = _drop_plan(doc, paranoid)
+    kept = [e for e in iter_elements(doc.root, skip=lambda e: id(e) in drop)]
+    kept_ids = {id(e) for e in kept}
+    css = [e for e in css_data_uris(doc) if id(e) in kept_ids]
+    if css:
+        raise CannotCleanError(f"the CSS of <{css[0].name}> at line {css[0].line} contains a "
+                               "data: URI; metaex can't check what it holds")
+
+    attrs = {id(e): _kept_attributes(e) for e in kept}
+    resources = [r for r in embedded_resources(doc) if id(r.element) in kept_ids]
+    for n, item in enumerate(resources, 1):
+        new = _strip_embedded(item, n, keep_orientation, paranoid, depth)
+        attrs[id(item.element)] = [(k, new if k == item.attribute else v)
+                                   for k, v in attrs[id(item.element)]]
+
+    paths = [(e, name, path) for e in kept for name, value in attrs[id(e)]
+             if not is_namespace_declaration(name) and value.lstrip()[:5].lower() != "data:"
+             for path in local_paths(value)]
+    if paths:
+        listed = "; ".join(f"{path} ({name} of <{e.name}> at line {e.line})"
+                           for e, name, path in paths[:MAX_LISTED_PATHS])
+        more = f" and {len(paths) - MAX_LISTED_PATHS} more" if len(paths) > MAX_LISTED_PATHS else ""
+        raise CannotCleanError(
+            f"the drawing uses local files: {listed}{more}. These paths reveal user names and "
+            "folders, but removing them would break the drawing; embed or move the files "
+            "and try again")
+
+    # Namespace declarations: drop editor namespaces and any prefix no longer
+    # used; the default namespace and xlink on the root stay as written.
+    used = {""}
+    for e in kept:
+        used.add(e.prefix)
+        used.update(name.split(":", 1)[0] for name, _v in attrs[id(e)]
+                    if ":" in name and not is_namespace_declaration(name))
+    for e in kept:
+        def keep(name: str, value: str, e: Element = e) -> bool:
+            if not is_namespace_declaration(name):
+                return True
+            if editor_tool(value):
+                return False
+            prefix = name[6:] if name != "xmlns" else ""
+            return prefix in used or (e is doc.root and name in ("xmlns", "xmlns:xlink"))
+        attrs[id(e)] = [(k, v) for k, v in attrs[id(e)] if keep(k, v)]
+
+    writer = Writer(keep_node=lambda node: id(node) not in drop,
+                    attributes=lambda element: attrs[id(element)])
+    cleaned = writer.document(doc).encode("utf-8")
+    parse_document(cleaned)  # self-check: the output is well-formed and accepted
+    return cleaned
+
+
+def kept_warnings(cleaned: bytes) -> list[str]:
+    """What a cleaned SVG still contains that the user may want to know about:
+    <title>/<desc> text, scripts, event handlers and external references."""
+    doc = parse_document(cleaned)
+    out: list[str] = []
+    texts = [e for e in iter_elements(doc.root) if e.is_svg("title") or e.is_svg("desc")]
+    if texts:
+        sample = " ".join(text_of(texts[0]).split())[:80]
+        out.append(f"kept {len(texts)} <title>/<desc> element(s) for accessibility (e.g. "
+                   f"{sample!r}); use --paranoid to remove them")
+    active: list[str] = []
+    active_content_warnings(doc, active)
+    out += active
+    return out
+
+
 # -- parse -------------------------------------------------------------------------
 
 

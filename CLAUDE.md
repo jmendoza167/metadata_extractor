@@ -43,6 +43,18 @@ These hold for every format metaex strips:
   and only then renamed into place** (`os.replace`). If verification fails,
   the temp file is deleted and nothing is left behind.
 - **Malformed input is refused, never "partly stripped".**
+- **SVG is the one exception to byte-for-byte copying.** SVG is XML text, so
+  a cleaned SVG is *re-serialized*: parsed (with expat, no namespace
+  processing) and written again from the parsed tree. Elements, attributes
+  and text that are kept come out as parsed, and namespace prefixes stay
+  exactly as written: the default SVG namespace and `xlink:` keep their
+  declarations, and there are never generated prefixes like `ns0:`. What
+  may change is formatting: attribute quoting and escaping, whitespace
+  inside tags, `<a></a>` written as `<a/>`, the indentation left by removed
+  elements (outside text), and character references written as characters.
+  Embedded data: URI images are stripped by their own format's rules and
+  re-encoded as base64. Verification compares a canonical form of the
+  drawing instead of bytes.
 
 ## Layout
 

@@ -13,7 +13,12 @@ class MalformedFileError(MetaexError):
     """The file's contents are truncated, inconsistent or otherwise invalid."""
 
 
-class HiddenDataError(MetaexError):
+class CannotCleanError(MetaexError):
+    """The file is valid, but metaex can't clean it without breaking it, or it
+    holds data metaex can't check (e.g. an SVG that links to local files)."""
+
+
+class HiddenDataError(CannotCleanError):
     """The file hides data that can't be removed by copying the image data
     byte-for-byte (e.g. extra bytes inside a PNG's compressed image data)."""
 
