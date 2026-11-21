@@ -796,3 +796,15 @@ def _parse(data: bytes, depth: int) -> dict:
     active_content_warnings(doc, warnings)
     return {"warnings": warnings, "sections": sections, "structure": structure_section(doc),
             "complete": True}
+
+
+# -- parse -------------------------------------------------------------------------
+
+
+def parse(data: bytes | bytearray | memoryview) -> dict:
+    """Parse an SVG and return its warnings, report sections and structure.
+
+    Raises MalformedFileError if the file is refused (DOCTYPE/ENTITY, not
+    UTF-8, too large) or is not well-formed XML with an <svg> root.
+    """
+    return _parse(bytes(data), 0)

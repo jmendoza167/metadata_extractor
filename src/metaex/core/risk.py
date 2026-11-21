@@ -7,13 +7,15 @@ Levels:
 - critical: reveals where you were, hidden extra images or files, or
   identifies your exact device or you by name (GPS, thumbnails, MPF images,
   data after the end of the image or hidden inside the image data, serial
-  numbers, owner name)
+  numbers, owner name, local file paths in SVG, which reveal user names)
 - high: identifies device model, dates, authors, software, edit history and
   document IDs, download origin, comments, PNG text chunks, AI generation
   data (prompts, settings), PNG modification time, Content Credentials (C2PA),
-  GIF plain text and unknown application extensions (contents unknown)
+  GIF plain text and unknown application extensions (contents unknown),
+  SVG metadata, processing instructions and editor data
 - medium: camera settings, ICC device info and profile names, HDR mastering
-  display info, unknown chunks or segments (fingerprinting, unknown contents)
+  display info, unknown chunks or segments (fingerprinting, unknown contents),
+  SVG <title>/<desc> text
 - low: everything else (including zero padding after the end of the image,
   which formats report in a separate "padding" section)
 """
@@ -33,7 +35,8 @@ NOT_METADATA_SECTIONS = {"file_type", "file_system", "hashes", "structure"}
 
 # -- critical --------------------------------------------------------------------------
 CRITICAL_SECTIONS = {"gps", "mpf", "trailing",
-                     "hidden_image_data"}  # PNG: extra bytes inside the image data
+                     "hidden_image_data",  # PNG: extra bytes inside the image data
+                     "local_paths"}  # SVG: absolute paths reveal user names
 CRITICAL_FIELDS = {
     ("thumbnail", "embedded_thumbnail"),
     ("jfif", "thumbnail"),
@@ -51,7 +54,10 @@ HIGH_SECTIONS = {"mark_of_the_web", "comments",
                  # PNG: text chunks, AI prompts/settings, tIME, C2PA manifests
                  "text", "ai", "time", "content_credentials",
                  # GIF: Plain Text extensions, unknown application extensions
-                 "plain_text", "app_extensions"}
+                 "plain_text", "app_extensions",
+                 # SVG: <metadata> (RDF / Dublin Core), processing instructions,
+                 # editor namespaces and attributes
+                 "svg_metadata", "processing_instructions", "editor"}
 HIGH_NAMES = {
     # device
     "Make", "Model", "UniqueCameraModel", "MakerNote", "ImageUniqueID", "CameraFirmware",
@@ -76,7 +82,8 @@ HIGH_NAMES = {
 }
 
 # -- medium ----------------------------------------------------------------------------
-MEDIUM_SECTIONS = {"other_app", "unknown"}  # contents unknown: could be anything
+MEDIUM_SECTIONS = {"other_app", "unknown",  # contents unknown: could be anything
+                   "title_desc"}  # SVG <title>/<desc>: accessibility text, often a name
 MEDIUM_FIELDS = {
     ("icc", "device_manufacturer"),
     ("icc", "device_model"),
@@ -115,7 +122,7 @@ class RiskFinding:
 
 def _names(section_key: str, field_key: str, label: str) -> list[str]:
     """Local names to match against the rules (no prefixes, IFD names or [n])."""
-    if section_key == "xmp":
+    if section_key in ("xmp", "svg_metadata"):  # RDF property paths
         path = field_key[len("(extended) "):] if field_key.startswith("(extended) ") else field_key
         names = []
         for part in path.split("/"):

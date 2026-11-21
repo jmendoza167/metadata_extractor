@@ -211,3 +211,33 @@ def test_webp_findings_match_jpeg_and_png_rules():
         MEDIUM]
     assert found[("animation", "frames")] == LOW
     assert found[("exif", "Orientation")] == LOW
+
+
+@pytest.mark.parametrize(
+    "section,key,label,level",
+    [
+        ("local_paths", "inkscape:export-filename@12", "inkscape:export-filename on <svg>",
+         CRITICAL),
+        ("svg_metadata", "dc:creator/cc:Agent/dc:title", "dc:creator/cc:Agent/dc:title", HIGH),
+        ("svg_metadata", "dc:format", "dc:format", HIGH),
+        ("svg_metadata", "exif:GPSLatitude", "exif:GPSLatitude", CRITICAL),
+        ("comments", "comment_1", "Comment", HIGH),
+        ("processing_instructions", "pi_1", "xml-stylesheet", HIGH),
+        ("editor", "sodipodi:docname@11", "sodipodi:docname", HIGH),
+        ("title_desc", "title_1", "Title", MEDIUM),
+        ("embedded_images", "image_1", "Embedded image 1", LOW),
+    ],
+)
+def test_classify_svg_fields(section, key, label, level):
+    assert classify(section, key, label) == level
+
+
+def test_assess_svg_with_an_embedded_photo():
+    from helpers.svg import inkscape_svg
+    from metaex.formats import svg
+
+    findings = assess(svg.parse(inkscape_svg())["sections"])
+    critical = {(f.section, f.label) for f in findings if f.level == CRITICAL}
+    assert ("Local file paths", "inkscape:export-filename on <svg>") in critical
+    assert ("Embedded image 1 (JPEG): GPS", "Coordinates") in critical
+    assert any(f.section == "Editor data" and f.level == HIGH for f in findings)

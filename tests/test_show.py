@@ -156,8 +156,7 @@ def test_show_malformed_jpeg_is_partly_examined(tmp_path):
     "name,content,type_name,support",
     [
         ("song.flac", FLAC, "FLAC", PLANNED),
-        ("logo.svg", b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>',
-         "SVG", PLANNED),
+        ("sound.wav", b"RIFF\x24\x00\x00\x00WAVEfmt " + bytes(20), "WAV", PLANNED),
         ("letter.docx", make_zip({"[Content_Types].xml": "<T/>", "word/document.xml": "<w/>"}),
          "DOCX", PLANNED),
         ("bundle.zip", make_zip({"a.txt": "a"}), "ZIP", PLANNED),
@@ -511,3 +510,46 @@ def test_show_malformed_webp_is_partly_examined(tmp_path):
     data = show_json(p)
     assert field(data, "file_type", "embedded_metadata") == "partly examined (file is malformed)"
     assert any("malformed WebP" in w for w in data["warnings"])
+
+
+# -- SVG -----------------------------------------------------------------------------------
+
+
+def test_show_svg_sections(tmp_path):
+    from helpers.svg import inkscape_svg
+
+    p = tmp_path / "plan.svg"
+    p.write_bytes(inkscape_svg())
+    data = show_json(p)
+    assert field(data, "file_type", "name") == "SVG"
+    assert field(data, "file_type", "embedded_metadata") == "examined"
+    assert field(data, "file_type", "support") == "viewing supported; stripping not implemented yet"
+    keys = list(data["sections"])
+    assert keys[:7] == ["file_type", "svg_metadata", "title_desc", "comments", "editor",
+                        "local_paths", "embedded_images"]
+    assert {"exif", "gps", "xmp"} <= set(keys)
+    assert data["sections"]["gps"]["title"] == "Embedded image 1 (JPEG): GPS"
+    editor = {f["label"]: f["value"] for f in data["sections"]["editor"]["fields"].values()}
+    assert editor["sodipodi:docname"] == "floor plan.svg"
+    critical = [w for w in data["warnings"] if w.startswith("CRITICAL")]
+    assert critical[0].startswith("CRITICAL: 2 attribute(s) contain absolute local file paths")
+
+
+def test_show_svg_structure(tmp_path):
+    from helpers.svg import illustrator_svg
+
+    p = tmp_path / "logo.svg"
+    p.write_bytes(illustrator_svg())
+    result = run_show(str(p), "--structure")
+    assert result.returncode == 0, result.stderr
+    assert "SVG structure" in result.stdout and "xmlns:i" in result.stdout
+
+
+def test_show_svg_with_doctype_is_refused(tmp_path):
+    p = tmp_path / "old.svg"
+    p.write_bytes(b'<?xml version="1.0"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
+                  b'"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n'
+                  b'<svg xmlns="http://www.w3.org/2000/svg"/>')
+    data = show_json(p)
+    assert field(data, "file_type", "embedded_metadata") == "not examined (file is malformed)"
+    assert any("DOCTYPE or ENTITY" in w for w in data["warnings"])
