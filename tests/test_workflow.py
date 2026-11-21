@@ -125,7 +125,7 @@ def test_existing_output_is_left_alone(tmp_path):
 @pytest.mark.parametrize(
     "name,data",
     [
-        ("anim.gif", b"GIF89a" + bytes(40)),
+        ("song.flac", b"fLaC" + bytes(40)),
         ("doc.pdf", b"%PDF-1.7\n"),
         ("notes.txt", b"plain text"),
     ],

@@ -14,7 +14,7 @@ from metaex.core.verify import verify
 from metaex.core.writer import write_verified
 from metaex.formats import jpeg
 
-GIF = b"GIF89a" + bytes(32)
+FLAC = b"fLaC" + bytes(32)  # a format metaex can't strip yet
 
 
 def run(*args, stdin=None):
@@ -75,12 +75,12 @@ def test_output_option(photo, tmp_path):
 
 
 def test_unsupported_type_writes_nothing(tmp_path):
-    p = tmp_path / "anim.gif"
-    p.write_bytes(GIF)
+    p = tmp_path / "song.flac"
+    p.write_bytes(FLAC)
     result = run("strip", str(p))
     assert result.returncode == 1
-    assert "metaex can't strip GIF files yet; no file written" in result.stderr
-    assert listing(tmp_path) == ["anim.gif"]
+    assert "metaex can't strip FLAC files yet; no file written" in result.stderr
+    assert listing(tmp_path) == ["song.flac"]
 
 
 def test_malformed_jpeg_writes_nothing(tmp_path):

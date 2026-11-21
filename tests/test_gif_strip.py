@@ -118,3 +118,63 @@ def test_gif87a_without_global_table():
                     global_table=False)
     cleaned = gif.strip(data)
     assert cleaned.startswith(b"GIF87a") and names(cleaned) == ["Image", "Trailer"]
+
+
+# -- verification ------------------------------------------------------------------------
+
+from metaex.core.verify import verify  # noqa: E402
+
+
+def test_cleaned_gif_verifies_clean_with_matching_image_data():
+    original = metadata_gif()
+    cleaned = gif.strip(original)
+    result = verify(cleaned, original)
+    assert result.clean, (result.leftovers, result.problems)
+    assert result.image_data_match is True
+    assert {f.section for f in result.kept_by_design} == {"ICC profile", "Animation"}
+
+
+def test_original_with_metadata_is_not_clean():
+    result = verify(metadata_gif())
+    assert not result.clean
+    sections = {f.section for f in result.leftovers}
+    assert {"Comments", "Plain text", "XMP", "Application extensions",
+            "Trailing data", "GIF structure"} <= sections
+
+
+@pytest.mark.parametrize("block,problem", [
+    (comment("x"), "not allowed in a cleaned GIF"),
+    (b"\x21\xf9\x04\xe0\x00\x00\x00\x00", "not in its minimal form"),
+    (b"\x21\xf9\x04\x00\x00\x00\x00\x05extra\x00", "not in its minimal form"),
+    (b"\x21\xff\x0bNETSCAPE2.0\x03\x01\x00\x00\x02ab\x00", "more than the loop count"),
+    (icc_extension(icc_profile() + b"extra"), "invalid or has extra bytes"),
+])
+def test_structure_leftovers(block, problem):
+    result = verify(make_gif(block, image()))
+    assert any(f.section == "GIF structure" and problem in f.value for f in result.leftovers)
+
+
+def test_unused_graphic_control_is_a_leftover():
+    result = verify(make_gif(image(), graphic_control()))
+    assert any("does not apply to an image" in f.value for f in result.leftovers)
+
+
+def test_second_loop_extension_is_a_leftover():
+    result = verify(make_gif(loop(), loop(2, b"ANIMEXTS1.0"), image()))
+    assert len([f for f in result.leftovers if f.section == "GIF structure"]) == 1
+
+
+def test_changed_image_data_is_detected():
+    original = metadata_gif()
+    cleaned = bytearray(gif.strip(original))
+    img = gif.walk_blocks(bytes(cleaned)).images[0]
+    cleaned[img.data_start + 2] ^= 0x01  # one bit of LZW data
+    result = verify(bytes(cleaned), original)
+    assert result.image_data_match is False and not result.clean
+    assert "image data differs from the original" in result.problems
+
+
+def test_truncated_gif_is_a_problem():
+    result = verify(gif.strip(metadata_gif())[:-1])
+    assert not result.clean
+    assert any("not a complete, well-formed GIF" in p for p in result.problems)

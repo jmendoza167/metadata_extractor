@@ -226,6 +226,9 @@ _SECTION_GROUPS = {
     "color": "Color and display",
     "unknown": "Unknown chunks",
     "hidden_image_data": "Hidden data in image data",
+    # GIF
+    "plain_text": "Plain text",
+    "app_extensions": "Application extensions",
 }
 _CAMERA = {"Make", "Model", "BodySerialNumber", "LensMake", "LensModel", "LensSerialNumber",
            "LensSpecification", "MakerNote", "CameraOwnerName", "UniqueCameraModel",

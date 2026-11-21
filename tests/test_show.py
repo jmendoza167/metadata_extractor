@@ -429,7 +429,7 @@ def test_show_gif_sections(tmp_path):
     data = show_json(p)
     assert field(data, "file_type", "name") == "GIF"
     assert field(data, "file_type", "embedded_metadata") == "examined"
-    assert field(data, "file_type", "support") == "viewing supported; stripping not implemented yet"
+    assert field(data, "file_type", "support") == "supported"
     assert list(data["sections"]) == [
         "file_type", "comments", "plain_text", "xmp", "icc", "animation", "app_extensions",
         "trailing", "file_system", "hashes"]

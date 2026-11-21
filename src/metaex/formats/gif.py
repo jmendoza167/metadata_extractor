@@ -14,6 +14,7 @@ else a program chose to store).
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 
 from metaex.core import filetype, icc, xmp
@@ -555,6 +556,99 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     if image_data(cleaned) != image_data(data):
         raise MalformedFileError("internal check failed: image data changed while stripping")
     return cleaned
+
+
+# -- Verification -------------------------------------------------------------------
+
+# Report sections (and field keys; None = every field) that a stripped GIF may
+# still contain. Anything else found by verify is a leftover.
+KEPT_BY_DESIGN: dict[str, set[str] | None] = {
+    "icc": None,
+    "animation": None,
+}
+
+
+def _leftover_problem(structure: GifStructure, i: int, data: bytes,
+                      seen: set[str]) -> str | None:
+    """Why block ``i`` is not one strip() would write; None if it is."""
+    block = structure.blocks[i]
+    if block.kind in ("image", "trailer"):
+        return None
+    if block.label == GRAPHIC_CONTROL:
+        if block.end - block.offset != 8 or block.sub_blocks[0][0] & GCE_RESERVED_BITS:
+            return "Graphic Control extension is not in its minimal form"
+        following = next((b for b in structure.blocks[i + 1 :]
+                          if b.kind != "extension" or b.label in (GRAPHIC_CONTROL, PLAIN_TEXT)),
+                         None)
+        if following is None or following.kind != "image":
+            return "Graphic Control extension does not apply to an image"
+        return None
+    app_id = block.app_id
+    first = app_id not in seen
+    seen.add(app_id or "")
+    if app_id in LOOP_IDS and first and not seen & (set(LOOP_IDS) - {app_id}):
+        if (len(block.sub_blocks) == 2 and len(block.sub_blocks[1]) == 3
+                and block.sub_blocks[1][0] == 1):
+            return None
+        return "loop extension holds more than the loop count"
+    if app_id == ICC_ID and first:
+        profile = usable_icc_profile(block)
+        if profile is not None and icc_extension(profile) == data[block.offset : block.end]:
+            return None
+        return "ICC profile is invalid or has extra bytes"
+    return f"{block.name} is not allowed in a cleaned GIF"
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """GIF-specific verification, beyond the field-level whitelist.
+
+    - The file must be complete (trailer present, nothing malformed).
+    - Block whitelist: only images, Graphic Control extensions in their
+      minimal form that apply to an image, one minimal loop extension and
+      one ICC profile extension holding exactly a valid profile may remain.
+      Anything else is a leftover.
+    - SHA-256 of the image data (screen descriptor, color tables, Graphic
+      Control fields, image descriptors, LZW data, loop count); compared
+      with the original's if one is given.
+    """
+    out: dict = {"leftovers": [], "problems": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None}
+    try:
+        image = image_data(cleaned)
+    except MalformedFileError as exc:
+        out["problems"].append(f"not a complete, well-formed GIF: {exc}")
+        return out
+    out["image_sha256"] = hashlib.sha256(image).hexdigest()
+    structure = walk_blocks(cleaned)
+    seen: set[str] = set()
+    for i, block in enumerate(structure.blocks):
+        problem = _leftover_problem(structure, i, cleaned, seen)
+        if problem is not None:
+            name = block.name + (f" {block.app_id}" if block.app_id else "")
+            size = block.end - block.offset
+            out["leftovers"].append(("GIF structure", f"{name} at offset {block.offset}",
+                                     f"{problem} ({size} bytes)"))
+    if original is not None:
+        try:
+            original_image = image_data(original)
+        except MalformedFileError as exc:
+            out["problems"].append(f"original is not a complete, well-formed GIF ({exc}); "
+                                   "image data not compared")
+        else:
+            out["original_image_sha256"] = hashlib.sha256(original_image).hexdigest()
+            out["image_data_match"] = original_image == image
+            if original_image != image:
+                out["problems"].append("image data differs from the original")
+    return out
+
+
+def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
+    """Byte size of the data after the trailer ("trailing"), for the strip summary."""
+    data = bytes(data)
+    structure = walk_blocks(data)
+    if structure.end_of_image is not None and len(data) > structure.end_of_image:
+        return {"trailing": len(data) - structure.end_of_image}
+    return {}
 
 
 # -- parse -------------------------------------------------------------------------
