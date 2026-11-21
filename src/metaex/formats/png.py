@@ -587,19 +587,28 @@ def structure_section(structure: PngStructure) -> Section:
 
 def trailing_sections(structure: PngStructure, data: bytes,
                       warnings: list[str]) -> list[Section]:
-    """Bytes after the IEND chunk, which viewers ignore."""
+    """Bytes after the IEND chunk, which viewers ignore.
+
+    Zero padding is a plain warning (same rule as JPEG); anything else is
+    CRITICAL, because it can hide a whole file.
+    """
     if structure.end_of_image is None:
         return []
     trailing = data[structure.end_of_image:]
     if not trailing:
         return []
+    if trailing.strip(b"\x00") == b"":
+        section = Section("padding", "Trailing data")
+        section.add("size", "Size", f"{len(trailing)} bytes")
+        section.add("offset", "Starts at offset", structure.end_of_image)
+        section.add("content", "Content", "padding (only 0x00 bytes)")
+        warnings.append(f"{len(trailing)} bytes of padding after the end of the image")
+        return [section]
     section = Section("trailing", "Trailing data")
     section.add("size", "Size", f"{len(trailing)} bytes", sensitive=True)
     section.add("offset", "Starts at offset", structure.end_of_image)
     detected = filetype.detect(trailing)
     content = detected.name if detected.key != filetype.UNKNOWN.key else "unrecognized data"
-    if trailing.strip(b"\x00") == b"":
-        content = "padding (only 0x00 bytes)"
     section.add("content", "Content", content, sensitive=True,
                 note="detected from the first bytes; more may follow")
     warnings.append(f"CRITICAL: {len(trailing)} bytes after the end of the image "

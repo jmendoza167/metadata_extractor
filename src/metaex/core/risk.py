@@ -12,7 +12,8 @@ Levels:
   data (prompts, settings), PNG modification time, Content Credentials (C2PA)
 - medium: camera settings, ICC device info and profile names, HDR mastering
   display info, unknown chunks or segments (fingerprinting, unknown contents)
-- low: everything else
+- low: everything else (including zero padding after the end of the image,
+  which formats report in a separate "padding" section)
 """
 
 from __future__ import annotations

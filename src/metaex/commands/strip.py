@@ -198,6 +198,7 @@ _SECTION_GROUPS = {
     "thumbnail": "Thumbnail",
     "mpf": "Extra images (MPF)",
     "trailing": "Data after end of image",
+    "padding": "Data after end of image",
     "xmp": "XMP",
     "iptc": "IPTC",
     "photoshop": "Photoshop resources",

@@ -240,9 +240,13 @@ def test_trailing_data_is_critical(trailing, content):
 
 
 def test_padding_after_eoi_is_not_critical():
+    from metaex.core import risk
+
     result = jpeg.parse(make_jpeg(trailing=bytes(64)))
-    assert section_fields(result, "trailing")["Content"].value.startswith("padding")
+    assert section_fields(result, "padding")["Content"].value.startswith("padding")
     assert not any(w.startswith("CRITICAL") for w in result["warnings"])
+    padding = [s for s in result["sections"] if s.key == "padding"]
+    assert all(f.level == risk.LOW for f in risk.assess(padding))
 
 
 def test_no_trailing_section_without_trailing_data_or_eoi():

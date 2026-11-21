@@ -585,13 +585,18 @@ def trailing_sections(structure: JpegStructure, data: bytes, warnings: list[str]
     trailing = data[structure.end_of_image:]
     if not trailing:
         return []
-    section = Section("trailing", "Trailing data")
-    section.add("size", "Size", f"{len(trailing)} bytes", sensitive=True)
-    section.add("offset", "Starts at offset", structure.end_of_image)
     if trailing.strip(b"\x00") == b"" or trailing.strip(b"\xff") == b"":
+        # Padding hides nothing; it gets its own section key so the risk
+        # rules don't rate it like real data after the image.
+        section = Section("padding", "Trailing data")
+        section.add("size", "Size", f"{len(trailing)} bytes")
+        section.add("offset", "Starts at offset", structure.end_of_image)
         section.add("content", "Content", "padding (only 0x00 or 0xFF bytes)")
         warnings.append(f"{len(trailing)} bytes of padding after the end of the image")
         return [section]
+    section = Section("trailing", "Trailing data")
+    section.add("size", "Size", f"{len(trailing)} bytes", sensitive=True)
+    section.add("offset", "Starts at offset", structure.end_of_image)
     detected = filetype.detect(trailing)
     content = detected.name if detected.key != filetype.UNKNOWN.key else "unrecognized data"
     section.add("content", "Content", content, sensitive=True,

@@ -88,7 +88,8 @@ def test_structure_section_lists_chunks():
     [
         (b"PK\x03\x04" + bytes(30), "ZIP"),
         (b"secret notes", "unrecognized data"),
-        (bytes(16), "padding (only 0x00 bytes)"),
+        (bytes(15) + b"\x01", "unrecognized data"),  # not only zeros
+        (b"\xff" * 16, "unrecognized data"),  # JPEG pads with 0xFF; PNG writers don't
     ],
 )
 def test_data_after_iend_is_critical(trailing, content):
@@ -101,6 +102,23 @@ def test_data_after_iend_is_critical(trailing, content):
     assert fields["offset"] == s.end_of_image
     assert fields["content"] == content
     assert warnings[0].startswith("CRITICAL:")
+
+
+def test_zero_padding_after_iend_is_a_warning_not_critical():
+    from metaex.core import risk
+
+    result = png.parse(make_png(trailing=bytes(16)))
+    padding = next(s for s in result["sections"] if s.title == "Trailing data")
+    assert padding.key == "padding"
+    fields = {f.key: f.value for f in padding.fields}
+    assert fields["content"] == "padding (only 0x00 bytes)"
+    assert "16 bytes of padding after the end of the image" in result["warnings"]
+    assert not any(w.startswith("CRITICAL") for w in result["warnings"])
+    assert all(f.level == risk.LOW for f in risk.assess([padding]))
+    # strip still drops it
+    cleaned = png.strip(make_png(trailing=bytes(16)))
+    assert png.walk_chunks(cleaned).end_of_image == len(cleaned)
+    assert png.removed_sizes(make_png(trailing=bytes(16))) == {"trailing": 16}
 
 
 def test_no_trailing_section_without_trailing_data():
