@@ -12,6 +12,7 @@ Viewers ignore anything after the end the RIFF size gives.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 
 from metaex.core import exif, filetype, icc, xmp
@@ -533,6 +534,106 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     if image_data(cleaned) != image_data(data):
         raise MalformedFileError("internal check failed: image data changed while stripping")
     return cleaned
+
+
+# -- Verification -------------------------------------------------------------------
+
+
+def _chunk_problem(chunk: Chunk, seen: set[str], animated: bool) -> str | None:
+    """Why a top-level chunk is not one strip() would write; None if it is."""
+    first = chunk.fourcc not in seen
+    seen.add(chunk.fourcc)
+    if chunk.padding not in (b"", b"\x00"):
+        return "padding byte is not zero"
+    if chunk.fourcc in ("VP8 ", "VP8L", "ALPH"):
+        return None
+    if chunk.fourcc == "ANIM":
+        return None if animated and first else "ANIM chunk is not allowed here"
+    if chunk.fourcc == "ANMF":
+        extra = [c.label for c in chunk.children if c.fourcc not in FRAME_CHUNKS]
+        if extra:
+            return "frame holds chunks other than image data: " + ", ".join(extra)
+        if any(c.padding not in (b"", b"\x00") for c in chunk.children):
+            return "padding byte inside the frame is not zero"
+        return None
+    if chunk.fourcc == "ICCP" and first:
+        return None if usable_icc_profile(chunk) == chunk.data else (
+            "ICC profile is invalid or has extra bytes")
+    if chunk.fourcc == "EXIF" and first:
+        return None if exif.is_orientation_only_tiff(chunk.data) else (
+            "EXIF contains more than the Orientation tag, or unused bytes")
+    return f"{chunk.label} chunk is not allowed in a cleaned WebP"
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """WebP-specific verification, beyond the field-level whitelist.
+
+    - The file must be complete and well-formed, and the RIFF size must be
+      the file size minus 8.
+    - Chunk whitelist: only image chunks (VP8, VP8L, ALPH, ANIM, ANMF frames
+      holding only image data), one valid ICCP and one Orientation-only EXIF
+      may remain; padding bytes must be zero. Anything else is a leftover.
+    - The VP8X flags (ICC, EXIF, XMP, animation) must match the chunks
+      present, and its reserved bits must be zero.
+    - SHA-256 of the image data (canvas size, image chunks and frames);
+      compared with the original's if one is given.
+    """
+    out: dict = {"leftovers": [], "problems": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None}
+    try:
+        image = image_data(cleaned)
+    except MalformedFileError as exc:
+        out["problems"].append(f"not a complete, well-formed WebP: {exc}")
+        return out
+    out["image_sha256"] = hashlib.sha256(image).hexdigest()
+    structure = walk_chunks(cleaned)
+    if structure.riff_size + 8 != len(cleaned):
+        out["problems"].append(f"RIFF size {structure.riff_size} does not match the file "
+                               f"size ({len(cleaned)} bytes)")
+    chunks = structure.chunks
+    animated = structure.first("ANMF") is not None
+    if chunks[0].fourcc == "VP8X":
+        vp8x = chunks[0]
+        flags = vp8x.data[0]
+        if vp8x.size != 10 or flags & RESERVED_FLAGS or any(vp8x.data[1:4]):
+            out["leftovers"].append(("WebP structure", "VP8X", "reserved bits or extra bytes "
+                                     f"are not zero ({vp8x.size} bytes)"))
+        for bit, fourcc, name in FLAG_CHUNKS:
+            if bool(flags & bit) != (structure.first(fourcc) is not None):
+                out["problems"].append(f"VP8X {name} flag does not match the chunks present")
+        rest = chunks[1:]
+    else:
+        for c in chunks[1:]:
+            out["leftovers"].append(("WebP structure", f"{c.label} at offset {c.offset}",
+                                     f"a simple WebP holds only its image ({c.size} bytes)"))
+        rest = chunks[:1]
+    seen: set[str] = set()
+    for chunk in rest:
+        problem = _chunk_problem(chunk, seen, animated)
+        if problem is not None:
+            out["leftovers"].append(("WebP structure", f"{chunk.label} at offset {chunk.offset}",
+                                     f"{problem} ({chunk.size} bytes)"))
+    if original is not None:
+        try:
+            original_image = image_data(original)
+        except MalformedFileError as exc:
+            out["problems"].append(f"original is not a complete, well-formed WebP ({exc}); "
+                                   "image data not compared")
+        else:
+            out["original_image_sha256"] = hashlib.sha256(original_image).hexdigest()
+            out["image_data_match"] = original_image == image
+            if original_image != image:
+                out["problems"].append("image data differs from the original")
+    return out
+
+
+def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
+    """Byte size of the data after the RIFF data ("trailing"), for the strip summary."""
+    data = bytes(data)
+    structure = walk_chunks(data)
+    if structure.end_of_image is not None and len(data) > structure.end_of_image:
+        return {"trailing": len(data) - structure.end_of_image}
+    return {}
 
 
 # -- parse -------------------------------------------------------------------------

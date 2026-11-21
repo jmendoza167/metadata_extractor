@@ -134,3 +134,74 @@ def test_unreadable_bitstream_size_is_refused_when_vp8x_is_needed():
     with pytest.raises(MalformedFileError, match="image size can't be read"):
         webp.strip(data)
     assert webp.strip(data, keep_orientation=False) == riff(chunk("VP8 ", b"\x01" + bytes(20)))
+
+
+# -- verification ------------------------------------------------------------------------
+
+from metaex.core.verify import verify  # noqa: E402
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"paranoid": True}, {"keep_orientation": False}])
+def test_cleaned_webp_verifies_clean_with_matching_image_data(kwargs):
+    original = metadata_webp()
+    cleaned = webp.strip(original, **kwargs)
+    result = verify(cleaned, original)
+    assert result.clean, (result.leftovers, result.problems)
+    assert result.image_data_match is True
+
+
+def test_original_with_metadata_is_not_clean():
+    result = verify(metadata_webp())
+    assert not result.clean
+    sections = {f.section for f in result.leftovers}
+    assert {"EXIF", "GPS", "XMP", "Unknown chunks", "Trailing data", "WebP structure"} <= sections
+
+
+def _replace_vp8x_flags(data, flags):
+    d = bytearray(data)
+    d[20] = flags
+    return bytes(d)
+
+
+def test_vp8x_flags_must_match_the_chunks():
+    cleaned = webp.strip(metadata_webp())
+    wrong = _replace_vp8x_flags(cleaned, cleaned[20] | webp.XMP_FLAG)
+    result = verify(wrong)
+    assert any("XMP flag does not match" in p for p in result.problems)
+    reserved = _replace_vp8x_flags(cleaned, cleaned[20] | 0x01)
+    assert any(f.label == "VP8X" for f in verify(reserved).leftovers)
+
+
+def test_wrong_riff_size_is_a_problem():
+    cleaned = webp.strip(still_webp())
+    longer = riff(cleaned[12:] + b"\x00\x00", size=len(cleaned) - 8)  # 2 bytes of padding after
+    result = verify(longer)
+    assert any("RIFF size" in p for p in result.problems)
+
+
+@pytest.mark.parametrize("data,problem", [
+    (extended(FRAME_A, xmp_chunk(b"<x/>")), "not allowed in a cleaned WebP"),
+    (extended(FRAME_A, exif_chunk(exif_tiff(6))), "more than the Orientation tag"),
+    (extended(iccp(icc_profile() + b"xx"), FRAME_A), "invalid or has extra bytes"),
+    (extended(anim(), anmf(FRAME_A, chunk("abcd", b"x"))), "other than image data"),
+    (extended(FRAME_A, chunk("abcd", b"odd", pad=b"Q")), "padding byte is not zero"),
+    (riff(FRAME_A + chunk("abcd", b"xy")), "a simple WebP holds only its image"),
+])
+def test_structure_leftovers(data, problem):
+    result = verify(data)
+    assert any(f.section == "WebP structure" and problem in f.value for f in result.leftovers), (
+        result.leftovers)
+
+
+def test_changed_image_data_is_detected():
+    original = still_webp()
+    cleaned = bytearray(webp.strip(original))
+    pos = cleaned.find(b"VP8L") + 8
+    cleaned[pos + 6] ^= 0x01
+    result = verify(bytes(cleaned), original)
+    assert result.image_data_match is False and not result.clean
+
+
+def test_truncated_webp_is_a_problem():
+    result = verify(webp.strip(still_webp())[:-4])
+    assert any("not a complete, well-formed WebP" in p for p in result.problems)
