@@ -200,6 +200,40 @@ def parse_exif(payload: bytes) -> TiffStructure:
     return parse_tiff(tiff_from_exif_payload(payload))
 
 
+EXIF_CHUNK_PREFIX = b"Exif\x00\x00"
+
+
+def tiff_from_chunk(payload: bytes) -> bytes:
+    """The TIFF data of a PNG eXIf or WebP EXIF chunk.
+
+    The specifications store TIFF data directly; some writers add the
+    JPEG-style "Exif\\0\\0" prefix, which is accepted too.
+    """
+    payload = bytes(payload)
+    return payload[len(EXIF_CHUNK_PREFIX):] if payload.startswith(EXIF_CHUNK_PREFIX) else payload
+
+
+def tiff_sections(tiff: bytes, warnings: list[str], suffix: str = "") -> list[Section]:
+    """EXIF, GPS and Thumbnail sections for TIFF data from a chunk.
+
+    ``suffix`` is added to each section title (e.g. " (chunk 2)"). Data that
+    can't be parsed gives one EXIF section saying so, with the reason in
+    ``warnings``.
+    """
+    try:
+        st = parse_tiff(tiff)
+    except MalformedFileError as exc:
+        warnings.append(f"EXIF{suffix} not parsed: {exc}")
+        section = Section("exif", "EXIF" + suffix)
+        section.add("status", "EXIF", "present but not parsed", sensitive=True, note=str(exc))
+        return [section]
+    warnings.extend(f"EXIF{suffix}: {w}" for w in st.warnings)
+    sections = exif_sections(st, warnings)
+    for section in sections:
+        section.title += suffix
+    return sections
+
+
 def parse_tiff(tiff: bytes, sub_ifd_tags: dict[int, str] | None = None) -> TiffStructure:
     """Read IFD0, the chain of IFDs after it (IFD1, ...) and sub-IFDs.
 

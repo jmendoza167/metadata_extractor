@@ -330,17 +330,9 @@ def _time_value(chunk: Chunk, warnings: list[str]) -> str:
 
 # -- eXIf ------------------------------------------------------------------------------
 
-EXIF_PREFIX = b"Exif\x00\x00"
-
-
 def exif_tiff(chunk: Chunk) -> bytes:
-    """The TIFF data of an eXIf chunk.
-
-    The specification says the chunk holds TIFF data directly; some
-    writers add the JPEG-style "Exif\\0\\0" prefix, which is accepted too.
-    """
-    data = chunk.data
-    return data[len(EXIF_PREFIX):] if data.startswith(EXIF_PREFIX) else data
+    """The TIFF data of an eXIf chunk (with or without an "Exif\\0\\0" prefix)."""
+    return exif.tiff_from_chunk(chunk.data)
 
 
 def exif_sections(structure: PngStructure, warnings: list[str]) -> list[Section]:
@@ -348,20 +340,7 @@ def exif_sections(structure: PngStructure, warnings: list[str]) -> list[Section]
     out: list[Section] = []
     for i, chunk in enumerate(structure.all("eXIf")):
         suffix = "" if i == 0 else f" (chunk {i + 1})"
-        try:
-            st = exif.parse_tiff(exif_tiff(chunk))
-        except MalformedFileError as exc:
-            warnings.append(f"EXIF{suffix} not parsed: {exc}")
-            section = Section("exif", "EXIF" + suffix)
-            section.add("status", "EXIF", "present but not parsed", sensitive=True,
-                        note=str(exc))
-            out.append(section)
-            continue
-        warnings.extend(f"EXIF{suffix}: {w}" for w in st.warnings)
-        sections = exif.exif_sections(st, warnings)
-        for section in sections:
-            section.title += suffix
-        out += sections
+        out += exif.tiff_sections(exif_tiff(chunk), warnings, suffix)
     return out
 
 
