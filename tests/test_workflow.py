@@ -157,6 +157,35 @@ def test_webp_show_strip_verify_show(tmp_path, order, extra):
     assert listing(tmp_path) == ["image.webp", "image_clean.webp"]
 
 
+@pytest.mark.parametrize("extra", [[], ["--paranoid"]])
+def test_svg_show_strip_verify_show(tmp_path, extra):
+    from helpers.svg import kitchen_sink_svg
+    from metaex.formats import svg
+
+    original = tmp_path / "plan.svg"
+    original.write_bytes(kitchen_sink_svg())
+    before = sha(original)
+    shown = json.loads(metaex("show", str(original), "--json").stdout)
+    assert len(sensitive_fields(shown)) > 30
+
+    result = metaex("strip", str(original), *extra)
+    assert result.returncode == 0, result.stderr
+    cleaned = tmp_path / "plan_clean.svg"
+    verified = metaex("verify", str(cleaned), "--original", str(original), "--json")
+    assert verified.returncode == 0, verified.stdout
+    v = json.loads(verified.stdout)
+    assert v["clean"] and v["image_data_match"]
+
+    after = json.loads(metaex("show", str(cleaned), "--json").stdout)
+    assert set(after["sections"]) - NOT_METADATA <= set(svg.KEPT_BY_DESIGN)
+    leftover = [s for s in sensitive_fields(after) if s[0] not in svg.KEPT_BY_DESIGN]
+    assert leftover == []
+    risk = json.loads(metaex("risk", str(cleaned), "--json").stdout)
+    assert risk["summary"]["critical"] == 0 and risk["summary"]["high"] == 0
+    assert sha(original) == before
+    assert listing(tmp_path) == ["plan.svg", "plan_clean.svg"]
+
+
 def test_in_place_with_and_without_yes(tmp_path):
     p = tmp_path / "photo.jpg"
     p.write_bytes(sample_photo())

@@ -180,3 +180,23 @@ def illustrator_svg(*, user: str = "Jane Doe") -> bytes:
 </g>
 </svg>
 """.encode("utf-8")
+
+
+def kitchen_sink_svg() -> bytes:
+    """An Inkscape-style SVG with everything metaex reports that can still be
+    cleaned: RDF metadata, a title and description, comments, a processing
+    instruction, editor data with local paths (in attributes strip removes),
+    an embedded JPEG with GPS, an embedded PNG with text, a nested SVG with
+    a comment, a script and an external reference. Values are made up."""
+    from helpers.png import make_png, text
+
+    png = make_png(text("Author", "Jane Doe"), text("Comment", "drawn on the train"))
+    nested = simple_svg("<!-- nested: made by Jane --><circle r='2'/>")
+    extra = f"""
+  <desc id="desc1">Draft for the landlord, do not share</desc>
+  <image href="{data_uri(png, 'image/png')}" width="4" height="4"/>
+  <image href="{data_uri(nested, 'image/svg+xml')}" width="10" height="10"/>
+  <script>console.log("hello")</script>
+  <image href="https://tracker.example/pixel.png" width="1" height="1"/>"""
+    declaration, rest = inkscape_svg(extra=extra).split(b"\n", 1)
+    return declaration + b'\n<?xml-stylesheet type="text/css" href="plan.css"?>\n' + rest

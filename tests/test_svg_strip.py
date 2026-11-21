@@ -226,3 +226,13 @@ def test_kept_title_is_by_design_and_not_a_leftover():
     result = verify(simple_svg("<title>Plan</title><rect/>"))
     assert result.clean and [f.section for f in result.kept_by_design] == [
         "Title and description"]
+
+
+def test_stray_text_next_to_removed_nodes():
+    """Regression (found by fuzzing): text between elements next to removed
+    nodes; the indentation strip tidies away must not change the drawing."""
+    data = simple_svg("\n &amp; \n  <title>t</title>\n  <!-- c -->\n  <rect/>\n")
+    for paranoid in (False, True):
+        cleaned = svg.strip(data, paranoid=paranoid)
+        result = verify(cleaned, data)
+        assert result.clean and result.image_data_match, result.problems

@@ -956,7 +956,9 @@ def _strip(data: bytes, keep_orientation: bool, paranoid: bool, depth: int) -> b
     writer = Writer(keep_node=lambda node: id(node) not in drop,
                     attributes=lambda element: attrs[id(element)])
     cleaned = writer.document(doc).encode("utf-8")
-    parse_document(cleaned)  # self-check: the output is well-formed and accepted
+    # Self-check: the output is accepted and draws exactly the same.
+    if drawing(parse_document(cleaned), depth) != drawing(doc, depth):
+        raise MalformedFileError("internal check failed: the drawing changed while stripping")
     return cleaned
 
 
@@ -1033,7 +1035,7 @@ def drawing(doc: Document, depth: int = 0) -> bytes:
     attributes sorted, without what strip() removes (comments, processing
     instructions, <metadata>, editor data, namespace declarations) and
     without <title>/<desc>; text merged where removed nodes split it, and
-    whitespace-only text left out where it doesn't render (outside text);
+    whitespace collapsed where it doesn't render (outside text elements);
     embedded images replaced by the SHA-256 of their image data."""
     out: list[str] = []
     # Iterative walk: ("open", element) then its children, then ("close",).
@@ -1061,16 +1063,22 @@ def drawing(doc: Document, depth: int = 0) -> bytes:
         children: list = []
         buffer = ""
         text_context = in_text_context(element)
+
+        def flush(text: str) -> None:
+            # Outside text, whitespace doesn't render: compare it collapsed.
+            if not text_context:
+                text = " ".join(text.split())
+            if text:
+                children.append(("text", text))
+
         for child in element.children:
             if isinstance(child, Text):
                 buffer += child.value
             elif isinstance(child, Element) and not dropped_by_strip(child, True):
-                if buffer and (text_context or buffer.strip()):
-                    children.append(("text", buffer))
+                flush(buffer)
                 buffer = ""
                 children.append(("open", child))
-        if buffer and (text_context or buffer.strip()):
-            children.append(("text", buffer))
+        flush(buffer)
         work.append(("close",))
         work.extend(reversed(children))
     return "".join(out).encode("utf-8")
