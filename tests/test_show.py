@@ -523,7 +523,7 @@ def test_show_svg_sections(tmp_path):
     data = show_json(p)
     assert field(data, "file_type", "name") == "SVG"
     assert field(data, "file_type", "embedded_metadata") == "examined"
-    assert field(data, "file_type", "support") == "viewing supported; stripping not implemented yet"
+    assert field(data, "file_type", "support") == "supported"
     keys = list(data["sections"])
     assert keys[:7] == ["file_type", "svg_metadata", "title_desc", "comments", "editor",
                         "local_paths", "embedded_images"]

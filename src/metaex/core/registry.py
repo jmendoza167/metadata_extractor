@@ -10,7 +10,7 @@ from metaex.core.filetype import FileType
 
 # Formats whose strip() and verification are finished and enabled. A format
 # module can have a strip() under development without being offered here.
-STRIPPABLE = frozenset({"jpeg", "png", "gif", "webp"})
+STRIPPABLE = frozenset({"jpeg", "png", "gif", "webp", "svg"})
 
 
 def format_module(filetype: FileType) -> ModuleType | None:

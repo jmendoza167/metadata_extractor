@@ -976,6 +976,198 @@ def kept_warnings(cleaned: bytes) -> list[str]:
     return out
 
 
+# -- Verification -------------------------------------------------------------------
+
+
+def _kept_by_design() -> dict[str, set[str] | None]:
+    """<title>/<desc> and the list of embedded images, plus whatever the
+    embedded images' own formats keep by design (their sections appear in
+    the SVG's report)."""
+    import importlib
+
+    kept: dict[str, set[str] | None] = {"title_desc": None, "embedded_images": None}
+    for name in ("jpeg", "png", "gif", "webp"):
+        module = importlib.import_module(f"metaex.formats.{name}")
+        for key, fields in getattr(module, "KEPT_BY_DESIGN", {}).items():
+            if fields is None or kept.get(key, set()) is None:
+                kept[key] = None
+            else:
+                kept[key] = kept.get(key, set()) | fields
+    return kept
+
+
+KEPT_BY_DESIGN: dict[str, set[str] | None] = _kept_by_design()
+IMAGE_LABEL = "Drawing"
+"""What verify compares for SVG: the canonical drawing, not bytes."""
+
+
+def _embedded_digest(value: str, depth: int) -> str:
+    """Stands for an embedded data: URI in the canonical drawing: the SHA-256 of
+    its image data (so stripping its metadata doesn't change the drawing)."""
+    import hashlib
+
+    from metaex.core.registry import format_module
+
+    try:
+        _mime, raw = decode_data_uri(value, MAX_EMBEDDED_TOTAL)
+    except (MalformedFileError, _LimitReached):
+        return "unreadable:" + hashlib.sha256(value.encode("utf-8")).hexdigest()
+    detected = filetype.detect(raw)
+    try:
+        if detected.key == "svg":
+            if depth >= MAX_NESTED_SVG:
+                raise MalformedFileError("nested too deeply")
+            return "svg:" + hashlib.sha256(drawing(parse_document(raw), depth + 1)).hexdigest()
+        module = format_module(detected)
+        image_data = getattr(module, "image_data", None)
+        if callable(image_data):
+            return f"{detected.key}:" + hashlib.sha256(image_data(raw)).hexdigest()
+    except MalformedFileError:
+        pass
+    return "unreadable:" + hashlib.sha256(raw).hexdigest()
+
+
+def drawing(doc: Document, depth: int = 0) -> bytes:
+    """A canonical form of what is drawn, for comparing an original and its
+    cleaned copy: elements and attributes by namespace URI (not prefix),
+    attributes sorted, without what strip() removes (comments, processing
+    instructions, <metadata>, editor data, namespace declarations) and
+    without <title>/<desc>; text merged where removed nodes split it, and
+    whitespace-only text left out where it doesn't render (outside text);
+    embedded images replaced by the SHA-256 of their image data."""
+    out: list[str] = []
+    # Iterative walk: ("open", element) then its children, then ("close",).
+    work: list = [("open", doc.root)]
+    while work:
+        item = work.pop()
+        if item[0] == "close":
+            out.append(">")
+            continue
+        if item[0] == "text":
+            out.append("T" + repr(item[1]))
+            continue
+        element = item[1]
+        if dropped_by_strip(element, True):
+            continue
+        attrs = []
+        for name, value in element.attrs:
+            uri = element.attr_uri(name)
+            if is_namespace_declaration(name) or editor_tool(uri):
+                continue
+            if is_href(element, name) and value.lstrip()[:5].lower() == "data:":
+                value = "embedded:" + _embedded_digest(value, depth)
+            attrs.append((uri or "", name.split(":", 1)[-1], value))
+        out.append("<" + repr((element.uri or "", element.local, sorted(attrs))))
+        children: list = []
+        buffer = ""
+        text_context = in_text_context(element)
+        for child in element.children:
+            if isinstance(child, Text):
+                buffer += child.value
+            elif isinstance(child, Element) and not dropped_by_strip(child, True):
+                if buffer and (text_context or buffer.strip()):
+                    children.append(("text", buffer))
+                buffer = ""
+                children.append(("open", child))
+        if buffer and (text_context or buffer.strip()):
+            children.append(("text", buffer))
+        work.append(("close",))
+        work.extend(reversed(children))
+    return "".join(out).encode("utf-8")
+
+
+def _structure_leftovers(doc: Document) -> list[tuple[str, str, str]]:
+    """Namespace declarations strip() would not have kept."""
+    used = {""}
+    for e in iter_elements(doc.root):
+        used.add(e.prefix)
+        used.update(n.split(":", 1)[0] for n, _v in e.attrs
+                    if ":" in n and not is_namespace_declaration(n))
+    out = []
+    for e in iter_elements(doc.root):
+        for name, value in e.attrs:
+            if not is_namespace_declaration(name) or editor_tool(value):
+                continue  # editor namespaces are reported in the Editor data section
+            prefix = name[6:] if name != "xmlns" else ""
+            if prefix not in used and not (e is doc.root and name == "xmlns:xlink"):
+                out.append(("SVG structure", f"{name} on <{e.name}> at line {e.line}",
+                            f"unused namespace declaration ({value})"))
+    return out
+
+
+def _details(cleaned: bytes, original: bytes | None, depth: int) -> dict:
+    import hashlib
+
+    from metaex.core.registry import format_module
+
+    out: dict = {"leftovers": [], "problems": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None,
+                 "image_label": IMAGE_LABEL}
+    try:
+        doc = parse_document(cleaned)
+    except MalformedFileError as exc:
+        out["problems"].append(f"not an SVG metaex accepts: {exc}")
+        return out
+    out["leftovers"] += _structure_leftovers(doc)
+    for element in css_data_uris(doc):
+        out["problems"].append(f"CSS of <{element.name}> at line {element.line} contains a "
+                               "data: URI that can't be checked")
+    # Each embedded image gets its own format's structural checks (its
+    # metadata sections are already part of the SVG's report).
+    for n, item in enumerate(embedded_resources(doc), 1):
+        name = f"Embedded image {n}"
+        if item.data is None:
+            out["problems"].append(f"{name.lower()} can't be checked: {item.problem}")
+            continue
+        if item.detected.key == "svg":
+            if depth >= MAX_NESTED_SVG:
+                out["problems"].append(f"{name.lower()}: SVG nested too deeply to check")
+                continue
+            inner = _details(item.data, None, depth + 1)
+        else:
+            module = format_module(item.detected)
+            hook = getattr(module, "verify_details", None)
+            if not callable(hook):
+                out["problems"].append(f"{name.lower()} ({item.detected.name}) can't be "
+                                       "checked: metaex can't verify this type")
+                continue
+            inner = hook(item.data, None)
+        kind = item.detected.name
+        out["leftovers"] += [(f"{name} ({kind}): {s}", label, value)
+                             for s, label, value in inner["leftovers"]]
+        out["problems"] += [f"{name.lower()} ({kind}): {p}" for p in inner["problems"]]
+
+    out["image_sha256"] = hashlib.sha256(drawing(doc, depth)).hexdigest()
+    if original is not None:
+        try:
+            original_doc = parse_document(original)
+        except MalformedFileError as exc:
+            out["problems"].append(f"original is not an SVG metaex accepts ({exc}); the "
+                                   "drawing was not compared")
+        else:
+            theirs = hashlib.sha256(drawing(original_doc, depth)).hexdigest()
+            out["original_image_sha256"] = theirs
+            out["image_data_match"] = theirs == out["image_sha256"]
+            if theirs != out["image_sha256"]:
+                out["problems"].append("the drawing differs from the original")
+    return out
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """SVG-specific verification, beyond the section-level whitelist.
+
+    - The file must be an SVG metaex accepts (UTF-8, no DOCTYPE, well-formed).
+    - Leftovers: unused namespace declarations; comments, processing
+      instructions, <metadata>, editor data and local paths are reported by
+      parse() and are leftovers too.
+    - Each embedded image is checked with its own format's structural
+      checks (chunk/segment whitelists, hidden data).
+    - The canonical drawing (see drawing()) is hashed and compared with the
+      original's if one is given: equal means nothing that is drawn changed.
+    """
+    return _details(bytes(cleaned), None if original is None else bytes(original), 0)
+
+
 # -- parse -------------------------------------------------------------------------
 
 

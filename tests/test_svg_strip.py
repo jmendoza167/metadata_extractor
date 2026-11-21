@@ -141,3 +141,88 @@ def test_kept_warnings():
     assert any("kept 1 <title>/<desc>" in w and "--paranoid" in w for w in warnings)
     assert any("<script>" in w for w in warnings)
     assert any("external reference: https://example.com/a.png" in w for w in warnings)
+
+
+# -- verification ------------------------------------------------------------------------
+
+from metaex.core.verify import verify  # noqa: E402
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"paranoid": True}, {"keep_orientation": False}])
+def test_cleaned_svg_verifies_clean_with_the_same_drawing(kwargs):
+    original = inkscape_svg()
+    cleaned = svg.strip(original, **kwargs)
+    result = verify(cleaned, original)
+    assert result.clean, (result.leftovers, result.problems)
+    assert result.image_data_match is True and result.image_label == "Drawing"
+
+
+def test_original_is_not_clean():
+    result = verify(inkscape_svg())
+    sections = {f.section for f in result.leftovers}
+    assert {"Metadata", "Comments", "Editor data", "Local file paths",
+            "Embedded image 1 (JPEG): GPS"} <= sections
+
+
+def test_drawing_ignores_what_strip_removes_and_formatting():
+    a = simple_svg('<rect width="1" height="2"/><!-- c --><g><title>t</title></g>')
+    b = (b'<svg xmlns:xlink="http://www.w3.org/1999/xlink"\n  width="10" height="10" '
+         b'xmlns="http://www.w3.org/2000/svg">\n<rect height="2" width="1"></rect><g/></svg>')
+    assert svg.drawing(svg.parse_document(a)) == svg.drawing(svg.parse_document(b))
+
+
+def test_drawing_uses_namespaces_not_prefixes():
+    a = simple_svg('<rect width="1"/>')
+    b = (b'<s:svg xmlns:s="http://www.w3.org/2000/svg" xmlns:L="http://www.w3.org/1999/xlink"'
+         b' width="10" height="10"><s:rect width="1"/></s:svg>')
+    assert svg.drawing(svg.parse_document(a)) == svg.drawing(svg.parse_document(b))
+
+
+@pytest.mark.parametrize("changed", [
+    simple_svg('<rect width="2"/>'),
+    simple_svg('<rect width="1" fill="blue"/>'),
+    simple_svg('<rect width="1"/><circle r="1"/>'),
+    simple_svg('<text>hello</text>'),
+])
+def test_drawing_changes_are_detected(changed):
+    original = simple_svg('<rect width="1"/>')
+    result = verify(changed, original)
+    assert result.image_data_match is False
+    assert "the drawing differs from the original" in result.problems
+
+
+def test_text_whitespace_matters():
+    a = svg.drawing(svg.parse_document(simple_svg("<text>a b</text>")))
+    b = svg.drawing(svg.parse_document(simple_svg("<text>a  b</text>")))
+    assert a != b
+
+
+def test_changed_embedded_pixels_are_detected():
+    original = simple_svg(f'<image href="{data_uri(sample_jpeg(), "image/jpeg")}"/>')
+    other = jpeg.strip(sample_jpeg())
+    scan = other.rfind(b"\xff\xd9") - 1  # the last byte of the scan data
+    other = other[:scan] + bytes([other[scan] ^ 1]) + other[scan + 1:]
+    changed = simple_svg(f'<image href="{data_uri(other, "image/jpeg")}"/>')
+    assert verify(changed, original).image_data_match is False
+
+
+def test_leftovers_in_embedded_images_are_found():
+    from helpers.png import chunk
+
+    data = make_png(chunk("zzZZ", b"hidden"))  # a chunk the PNG whitelist doesn't allow
+    result = verify(simple_svg(f'<image href="{data_uri(data, "image/png")}"/>'))
+    assert any(f.section.startswith("Embedded image 1 (PNG): Unknown chunks")
+               or f.section.startswith("Embedded image 1 (PNG): PNG structure")
+               for f in result.leftovers)
+
+
+def test_unused_namespace_declaration_is_a_leftover():
+    result = verify(simple_svg("<rect/>", attrs='xmlns:foo="http://example.com/foo"'))
+    assert any(f.section == "SVG structure" and "unused namespace" in f.value
+               for f in result.leftovers)
+
+
+def test_kept_title_is_by_design_and_not_a_leftover():
+    result = verify(simple_svg("<title>Plan</title><rect/>"))
+    assert result.clean and [f.section for f in result.kept_by_design] == [
+        "Title and description"]

@@ -60,13 +60,14 @@ def result_lines(path: str, result: VerifyResult) -> list[str]:
         lines.append("Image data: rebuilt, pixels identical (SHA-256 of the decompressed "
                      f"image data {result.image_sha256})")
     elif result.image_data_match is True:
-        lines.append(f"Image data: matches the original (SHA-256 {result.image_sha256})")
+        lines.append(f"{result.image_label}: matches the original "
+                     f"(SHA-256 {result.image_sha256})")
     elif result.image_data_match is False:
-        lines.append("Image data: DIFFERS from the original")
+        lines.append(f"{result.image_label}: DIFFERS from the original")
         lines.append(f"  cleaned  SHA-256 {result.image_sha256}")
         lines.append(f"  original SHA-256 {result.original_image_sha256}")
     elif result.image_sha256:
-        lines.append(f"Image data: SHA-256 {result.image_sha256} "
+        lines.append(f"{result.image_label}: SHA-256 {result.image_sha256} "
                      "(not compared; pass --original to compare)")
     for note in result.notes:
         lines.append(f"Note: {note}")

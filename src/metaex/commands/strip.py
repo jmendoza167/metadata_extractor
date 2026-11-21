@@ -174,6 +174,9 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
         outcome.removed_sizes = {_SECTION_GROUPS.get(key, key): n
                                  for key, n in sizes_hook(data).items()}
     outcome.warnings.extend(kept_warnings(module.parse(cleaned)))
+    format_warnings = getattr(module, "kept_warnings", None)
+    if callable(format_warnings):  # e.g. SVG: kept <title>, scripts, external links
+        outcome.warnings.extend(format_warnings(cleaned))
     outcome.notes.extend(detected.warnings)
     if fixed_time:
         outcome.timestamps = (f"modified and accessed set to {FIXED_TIME_TEXT}; "
@@ -229,6 +232,13 @@ _SECTION_GROUPS = {
     # GIF
     "plain_text": "Plain text",
     "app_extensions": "Application extensions",
+    # SVG
+    "svg_metadata": "Metadata",
+    "title_desc": "Title and description",
+    "processing_instructions": "Processing instructions",
+    "editor": "Editor data",
+    "local_paths": "Local file paths",
+    "embedded_images": "Embedded images",
 }
 _CAMERA = {"Make", "Model", "BodySerialNumber", "LensMake", "LensModel", "LensSerialNumber",
            "LensSpecification", "MakerNote", "CameraOwnerName", "UniqueCameraModel",
@@ -323,7 +333,7 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
             lines.append("  Image data rebuilt, pixels identical (SHA-256 of the "
                          f"decompressed image data {v.image_sha256})")
         elif v.image_data_match:
-            lines.append(f"  Image data unchanged (SHA-256 {v.image_sha256})")
+            lines.append(f"  {v.image_label} unchanged (SHA-256 {v.image_sha256})")
     lines.append("")
     lines.append(f"File timestamps: {outcome.timestamps}")
     if outcome.zone_identifier is not None:

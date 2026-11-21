@@ -41,6 +41,8 @@ class VerifyResult:
     """True/False when compared with an original; None if not compared."""
     image_sha256: str | None = None
     original_image_sha256: str | None = None
+    image_label: str = "Image data"
+    """What image_sha256 covers: "Image data", or "Drawing" for SVG."""
     image_data_rebuilt: bool = False
     """True if the image data was compressed again (PNG --rebuild-image-data);
     then image_data_match compares the decompressed data: identical pixels."""
@@ -86,6 +88,7 @@ def verify(cleaned: bytes, original: bytes | None = None,
         result.original_image_sha256 = details.get("original_image_sha256")
         result.image_data_match = details.get("image_data_match")
         result.image_data_rebuilt = bool(details.get("image_data_rebuilt", False))
+        result.image_label = details.get("image_label", result.image_label)
 
     result.clean = not result.leftovers and not result.problems
     return result
