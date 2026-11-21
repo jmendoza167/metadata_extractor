@@ -335,3 +335,30 @@ def structure_section(structure: WebpStructure) -> Section:
             section.add(f"chunk_{n}", f"  {child.label}", _image_value(child))
             n += 1
     return section
+
+
+# -- parse -------------------------------------------------------------------------
+
+
+def parse(data: bytes | bytearray | memoryview) -> dict:
+    """Parse a WebP file and return its warnings, report sections and structure.
+
+    Raises MalformedFileError if the data has no RIFF WEBP header; problems
+    later in the file become warnings.
+    """
+    data = bytes(data)
+    structure = walk_chunks(data)
+    warnings = list(structure.warnings)
+    sections: list[Section] = []
+    sections += exif_sections(structure, warnings)
+    sections += xmp_sections(structure, warnings)
+    sections += icc_sections(structure, warnings)
+    sections += animation_sections(structure, warnings)
+    sections += unknown_sections(structure)
+    sections += trailing_sections(structure, data, warnings)
+    return {
+        "warnings": warnings,
+        "sections": sections,
+        "structure": structure_section(structure),
+        "complete": structure.error is None,
+    }

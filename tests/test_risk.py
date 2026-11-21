@@ -192,3 +192,22 @@ def test_assess_gif():
     assert ("comments", HIGH) in found and ("app_extensions", HIGH) in found
     assert ("xmp", CRITICAL) in found and ("trailing", CRITICAL) in found
     assert ("animation", LOW) in found
+
+
+def test_webp_findings_match_jpeg_and_png_rules():
+    """WebP sections use the same keys as JPEG/PNG, so the same rules apply."""
+    from test_show import _webp_with_metadata
+    from metaex.formats import webp
+
+    found = {}
+    for f in assess(webp.parse(_webp_with_metadata())["sections"]):
+        found.setdefault((f.section_key, f.field_key), f.level)
+    assert found[("gps", "coordinates")] == CRITICAL
+    assert found[("trailing", "size")] == CRITICAL
+    assert found[("exif", "Make")] == HIGH
+    assert found[("xmp", "xmp:CreatorTool")] == HIGH
+    assert found[("icc", "device_manufacturer")] == MEDIUM
+    assert [level for (section, _key), level in found.items() if section == "unknown"] == [
+        MEDIUM]
+    assert found[("animation", "frames")] == LOW
+    assert found[("exif", "Orientation")] == LOW

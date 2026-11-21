@@ -462,3 +462,52 @@ def test_show_gif_with_broken_header(tmp_path):
     p.write_bytes(b"GIF89a\x01")
     data = show_json(p)
     assert field(data, "file_type", "embedded_metadata") == "not examined (file is malformed)"
+
+
+# -- WebP ----------------------------------------------------------------------------------
+
+
+def _webp_with_metadata():
+    from helpers.webp import anim, anmf, chunk, exif_chunk, extended, iccp, vp8l, xmp_chunk
+    from helpers.jpeg import SAMPLE_XMP, icc_profile
+    from helpers.tiff import ASCII, RATIONAL, SHORT, build_tiff
+
+    tiff = build_tiff([(0x010F, ASCII, "ExampleCam"), (0x0112, SHORT, 6)],
+                      gps=[(0x0001, ASCII, "N"), (0x0002, RATIONAL, [(48, 1), (51, 1), (0, 1)]),
+                           (0x0003, ASCII, "E"), (0x0004, RATIONAL, [(2, 1), (17, 1), (0, 1)])])
+    return extended(iccp(icc_profile()), anim(), anmf(chunk("VP8L", vp8l(4, 4))),
+                    anmf(chunk("VP8L", vp8l(4, 4, green2=3))), exif_chunk(tiff),
+                    xmp_chunk(SAMPLE_XMP), chunk("abcd", b"private"),
+                    trailing=b"after the RIFF data")
+
+
+def test_show_webp_sections(tmp_path):
+    p = tmp_path / "image.webp"
+    p.write_bytes(_webp_with_metadata())
+    data = show_json(p)
+    assert field(data, "file_type", "name") == "WebP"
+    assert field(data, "file_type", "embedded_metadata") == "examined"
+    assert field(data, "file_type", "support") == "viewing supported; stripping not implemented yet"
+    assert list(data["sections"]) == [
+        "file_type", "exif", "gps", "xmp", "icc", "animation", "unknown", "trailing",
+        "file_system", "hashes"]
+    assert field(data, "exif", "Make") == "ExampleCam"
+    assert field(data, "animation", "frames") == 2
+    critical = [w for w in data["warnings"] if w.startswith("CRITICAL")]
+    assert len(critical) == 3  # EXIF GPS, XMP GPS, data after the RIFF end
+
+
+def test_show_webp_structure(tmp_path):
+    p = tmp_path / "image.webp"
+    p.write_bytes(_webp_with_metadata())
+    result = run_show(str(p), "--structure")
+    assert result.returncode == 0, result.stderr
+    assert "WebP structure" in result.stdout and "ANMF" in result.stdout
+
+
+def test_show_malformed_webp_is_partly_examined(tmp_path):
+    p = tmp_path / "broken.webp"
+    p.write_bytes(_webp_with_metadata()[:60])
+    data = show_json(p)
+    assert field(data, "file_type", "embedded_metadata") == "partly examined (file is malformed)"
+    assert any("malformed WebP" in w for w in data["warnings"])
