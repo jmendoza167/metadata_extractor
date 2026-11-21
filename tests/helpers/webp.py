@@ -186,3 +186,58 @@ def extended(*chunks: bytes, width: int | None = None, height: int | None = None
         elif b"VP8 " in names:
             width = height = 1
     return riff(vp8x(flags, width, height) + body, trailing, size)
+
+
+# -- variants and kitchen sink -------------------------------------------------------------
+
+
+def animated(*extra: bytes, frames: int = 3, width: int = 6, height: int = 4) -> bytes:
+    """An animation: ANIM and ``frames`` lossless frames of different sizes."""
+    chunks = [anim(0)]
+    for i in range(frames):
+        w, h = width - i % 2 * 2, height - i % 2
+        chunks.append(anmf(chunk("VP8L", vp8l(w, h, green2=10 * i)), x=2 * (i % 2),
+                           y=0, width=w, height=h, duration=100 + i))
+    return extended(*chunks, *extra, width=width, height=height)
+
+
+def variants() -> dict[str, bytes]:
+    """Small WebPs of every kind: simple lossy and lossless, extended lossless,
+    lossy with alpha, animated (with a lossy+alpha frame), each with an XMP
+    packet where the format allows it."""
+    meta = xmp_chunk(b"<x:xmpmeta xmlns:x='adobe:ns:meta/'/>")
+    return {
+        "lossy": lossy(),
+        "lossless": lossless(9, 5, green2=7),
+        "lossless_alpha": lossless(3, 3, argb=(128, 1, 2, 3), alpha_used=True),
+        "extended_lossless": extended(chunk("VP8L", vp8l(16, 2, green2=99)), meta),
+        "lossy_alpha": extended(chunk("ALPH", ALPHA_1X1[b"ALPH"]),
+                                chunk("VP8 ", ALPHA_1X1[b"VP8 "]), meta),
+        "animated": animated(meta),
+        "animated_lossy": extended(anim(2), anmf(chunk("ALPH", ALPHA_1X1[b"ALPH"]),
+                                                 chunk("VP8 ", ALPHA_1X1[b"VP8 "]),
+                                                 width=1, height=1),
+                                   anmf(chunk("VP8 ", VP8_1X1), width=1, height=1), meta,
+                                   width=1, height=1),
+    }
+
+
+def kitchen_sink_webp(order: str = "<") -> bytes:
+    """Every chunk metaex reads: ICCP naming a device, ANIM and two frames
+    (one with an unknown sub-chunk), EXIF with GPS, serial number and
+    Orientation 6, XMP with GPS, unknown chunks (with an odd size) and data
+    after the RIFF data. Values are made up."""
+    from helpers.jpeg import SAMPLE_XMP, icc_profile
+    from helpers.png import kitchen_sink_tiff
+
+    return extended(
+        iccp(icc_profile()),
+        anim(0, b"\x00\x00\x00\xff"),
+        anmf(chunk("VP8L", vp8l(8, 6, green2=50)), chunk("FRMx", b"frame note"),
+             width=8, height=6, duration=120),
+        anmf(chunk("VP8L", vp8l(4, 4, argb=(255, 9, 9, 9))), x=2, y=2, duration=80),
+        exif_chunk(kitchen_sink_tiff(order)),
+        xmp_chunk(SAMPLE_XMP),
+        chunk("prVt", b"private data"),
+        chunk("odd!", b"abc"),
+        width=8, height=6, trailing=b"secret after RIFF")

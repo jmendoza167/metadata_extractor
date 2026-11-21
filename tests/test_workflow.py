@@ -127,6 +127,36 @@ def test_gif_show_strip_verify_show(tmp_path, extra):
     assert listing(tmp_path) == ["anim.gif", "anim_clean.gif"]
 
 
+@pytest.mark.parametrize("order", ["<", ">"])
+@pytest.mark.parametrize("extra", [[], ["--paranoid"]])
+def test_webp_show_strip_verify_show(tmp_path, order, extra):
+    from helpers.webp import kitchen_sink_webp
+    from metaex.formats import webp
+
+    original = tmp_path / "image.webp"
+    original.write_bytes(kitchen_sink_webp(order))
+    before = sha(original)
+    shown = json.loads(metaex("show", str(original), "--json").stdout)
+    assert len(sensitive_fields(shown)) > 20
+
+    result = metaex("strip", str(original), *extra)
+    assert result.returncode == 0, result.stderr
+    cleaned = tmp_path / "image_clean.webp"
+    verified = metaex("verify", str(cleaned), "--original", str(original), "--json")
+    assert verified.returncode == 0, verified.stdout
+    v = json.loads(verified.stdout)
+    assert v["clean"] and v["image_data_match"]
+
+    after = json.loads(metaex("show", str(cleaned), "--json").stdout)
+    assert set(after["sections"]) - NOT_METADATA <= set(webp.KEPT_BY_DESIGN)
+    leftover = [s for s in sensitive_fields(after) if s[0] not in webp.KEPT_BY_DESIGN]
+    assert leftover == []
+    risk = json.loads(metaex("risk", str(cleaned), "--json").stdout)
+    assert risk["summary"]["critical"] == 0 and risk["summary"]["high"] == 0
+    assert sha(original) == before
+    assert listing(tmp_path) == ["image.webp", "image_clean.webp"]
+
+
 def test_in_place_with_and_without_yes(tmp_path):
     p = tmp_path / "photo.jpg"
     p.write_bytes(sample_photo())
