@@ -10,7 +10,7 @@ from helpers.png import (ADAM7, GRAY, PALETTE, RGB, RGBA, SIGNATURE, actl, chunk
                          expected_raw_size, fctl, ihdr, make_png, raw_image, text, variants,
                          zlib_bomb)
 from metaex.core import risk
-from metaex.core.errors import MalformedFileError
+from metaex.core.errors import HiddenDataError, MalformedFileError
 from metaex.core.verify import verify
 from metaex.formats import png
 
@@ -161,8 +161,75 @@ def test_idat_chunks_must_be_consecutive():
 
 def test_strip_refuses_hidden_image_data():
     data = png_with_idat(zlib.compress(RAW) + b"hidden!")
-    with pytest.raises(MalformedFileError, match="hidden data found inside the image data"):
+    with pytest.raises(HiddenDataError, match="7 bytes after the compressed data") as exc:
         png.strip(data)
+    assert "--rebuild-image-data" in str(exc.value)
+    assert "pixels stay identical" in str(exc.value)
+
+
+# -- rebuilding the image data -----------------------------------------------------------
+
+
+def idat_stream(data):
+    return b"".join(c.data for c in png.walk_chunks(data).all("IDAT"))
+
+
+@pytest.mark.parametrize("idat", [
+    zlib.compress(RAW + b"a hidden message"),
+    zlib.compress(RAW) + b"hidden!",
+    zlib.compress(RAW + bytes(1000)) + b"both",
+])
+def test_rebuild_removes_hidden_data_and_keeps_pixels(idat):
+    original = png_with_idat(idat)
+    cleaned = png.strip(original, rebuild_image_data=True)
+    assert zlib.decompress(idat_stream(cleaned)) == RAW
+    assert hidden(cleaned) == [] and malformed(cleaned) == []
+    result = verify(cleaned, original)
+    assert result.clean and result.image_data_match is True
+    assert result.image_data_rebuilt
+    assert result.image_sha256 == result.original_image_sha256 == png.decoded_image_digest(
+        original)
+    # stripping again keeps the rebuilt image data as it is
+    assert png.strip(cleaned) == cleaned == png.strip(cleaned, rebuild_image_data=True)
+
+
+def test_rebuild_of_interlaced_multi_chunk_image(monkeypatch):
+    monkeypatch.setattr(png, "REBUILT_IDAT_SIZE", 50)
+    raw = raw_image(33, 17, interlace=1)
+    compressed = zlib.compress(raw + b"x" * 500)
+    idats = b"".join(chunk("IDAT", compressed[i : i + 40])
+                     for i in range(0, len(compressed), 40))
+    original = (SIGNATURE + ihdr(33, 17, interlace=1) + text("Author", "J") + idats
+                + chunk("IEND"))
+    cleaned = png.strip(original, rebuild_image_data=True)
+    chunks = png.walk_chunks(cleaned).chunks
+    assert [c.type for c in chunks][:2] == ["IHDR", "IDAT"]
+    assert len([c for c in chunks if c.type == "IDAT"]) > 1
+    assert all(c.length <= 50 for c in chunks if c.type == "IDAT")
+    assert zlib.decompress(idat_stream(cleaned)) == raw
+    assert verify(cleaned, original).image_data_rebuilt
+
+
+def test_rebuild_option_does_nothing_without_hidden_data():
+    data = variants()["rgb8"]
+    assert png.strip(data, rebuild_image_data=True) == png.strip(data)
+    assert idat_stream(png.strip(data, rebuild_image_data=True)) == idat_stream(data)
+
+
+def test_hidden_data_in_animation_frames_is_refused_even_with_rebuild():
+    frame = zlib.compress(raw_image(seed=5)) + b"secret"
+    data = make_png(fctl(1), chunk("fdAT", struct.pack(">I", 2) + frame),
+                    before_idat=(actl(2), fctl(0)))
+    with pytest.raises(HiddenDataError, match="can't rebuild animation frames"):
+        png.strip(data, rebuild_image_data=True)
+
+
+def test_rebuilt_image_with_different_pixels_does_not_match():
+    original = png_with_idat(zlib.compress(RAW) + b"hidden!")
+    other = png_with_idat(zlib.compress(raw_image(seed=99), 9))
+    result = verify(other, original)
+    assert result.image_data_match is False and not result.image_data_rebuilt
+    assert "image data differs from the original" in result.problems
 
 
 def test_verify_reports_hidden_image_data_as_leftover():

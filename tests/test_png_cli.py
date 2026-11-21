@@ -136,3 +136,54 @@ def test_generic_icc_profile_name_is_not_listed_as_removed(tmp_path):
     data = json.loads(run("strip", str(p), "--json").stdout)
     assert "ICC profile" not in data["removed"]
     assert data["removed"]["Text"] == ["Author"]
+
+
+def hidden_png(tmp_path):
+    import zlib
+
+    from helpers.png import SIGNATURE, ihdr, raw_image
+
+    p = tmp_path / "hidden.png"
+    raw = raw_image(16, 16)
+    p.write_bytes(SIGNATURE + ihdr(16, 16) + text("Author", "Jane")
+                  + chunk("IDAT", zlib.compress(raw + b"secret message here")) + chunk("IEND"))
+    return p
+
+
+def test_hidden_image_data_is_refused_with_an_explanation(tmp_path):
+    p = hidden_png(tmp_path)
+    result = run("strip", str(p))
+    assert result.returncode == 1
+    assert "hides 19 extra bytes that viewers don't show" in result.stderr
+    assert "--rebuild-image-data" in result.stderr and "no file written" in result.stderr
+    assert os.listdir(tmp_path) == ["hidden.png"]
+
+
+def test_rebuild_image_data_cli(tmp_path):
+    p = hidden_png(tmp_path)
+    result = run("strip", str(p), "--rebuild-image-data")
+    assert result.returncode == 0, result.stderr
+    assert "Hidden data in image data  19 B" in result.stdout
+    assert "Image data rebuilt, pixels identical" in result.stdout
+    cleaned = tmp_path / "hidden_clean.png"
+    verified = run("verify", str(cleaned), "--original", str(p))
+    assert verified.returncode == 0, verified.stdout
+    assert "Image data: rebuilt, pixels identical" in verified.stdout
+    as_json = json.loads(run("verify", str(cleaned), "--original", str(p), "--json").stdout)
+    assert as_json["image_data_rebuilt"] is True and as_json["image_data_match"] is True
+    risk = json.loads(run("risk", str(p), "--json").stdout)
+    assert any(f["section"] == "Hidden data in image data" and f["level"] == "critical"
+               for f in risk["findings"])
+    risk_text = run("risk", str(p)).stdout
+    assert "--rebuild-image-data\" to remove these" in risk_text
+
+
+def test_rebuild_image_data_is_png_only(tmp_path):
+    from helpers.jpeg import sample_photo
+
+    p = tmp_path / "photo.jpg"
+    p.write_bytes(sample_photo())
+    result = run("strip", str(p), "--rebuild-image-data")
+    assert result.returncode == 1
+    assert "--rebuild-image-data is not available for JPEG files" in result.stderr
+    assert os.listdir(tmp_path) == ["photo.jpg"]

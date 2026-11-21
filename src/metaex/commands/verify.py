@@ -35,6 +35,7 @@ def result_to_dict(path: str, result: VerifyResult) -> dict[str, Any]:
         "problems": result.problems,
         "kept_by_design": findings(result.kept_by_design),
         "image_data_match": result.image_data_match,
+        "image_data_rebuilt": result.image_data_rebuilt,
         "image_sha256": result.image_sha256,
         "original_image_sha256": result.original_image_sha256,
         "notes": result.notes,
@@ -55,7 +56,10 @@ def result_lines(path: str, result: VerifyResult) -> list[str]:
     lines.append("Kept by design:")
     lines += [f"  {f}" for f in result.kept_by_design] or ["  (nothing)"]
     lines.append("")
-    if result.image_data_match is True:
+    if result.image_data_match is True and result.image_data_rebuilt:
+        lines.append("Image data: rebuilt, pixels identical (SHA-256 of the decompressed "
+                     f"image data {result.image_sha256})")
+    elif result.image_data_match is True:
         lines.append(f"Image data: matches the original (SHA-256 {result.image_sha256})")
     elif result.image_data_match is False:
         lines.append("Image data: DIFFERS from the original")

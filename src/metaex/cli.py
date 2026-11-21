@@ -78,6 +78,10 @@ def build_parser() -> argparse.ArgumentParser:
                             "mDCv, cLLI, pHYs); colors may shift")
     strip.add_argument("--no-orientation", action="store_true",
                        help="don't keep the EXIF Orientation tag (the image may display rotated)")
+    strip.add_argument("--rebuild-image-data", action="store_true",
+                       help="PNG: if hidden data is found inside the compressed image "
+                            "data, compress the image data again without it (pixels stay "
+                            "identical; without this option such files are refused)")
     strip.add_argument("--fixed-time", action="store_true",
                        help="set the output's modified/accessed time to 2000-01-01T00:00:00Z")
     strip.add_argument("--json", action="store_true", help="print the summary as JSON")
@@ -168,7 +172,7 @@ def _cmd_strip(args: argparse.Namespace) -> int:
     outcome = strip_file(args.path, args.output, paranoid=args.paranoid,
                          keep_orientation=not args.no_orientation, max_size=args.max_size,
                          in_place=args.in_place, fixed_time=args.fixed_time,
-                         rename=args.rename)
+                         rename=args.rename, rebuild_image_data=args.rebuild_image_data)
     if args.json:
         write_text(json.dumps(outcome.to_dict(), indent=2, ensure_ascii=True) + "\n")
     else:

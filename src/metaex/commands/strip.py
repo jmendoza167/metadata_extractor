@@ -11,7 +11,8 @@ from typing import Any
 
 from metaex.core import filetype as ft
 from metaex.core import icc
-from metaex.core.errors import MalformedFileError, MetaexError, UnsupportedFormatError
+from metaex.core.errors import (HiddenDataError, MalformedFileError, MetaexError,
+                                UnsupportedFormatError)
 from metaex.core.generic import mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, format_size, load_file
 from metaex.core.registry import can_strip, format_module
@@ -61,6 +62,7 @@ class StripOutcome:
                 "leftovers": [str(f) for f in v.leftovers],
                 "problems": v.problems,
                 "image_data_match": v.image_data_match,
+                "image_data_rebuilt": v.image_data_rebuilt,
                 "image_sha256": v.image_sha256,
                 "original_image_sha256": v.original_image_sha256,
             },
@@ -102,7 +104,8 @@ def random_output_path(path: str, filetype: ft.FileType, attempts: int = 20) -> 
 def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | None = None, *,
                paranoid: bool = False, keep_orientation: bool = True,
                max_size: int = DEFAULT_MAX_SIZE, in_place: bool = False,
-               fixed_time: bool = False, rename: bool = False) -> StripOutcome:
+               fixed_time: bool = False, rename: bool = False,
+               rebuild_image_data: bool = False) -> StripOutcome:
     """load -> detect -> strip -> temp file -> verify -> move into place.
 
     With ``in_place`` the original is replaced (still via a verified temp
@@ -110,7 +113,10 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     responsible for asking the user first. The output never gets the
     original's timestamps; with ``fixed_time`` its modified and accessed
     times are set to 2000-01-01T00:00:00Z. With ``rename`` the output gets a
-    random name (img_<hex>.<ext>) in the original's folder.
+    random name (img_<hex>.<ext>) in the original's folder. With
+    ``rebuild_image_data`` (PNG only), image data that hides extra bytes is
+    decompressed and compressed again without them (identical pixels)
+    instead of being refused.
 
     Raises (and writes nothing) for unsupported types, malformed input, an
     existing output file, or a failed verification.
@@ -124,6 +130,9 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
                 else f"{detected.name} files yet")
         raise UnsupportedFormatError(f"metaex can't strip {what}; no file written")
 
+    if rebuild_image_data and not getattr(module, "CAN_REBUILD_IMAGE_DATA", False):
+        raise MetaexError(f"--rebuild-image-data is not available for {detected.name} files; "
+                          "no file written")
     if sum((in_place, output is not None, rename)) > 1:
         raise MetaexError("choose only one of --in-place, -o and --rename")
     if in_place:
@@ -136,10 +145,12 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
             hint = "" if output is not None else " Use -o to choose another name."
             raise MetaexError(f"{target}: already exists; refusing to overwrite it.{hint} "
                               "No file written.")
+    options = {"rebuild_image_data": True} if rebuild_image_data else {}
     try:
-        cleaned = module.strip(data, keep_orientation=keep_orientation, paranoid=paranoid)
-    except MalformedFileError as exc:
-        raise MalformedFileError(f"{source}: {exc}; no file written") from None
+        cleaned = module.strip(data, keep_orientation=keep_orientation, paranoid=paranoid,
+                               **options)
+    except (MalformedFileError, HiddenDataError) as exc:
+        raise type(exc)(f"{source}: {exc}; no file written") from None
 
     def check(on_disk: bytes) -> VerifyResult:
         result = verify(on_disk, data, filename=target)
@@ -214,6 +225,7 @@ _SECTION_GROUPS = {
     "content_credentials": "Content Credentials (C2PA)",
     "color": "Color and display",
     "unknown": "Unknown chunks",
+    "hidden_image_data": "Hidden data in image data",
 }
 _CAMERA = {"Make", "Model", "BodySerialNumber", "LensMake", "LensModel", "LensSerialNumber",
            "LensSpecification", "MakerNote", "CameraOwnerName", "UniqueCameraModel",
@@ -304,7 +316,10 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
     if v is not None:
         status = "clean" if v.clean else "NOT CLEAN"
         lines.append(f"Verification: {status}")
-        if v.image_data_match:
+        if v.image_data_match and v.image_data_rebuilt:
+            lines.append("  Image data rebuilt, pixels identical (SHA-256 of the "
+                         f"decompressed image data {v.image_sha256})")
+        elif v.image_data_match:
             lines.append(f"  Image data unchanged (SHA-256 {v.image_sha256})")
     lines.append("")
     lines.append(f"File timestamps: {outcome.timestamps}")

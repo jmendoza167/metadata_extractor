@@ -13,6 +13,11 @@ class MalformedFileError(MetaexError):
     """The file's contents are truncated, inconsistent or otherwise invalid."""
 
 
+class HiddenDataError(MetaexError):
+    """The file hides data that can't be removed by copying the image data
+    byte-for-byte (e.g. extra bytes inside a PNG's compressed image data)."""
+
+
 class UnsupportedFormatError(MetaexError):
     """The file is of a format metaex does not handle (and will not touch)."""
 

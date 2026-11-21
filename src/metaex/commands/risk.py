@@ -88,7 +88,10 @@ def risk_lines(path: str, report: Report, findings: list[RiskFinding], strippabl
                 value = value[: MAX_VALUE_CHARS - 3] + "..."
             lines.append(f"  {paint(level, name.ljust(width))}  {value}")
         lines.append("")
-    if strippable:
+    if strippable and any(f.section_key == "hidden_image_data" for f in findings):
+        lines.append(f'Run "metaex strip {sanitize(path)} --rebuild-image-data" to remove '
+                     "these (the image data is compressed again; the pixels stay identical).")
+    elif strippable:
         lines.append(f'Run "metaex strip {sanitize(path)}" to remove these.')
     else:
         lines.append("metaex can't strip this type of file yet.")

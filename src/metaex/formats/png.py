@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from metaex.core import exif, filetype, icc, xmp
-from metaex.core.errors import MalformedFileError, MetaexError
+from metaex.core.errors import HiddenDataError, MalformedFileError, MetaexError
 from metaex.core.inflate import Budget, DecompressionLimitError, inflate, inflate_stream
 from metaex.core.result import Field, Section
 
@@ -989,8 +989,89 @@ def iccp_chunk(compressed: bytes) -> bytes:
     return make_chunk("iCCP", GENERIC_ICC_NAME.encode("latin-1") + b"\x00\x00" + compressed)
 
 
+CAN_REBUILD_IMAGE_DATA = True
+"""strip() accepts rebuild_image_data=True (the --rebuild-image-data option)."""
+REBUILT_IDAT_SIZE = 64 * 1024
+"""Size of the IDAT chunks written when the image data is rebuilt."""
+
+
+def _hidden_description(s: StreamCheck) -> str:
+    parts = []
+    if s.extra:
+        parts.append(f"{'at least ' if s.extra_capped else ''}{s.extra} extra bytes")
+    if s.after_end:
+        parts.append(f"{s.after_end} bytes after the compressed data")
+    return " and ".join(parts)
+
+
+def _refuse_hidden(check: ImageDataCheck, rebuild: bool) -> StreamCheck | None:
+    """The IDAT stream to rebuild, or None if nothing is hidden; raises
+    HiddenDataError if the hidden data can't (or may not) be removed."""
+    if not check.hidden:
+        return None
+    for s in check.hidden:
+        if s.stream.chunk_type != "IDAT":
+            raise HiddenDataError(
+                f"the {s.stream.name} hides {_hidden_description(s)} that viewers don't "
+                "show; metaex can't rebuild animation frames, so this file can't be cleaned")
+    s = check.hidden[0]
+    if not rebuild:
+        raise HiddenDataError(
+            f"the {s.stream.name} hides {_hidden_description(s)} that viewers don't show. "
+            "Copying the image data would keep them. To remove them, run again with "
+            "--rebuild-image-data: the image data is then decompressed and compressed "
+            "again without them (PNG compression is lossless, so the pixels stay identical)")
+    return s
+
+
+def rebuilt_idat_chunks(s: StreamCheck) -> bytes:
+    """New IDAT chunks holding exactly the bytes the image needs, compressed
+    again with zlib level 9. Works piece by piece; the decompressed image is
+    never held in memory at once."""
+    compressor = zlib.compressobj(9)
+    compressed: list[bytes] = []
+    result = inflate_stream(s.stream.parts, s.expected,
+                            lambda piece: compressed.append(compressor.compress(piece)))
+    if result.size != s.expected:
+        raise MalformedFileError(f"{s.stream.name} is too short to rebuild")
+    compressed.append(compressor.flush())
+    stream = b"".join(compressed)
+    return b"".join(make_chunk("IDAT", stream[i : i + REBUILT_IDAT_SIZE])
+                    for i in range(0, len(stream), REBUILT_IDAT_SIZE))
+
+
+def decoded_image_digest(data: bytes | bytearray | memoryview) -> str | None:
+    """SHA-256 of the image data with the IDAT stream decompressed.
+
+    Like image_data(), but the default image counts as the exact bytes the
+    image needs after decompression, so a file whose image data was
+    compressed again (see --rebuild-image-data) has the same digest as the
+    original: same digest = identical pixels. None if the image data can't
+    be decompressed and checked (malformed, or over MAX_CHECKED_IMAGE_SIZE).
+    """
+    structure = checked_structure(bytes(data))
+    check = check_image_data(structure)
+    idat = next((s for s in check.streams if s.stream.chunk_type == "IDAT"), None)
+    if check.problems or idat is None or idat.skipped:
+        return None
+    digest = hashlib.sha256()
+    pixels = hashlib.sha256()
+    inflate_stream(idat.stream.parts, idat.expected, pixels.update)
+    in_idat = False
+    for chunk in structure.chunks:
+        if chunk.type == "IDAT":
+            if not in_idat:
+                digest.update(_record("IDAT", pixels.digest()))
+            in_idat = True
+            continue
+        in_idat = False
+        if chunk.type in IMAGE_CHUNKS and chunk.type != "IEND":
+            digest.update(_record(chunk.type, chunk.data))
+    return digest.hexdigest()
+
+
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
-          paranoid: bool = False) -> bytes:
+          paranoid: bool = False, rebuild_image_data: bool = False) -> bytes:
     """Return a copy of the PNG with all metadata removed (whitelist).
 
     Kept byte-for-byte and in their original order: IHDR, PLTE, tRNS, every
@@ -1004,20 +1085,24 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     text, tIME, eXIf, caBX, bKGD, sPLT, hIST, sBIT, unknown chunks and any
     data after IEND. Only the chunks metaex writes itself get a new CRC.
 
+    If the IDAT image data hides extra bytes (see check_image_data()), the
+    file is refused with HiddenDataError, unless ``rebuild_image_data`` is
+    set: then the IDAT chunks are replaced by new ones holding exactly the
+    bytes the image needs, compressed again with zlib level 9 (the pixels
+    are identical; only their compressed form changes). Hidden data in APNG
+    frames (fdAT) is always refused.
+
     Raises MalformedFileError for malformed, damaged (bad CRC), truncated or
-    unsupported input, for image data that is too short or invalid, and for
-    image data that hides extra bytes (see check_image_data()); nothing is
-    ever partly stripped.
+    unsupported input, and for image data that is too short or invalid;
+    nothing is ever partly stripped.
     """
     data = bytes(data)
     structure = checked_structure(data)
     check = check_image_data(structure)
     if check.problems:
         raise MalformedFileError(check.problems[0])
-    if check.hidden:
-        s = check.hidden[0]
-        raise MalformedFileError(f"hidden data found inside the {s.stream.name}; "
-                                 "it can't be removed by copying the image data")
+    rebuild = _refuse_hidden(check, rebuild_image_data)
+    new_idat = rebuilt_idat_chunks(rebuild) if rebuild is not None else None
     keep_color = set(PARANOID_COLOR) if paranoid else set(KEPT_COLOR_SIZES)
     orientation = original_orientation(structure)
     new_exif = b""
@@ -1027,7 +1112,11 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     out = bytearray(SIGNATURE)
     written: set[str] = set()
     for chunk in structure.chunks:
-        if chunk.type in IMAGE_CHUNKS:
+        if chunk.type == "IDAT" and new_idat is not None:
+            if "IDAT" not in written:  # the rebuilt image data replaces all IDAT chunks
+                out += new_idat
+                written.add("IDAT")
+        elif chunk.type in IMAGE_CHUNKS:
             out += _chunk_bytes(data, chunk)
             if chunk.type == "IHDR":
                 out += new_exif
@@ -1042,8 +1131,15 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
                 out += iccp_chunk(compressed)
         # Anything else is metadata (or unknown) and is dropped.
     cleaned = bytes(out)
-    # Self-check: the output must be a well-formed PNG with identical image data.
-    if image_data(cleaned) != image_data(data):
+    # Self-check: the output must be a well-formed PNG with identical image
+    # data (identical pixels, if the image data was rebuilt) and nothing hidden.
+    if new_idat is None:
+        same = image_data(cleaned) == image_data(data)
+    else:
+        after = check_image_data(checked_structure(cleaned))
+        same = (not after.hidden and not after.problems
+                and decoded_image_digest(cleaned) == decoded_image_digest(data))
+    if not same:
         raise MalformedFileError("internal check failed: image data changed while stripping")
     return cleaned
 
@@ -1077,10 +1173,14 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
       generic name and a cleanly compressed profile may remain. Anything
       else is a leftover.
     - SHA-256 of the image data (IHDR, PLTE, tRNS, IDAT data and APNG
-      chunks); compared with the original's if one is given.
+      chunks); compared with the original's if one is given. If they differ
+      because the image data was rebuilt (--rebuild-image-data), the
+      decompressed image data is compared instead (decoded_image_digest());
+      equal means identical pixels, reported as ``image_data_rebuilt``.
     """
     out: dict = {"leftovers": [], "problems": [], "image_sha256": None,
-                 "original_image_sha256": None, "image_data_match": None}
+                 "original_image_sha256": None, "image_data_match": None,
+                 "image_data_rebuilt": False}
     try:
         image = image_data(cleaned)
     except MalformedFileError as exc:
@@ -1126,7 +1226,14 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
             out["original_image_sha256"] = hashlib.sha256(original_image).hexdigest()
             out["image_data_match"] = original_image == image
             if original_image != image:
-                out["problems"].append("image data differs from the original")
+                # Rebuilt image data (compressed again): compare the pixels.
+                ours, theirs = decoded_image_digest(cleaned), decoded_image_digest(original)
+                if ours is not None and ours == theirs:
+                    out["image_data_match"] = True
+                    out["image_data_rebuilt"] = True
+                    out["image_sha256"] = out["original_image_sha256"] = ours
+                else:
+                    out["problems"].append("image data differs from the original")
     return out
 
 
@@ -1165,9 +1272,15 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
 
 
 def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
-    """Byte size of the data after IEND ("trailing"), for the strip summary."""
+    """Byte sizes for the strip summary: data after IEND ("trailing") and
+    bytes hidden inside the image data ("hidden_image_data")."""
     data = bytes(data)
     structure = walk_chunks(data)
+    sizes: dict[str, int] = {}
     if structure.end_of_image is not None and len(data) > structure.end_of_image:
-        return {"trailing": len(data) - structure.end_of_image}
-    return {}
+        sizes["trailing"] = len(data) - structure.end_of_image
+    if structure.error is None:
+        hidden = sum(s.extra + s.after_end for s in check_image_data(structure).hidden)
+        if hidden:
+            sizes["hidden_image_data"] = hidden
+    return sizes
