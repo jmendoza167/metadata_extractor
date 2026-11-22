@@ -696,37 +696,6 @@ pip install -e ".[dev]"
 pytest
 ```
 
-### Secret scanning (gitleaks)
-
-metaex needs no tokens or keys, and the repository must never contain any.
-[gitleaks](https://github.com/gitleaks/gitleaks) checks this. It is a
-development tool only; metaex itself has no dependencies.
-
-1. Install gitleaks: `winget install Gitleaks.Gitleaks` (Windows),
-   `brew install gitleaks` (macOS), or a release binary from
-   <https://github.com/gitleaks/gitleaks/releases> (Linux).
-2. Install the pre-commit hook (once per clone):
-
-   ```
-   python scripts/install_hooks.py
-   ```
-
-   The hook scans staged changes with `--redact` and blocks the commit if
-   gitleaks finds a possible secret, fails, or is not installed. The
-   installer never overwrites an existing, different pre-commit hook.
-3. Before pushing, scan the full history:
-
-   ```
-   gitleaks git --redact --verbose .
-   ```
-
-   (gitleaks older than 8.19: `gitleaks detect --redact --verbose`.)
-   If anything is found, don't push.
-
-Test files are always generated in code; never commit real photos or
-documents. Keep real samples for manual testing in `private_samples/`, which
-is git-ignored.
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
