@@ -12,6 +12,7 @@ from helpers import png
 from helpers.deflate import MAX_STORED_BLOCK, ZLIB_HEADER, stored_zlib
 from helpers.jpeg import icc_profile
 from helpers.pixels import decode_frames
+from helpers.samples import SAMPLES_DIR, make_samples
 from metaex.core.inflate import Budget, inflate, inflate_stream
 from metaex.core.verify import verify
 from metaex.formats import png as png_format
@@ -227,3 +228,37 @@ def test_pillow_decodes_a_multi_block_idat():
     assert frame.pixels == rgb_pixels(png.raw_image(width, height), width)
     check = png_format.check_image_data(png_format.walk_chunks(data))
     assert check.streams[0].size == check.streams[0].expected
+
+
+# -- the committed PNG samples ------------------------------------------------------------
+
+PNG_SAMPLES = sorted((SAMPLES_DIR / "png").glob("*.png"))
+
+
+def test_there_are_png_samples():
+    assert [p.name for p in PNG_SAMPLES] == ["apng_metadata.png", "clean.png",
+                                             "exif_time.png", "text_chunks.png"]
+
+
+@pytest.mark.parametrize("path", PNG_SAMPLES, ids=lambda p: p.name)
+def test_png_samples_use_only_stored_blocks(path):
+    data = path.read_bytes()
+    for kind, found in stored_streams(data).items():
+        for stream in found:
+            assert stream[:2] == ZLIB_HEADER, kind
+            stored_blocks(stream)
+    check = png_format.check_image_data(png_format.walk_chunks(data))
+    assert not check.problems
+    assert all(s.size == s.expected and s.after_end == 0 for s in check.streams)
+
+
+@pytest.mark.parametrize("path", PNG_SAMPLES, ids=lambda p: p.name)
+def test_pillow_decodes_png_samples_to_the_expected_pixels(path):
+    width, height = make_samples.PNG_WIDTH, make_samples.PNG_HEIGHT
+    expected = [png.raw_image(width, height)]
+    if path.name == "apng_metadata.png":
+        expected += [png.raw_image(width, height, seed=10 + i)
+                     for i in range(1, make_samples.APNG_FRAMES)]
+    frames = decode_frames(path, mode="RGB")
+    assert [f.size for f in frames] == [(width, height)] * len(expected)
+    assert [f.pixels for f in frames] == [rgb_pixels(raw, width) for raw in expected]
