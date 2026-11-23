@@ -21,6 +21,7 @@ import urllib.parse
 from dataclasses import dataclass, field
 
 from metaex.core.errors import MalformedFileError, UnsupportedFormatError
+from metaex.core.result import Section
 from metaex.core.xmldoc import XmlDocument, XmlElement, parse_xml
 from metaex.core.ziparchive import ZipArchive, ZipLimits, DEFAULT_LIMITS, open_archive
 
@@ -345,3 +346,131 @@ def open_package(data: bytes | bytearray | memoryview,
                                      "Strict), which metaex doesn't support; save it as a normal "
                                      "Office document (not \"Strict Open XML\") and try again")
     return package
+
+
+# -- document properties (docProps/core.xml, docProps/app.xml) ---------------------------
+
+CP_NS = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+DC_NS = "http://purl.org/dc/elements/1.1/"
+DCTERMS_NS = "http://purl.org/dc/terms/"
+EP_NS = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
+VT_NS = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
+CORE_TYPE = "application/vnd.openxmlformats-package.core-properties+xml"
+APP_TYPE = "application/vnd.openxmlformats-officedocument.extended-properties+xml"
+
+MAX_VALUE_CHARS = 2000
+"""Longer property values are shortened in the report."""
+MAX_VECTOR_ITEMS = 100
+
+CORE_FIELDS: dict[tuple[str, str], tuple[str, str]] = {
+    (DC_NS, "creator"): ("creator", "Author"),
+    (CP_NS, "lastModifiedBy"): ("lastModifiedBy", "Last modified by"),
+    (DCTERMS_NS, "created"): ("created", "Created"),
+    (DCTERMS_NS, "modified"): ("modified", "Modified"),
+    (CP_NS, "lastPrinted"): ("lastPrinted", "Last printed"),
+    (CP_NS, "revision"): ("revision", "Revision number"),
+    (DC_NS, "title"): ("title", "Title"),
+    (DC_NS, "subject"): ("subject", "Subject"),
+    (CP_NS, "keywords"): ("keywords", "Keywords"),
+    (DC_NS, "description"): ("description", "Comments (description)"),
+    (CP_NS, "category"): ("category", "Category"),
+    (CP_NS, "contentStatus"): ("contentStatus", "Status"),
+    (DC_NS, "identifier"): ("identifier", "Identifier"),
+    (DC_NS, "language"): ("language", "Language"),
+    (CP_NS, "version"): ("version", "Version"),
+    (CP_NS, "contentType"): ("contentType", "Content type"),
+}
+
+APP_LABELS = {
+    "Application": "Application", "AppVersion": "Application version", "Company": "Company",
+    "Manager": "Manager", "Template": "Template", "TotalTime": "Total editing time (minutes)",
+    "HyperlinkBase": "Hyperlink base", "DocSecurity": "Document security",
+    "Pages": "Pages", "Words": "Words", "Characters": "Characters",
+    "CharactersWithSpaces": "Characters (with spaces)", "Lines": "Lines",
+    "Paragraphs": "Paragraphs", "Slides": "Slides", "Notes": "Notes",
+    "HiddenSlides": "Hidden slides", "MMClips": "Multimedia clips",
+    "PresentationFormat": "Presentation format", "ScaleCrop": "Scale or crop thumbnail",
+    "LinksUpToDate": "Links up to date", "SharedDoc": "Shared document",
+    "HyperlinksChanged": "Hyperlinks changed", "HeadingPairs": "Part types (heading pairs)",
+    "TitlesOfParts": "Titles of parts", "HLinks": "Hyperlinks", "DigSig": "Digital signature",
+}
+
+
+def shorten(text: str, limit: int = MAX_VALUE_CHARS) -> str:
+    return text if len(text) <= limit else text[:limit] + f"... ({len(text)} characters)"
+
+
+def _part_by_rel_or_type(pkg: Package, rel_types: tuple[str, ...], content_type: str,
+                         default: str) -> str | None:
+    for r in pkg.rels(""):
+        if r.type in rel_types and not r.external and r.part is not None and pkg.has(r.part):
+            return pkg.entry_name(r.part)
+    found = pkg.parts_of_type(content_type)
+    if found:
+        return found[0]
+    return pkg.entry_name(default)
+
+
+def core_part(pkg: Package) -> str | None:
+    """docProps/core.xml (wherever the package keeps it), or None."""
+    return _part_by_rel_or_type(pkg, (CORE_PROPERTIES, CORE_PROPERTIES_OLD), CORE_TYPE,
+                                "docProps/core.xml")
+
+
+def app_part(pkg: Package) -> str | None:
+    """docProps/app.xml (wherever the package keeps it), or None."""
+    return _part_by_rel_or_type(pkg, (EXTENDED_PROPERTIES,), APP_TYPE, "docProps/app.xml")
+
+
+def core_section(pkg: Package) -> Section | None:
+    """The core properties: author, last editor, dates, revision, title, ...
+    Elements metaex doesn't know are listed too, by name."""
+    part = core_part(pkg)
+    if part is None:
+        return None
+    root = pkg.xml(part).root
+    section = Section("office_core", "Document properties")
+    for e in root.elements():
+        key, label = CORE_FIELDS.get((e.uri, e.local), (f"other.{e.local}", e.name))
+        value = shorten(" ".join(e.text().split()) if key != "description" else e.text())
+        if value == "" and key != "description":
+            continue
+        section.add(key, label, value, sensitive=True)
+    return section if section.fields else None
+
+
+def vector_values(element: XmlElement) -> list[str]:
+    """Text of the items of a vt:vector (variants included), at most MAX_VECTOR_ITEMS."""
+    values = []
+    for item in element.iter():
+        if item is element or item.uri != VT_NS or item.local in ("vector", "variant"):
+            continue
+        values.append(shorten(item.text()))
+        if len(values) >= MAX_VECTOR_ITEMS:
+            break
+    return values
+
+
+def app_section(pkg: Package) -> Section | None:
+    """The extended ("app") properties: application and version, company,
+    manager, template, total editing time, counts, ..."""
+    part = app_part(pkg)
+    if part is None:
+        return None
+    root = pkg.xml(part).root
+    section = Section("office_app", "Application properties")
+    for e in root.elements():
+        label = APP_LABELS.get(e.local, e.name) if e.uri == EP_NS else e.name
+        key = e.local if e.uri == EP_NS else f"other.{e.local}"
+        vector = e.child(VT_NS, "vector")
+        if vector is not None:
+            value: object = vector_values(vector)
+            if not value:
+                continue
+        else:
+            value = shorten(" ".join(e.text().split()))
+            if value == "":
+                continue
+        section.add(key, label, value, sensitive=e.local in (
+            "Company", "Manager", "Template", "HyperlinkBase", "HLinks", "TitlesOfParts"))
+    return section if section.fields else None

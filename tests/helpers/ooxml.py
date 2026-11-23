@@ -167,3 +167,76 @@ def pptx(*, main_type: str = PPT_MAIN) -> Package:
     pkg.add_linked("", "officeDocument", "ppt/presentation.xml", presentation(), main_type)
     pkg.add_linked("ppt/presentation.xml", "slide", "ppt/slides/slide1.xml", slide(), SLIDE)
     return pkg
+
+
+# -- document properties -----------------------------------------------------------------
+
+CORE_TYPE = "application/vnd.openxmlformats-package.core-properties+xml"
+APP_TYPE = "application/vnd.openxmlformats-officedocument.extended-properties+xml"
+CUSTOM_TYPE = "application/vnd.openxmlformats-officedocument.custom-properties+xml"
+CP_NS = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+EP_NS = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
+VT_NS = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
+
+CORE_PREFIX = {"title": "dc", "subject": "dc", "creator": "dc", "description": "dc",
+               "identifier": "dc", "language": "dc", "created": "dcterms",
+               "modified": "dcterms"}
+
+JANE_CORE = {
+    "title": "Floor plan notes", "subject": "Flat", "creator": "Jane Doe",
+    "keywords": "plan; flat", "description": "Second draft for the landlord",
+    "lastModifiedBy": "Jane Doe", "revision": "7", "lastPrinted": "2024-05-02T08:00:00Z",
+    "created": "2024-05-01T10:00:00Z", "modified": "2024-05-02T09:30:00Z",
+    "category": "Private", "contentStatus": "Draft", "identifier": "DOC-0001",
+    "language": "en-US", "version": "1.0",
+}
+
+JANE_APP = {
+    "Template": "C:\\Users\\jane.doe\\AppData\\Roaming\\Microsoft\\Templates\\Normal.dotm",
+    "TotalTime": "42", "Pages": "1", "Words": "120", "Characters": "700",
+    "Application": "Microsoft Office Word", "DocSecurity": "0", "Lines": "5",
+    "Paragraphs": "2", "ScaleCrop": "false", "Manager": "John Example",
+    "Company": "Example Corp", "LinksUpToDate": "false", "CharactersWithSpaces": "819",
+    "SharedDoc": "false", "HyperlinkBase": "https://intranet.example.com/docs/",
+    "HyperlinksChanged": "false", "AppVersion": "16.0000",
+}
+
+
+def core_xml(props: dict[str, str] | None = None) -> str:
+    """docProps/core.xml as Word writes it (``props`` by local name)."""
+    props = JANE_CORE if props is None else props
+    out = [DECL, f'<cp:coreProperties xmlns:cp="{CP_NS}" xmlns:dc="http://purl.org/dc/elements/'
+           '1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/'
+           'dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">']
+    for name, value in props.items():
+        prefix = CORE_PREFIX.get(name, "cp")
+        typed = ' xsi:type="dcterms:W3CDTF"' if prefix == "dcterms" else ""
+        out.append(f"<{prefix}:{name}{typed}>{escape(value)}</{prefix}:{name}>")
+    out.append("</cp:coreProperties>")
+    return "".join(out)
+
+
+def app_xml(props: dict[str, str] | None = None, titles: tuple[str, ...] = ("Floor plan",)) -> str:
+    """docProps/app.xml as Word writes it."""
+    props = JANE_APP if props is None else props
+    out = [DECL, f'<Properties xmlns="{EP_NS}" xmlns:vt="{VT_NS}">']
+    for name, value in props.items():
+        out.append(f"<{name}>{escape(value)}</{name}>")
+    if titles:
+        out.append('<HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant>'
+                   "<vt:lpstr>Title</vt:lpstr></vt:variant><vt:variant><vt:i4>1</vt:i4>"
+                   "</vt:variant></vt:vector></HeadingPairs>")
+        items = "".join(f"<vt:lpstr>{escape(t)}</vt:lpstr>" for t in titles)
+        out.append(f'<TitlesOfParts><vt:vector size="{len(titles)}" baseType="lpstr">{items}'
+                   "</vt:vector></TitlesOfParts>")
+    out.append("</Properties>")
+    return "".join(out)
+
+
+def with_properties(pkg: Package, core: str | None = None, app: str | None = None) -> Package:
+    """Add docProps/core.xml and docProps/app.xml (Jane Doe's by default)."""
+    pkg.add_linked("", PKG_REL + "metadata/core-properties", "docProps/core.xml",
+                   core_xml() if core is None else core, CORE_TYPE)
+    pkg.add_linked("", "extended-properties", "docProps/app.xml",
+                   app_xml() if app is None else app, APP_TYPE)
+    return pkg
