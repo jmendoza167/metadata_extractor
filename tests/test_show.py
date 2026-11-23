@@ -88,6 +88,7 @@ def field(data: dict, section: str, key: str):
 
 
 PLANNED = "planned (not implemented yet)"
+VIEWING = "viewing supported; stripping not implemented yet"
 UNRECOGNIZED = "not supported (unrecognized format)"
 
 
@@ -158,7 +159,7 @@ def test_show_malformed_jpeg_is_partly_examined(tmp_path):
         ("song.flac", FLAC, "FLAC", PLANNED),
         ("sound.wav", b"RIFF\x24\x00\x00\x00WAVEfmt " + bytes(20), "WAV", PLANNED),
         ("letter.docx", make_zip({"[Content_Types].xml": "<T/>", "word/document.xml": "<w/>"}),
-         "DOCX", PLANNED),
+         "DOCX", VIEWING),
         ("bundle.zip", make_zip({"a.txt": "a"}), "ZIP", PLANNED),
         ("backup.tar", make_tar(), "TAR", PLANNED),
         ("paper.pdf", b"%PDF-1.7\n", "PDF", "not supported"),
@@ -174,7 +175,8 @@ def test_show_generated_files(tmp_path, name, content, type_name, support):
     data = show_json(p)
     assert field(data, "file_type", "name") == type_name
     assert field(data, "file_type", "support") == support
-    assert field(data, "file_type", "embedded_metadata") == "not examined"
+    # The DOCX here is a bare ZIP, not a real package: "not examined (file is malformed)".
+    assert field(data, "file_type", "embedded_metadata").startswith("not examined")
     assert field(data, "file_system", "size_bytes") == len(content)
     assert any("NOT examined" in w for w in data["warnings"])
 

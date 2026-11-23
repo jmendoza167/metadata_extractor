@@ -122,3 +122,18 @@ def hidden_section(pkg: Package) -> Section | None:
                     sample if len(sample) <= MAX_SAMPLE else sample[:MAX_SAMPLE] + "...",
                     sensitive=True)
     return section if section.fields else None
+
+
+# -- parse -------------------------------------------------------------------------------
+
+
+def parse(data: bytes | bytearray | memoryview) -> dict:
+    """Parse a PPTX file and return its warnings, report sections and
+    structure. Raises MalformedFileError if it can't be opened at all,
+    UnsupportedFormatError for Strict Open XML."""
+    from metaex.core.ooxml import parse_package
+
+    parsed = parse_package(data, "pptx",
+                           [comments_section, people_section, hidden_section])
+    parsed.pop("package")
+    return parsed

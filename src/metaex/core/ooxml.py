@@ -882,3 +882,133 @@ def unused_parts_section(pkg: Package) -> Section | None:
                     f"{pkg.archive.get(name).size} bytes", sensitive=True)
     _limited(section, len(parts))
     return section if section.fields else None
+
+
+# -- the whole report ------------------------------------------------------------------------
+
+KIND_NAMES = {"docx": "Word document", "xlsx": "Excel workbook", "pptx": "PowerPoint presentation"}
+XML_SUFFIXES = (".xml", ".rels", ".vml")
+
+
+def xml_parts(pkg: Package) -> list[str]:
+    """Parts that are XML, by content type or name."""
+    return [n for n in pkg.part_names()
+            if n.lower().endswith(XML_SUFFIXES) or (pkg.type_of(n) or "").endswith("xml")]
+
+
+def check_xml_parts(pkg: Package) -> None:
+    """Refuse the package if any XML part declares a DOCTYPE or entities
+    (also the parts metaex doesn't otherwise parse)."""
+    from metaex.core.xmldoc import check_no_dtd
+
+    for name in xml_parts(pkg):
+        check_no_dtd(pkg.read(name), name)
+
+
+def structure_section(pkg: Package) -> Section:
+    """Every entry of the archive with its content type and sizes."""
+    section = Section("structure", "Package parts")
+    for e in pkg.archive.entries[:MAX_LISTED * 5]:
+        method = {0: "stored", 8: "deflated"}.get(e.method, str(e.method))
+        section.add(e.name, e.name, f"{pkg.type_of(e.name) or '-'}, {e.size} bytes ({method})")
+    if len(pkg.archive.entries) > MAX_LISTED * 5:
+        section.add("more", "More", f"{len(pkg.archive.entries) - MAX_LISTED * 5} more")
+    return section
+
+
+def _collect(builders, pkg: Package, warnings: list[str]) -> tuple[list[Section], bool]:
+    """Run each section builder; a part that can't be read becomes a warning
+    and marks the report incomplete, without stopping the others."""
+    sections: list[Section] = []
+    complete = True
+    for builder in builders:
+        try:
+            found = builder(pkg)
+        except MalformedFileError as exc:
+            warnings.append(f"part of the document could not be read: {exc}; its metadata "
+                            "was NOT examined")
+            complete = False
+            continue
+        if isinstance(found, Section):
+            sections.append(found)
+        elif found:
+            sections.extend(found)
+    return sections, complete
+
+
+def _merge(sections: list[Section]) -> list[Section]:
+    """One section per key for the sections that several builders may add
+    to (local file paths), in first-seen order."""
+    out: list[Section] = []
+    by_key: dict[str, Section] = {}
+    for section in sections:
+        if section.key == "local_paths" and section.key in by_key:
+            by_key[section.key].fields.extend(section.fields)
+            continue
+        by_key.setdefault(section.key, section)
+        out.append(section)
+    return out
+
+
+def summary_warnings(pkg: Package, sections: list[Section]) -> list[str]:
+    """What a person should know before sharing the file."""
+    found = {s.key: s for s in sections}
+    warnings = []
+    changes = found.get("tracked_changes")
+    if changes is not None:
+        deleted = changes.get("deleted_characters")
+        if deleted is not None:
+            warnings.append(f"CRITICAL: the document has tracked changes, and {deleted.value} "
+                            "characters of deleted text are still stored in the file")
+        else:
+            warnings.append("the document has tracked changes (who changed what, and when)")
+    paths = found.get("local_paths")
+    if paths is not None:
+        warnings.append(f"CRITICAL: {len(paths.fields)} file path(s) reveal a user name")
+    if "office_hidden_parts" in found:
+        warnings.append("CRITICAL: the package holds parts nothing in the document uses "
+                        "(hidden data)")
+    if "zip_hidden" in found:
+        warnings.append("CRITICAL: the ZIP container holds data outside its entries "
+                        "(hidden data)")
+    if pkg.vba_parts:
+        warnings.append("the document contains VBA macros; their code can hold names, paths "
+                        "and other identifying information")
+    if "office_embedded" in found:
+        warnings.append("the document contains embedded objects (other files); metaex can't "
+                        "clean their contents")
+    return warnings
+
+
+def parse_package(data: bytes | bytearray | memoryview, kind: str, format_builders) -> dict:
+    """Everything metaex reports for an OOXML file of ``kind``: the package
+    parts shared by all formats, plus ``format_builders`` (functions of the
+    Package returning sections) for the format's own parts.
+
+    Raises MalformedFileError if the package can't be opened at all, and
+    UnsupportedFormatError for Strict Open XML and binary workbooks.
+    """
+    from metaex.core.ziparchive import report_sections
+
+    pkg = open_package(data)
+    if pkg.kind != kind:
+        raise MalformedFileError(f"the file looks like a {KIND_NAMES[kind]}, but its main "
+                                 f"document is a {pkg.description}")
+    warnings: list[str] = []
+    image_warnings: list[str] = []
+    builders = [
+        core_section, app_section, custom_sections, custom_xml_section,
+        *format_builders,
+        external_link_sections, embedded_object_section,
+        lambda p: embedded_image_sections(p, image_warnings),
+        thumbnail_section, printer_section, macros_section, unused_parts_section,
+        lambda p: report_sections(p.archive),
+        check_xml_parts,
+    ]
+    sections, complete = _collect(builders, pkg, warnings)
+    sections = _merge(sections)
+    warnings = summary_warnings(pkg, sections) + warnings + image_warnings
+    if pkg.macro_enabled or pkg.template:
+        warnings.append(f"this is a {pkg.description}")
+    return {"warnings": warnings, "sections": sections, "structure": structure_section(pkg),
+            "complete": complete, "package": pkg}

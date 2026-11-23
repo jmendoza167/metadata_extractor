@@ -6,7 +6,7 @@ import os
 from types import ModuleType
 
 from metaex.core import filetype as ft
-from metaex.core.errors import MalformedFileError, MetaexError
+from metaex.core.errors import MalformedFileError, MetaexError, UnsupportedFormatError
 from metaex.core.generic import file_system_section, hashes_section, mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, load_file
 from metaex.core.registry import can_strip, format_module
@@ -61,6 +61,9 @@ def build_report(path: str | os.PathLike[str], max_size: int = DEFAULT_MAX_SIZE,
             report.warnings.append(f"{detected.name} structure could not be read: {exc}; "
                                    "embedded metadata was NOT examined")
             examined = "not examined (file is malformed)"
+        except UnsupportedFormatError as exc:
+            report.warnings.append(f"{exc}. Embedded metadata was NOT examined.")
+            examined = "not examined (this variant is not supported)"
         else:
             report.warnings.extend(parsed.get("warnings", []))
             format_sections = list(parsed.get("sections", []))

@@ -244,3 +244,19 @@ def revision_ids_section(pkg: Package) -> Section | None:
     if attributes:
         section.add("rsid_attributes", "Revision ID attributes", attributes)
     return section
+
+
+# -- parse -------------------------------------------------------------------------------
+
+
+def parse(data: bytes | bytearray | memoryview) -> dict:
+    """Parse a DOCX file and return its warnings, report sections and
+    structure. Raises MalformedFileError if it can't be opened at all,
+    UnsupportedFormatError for Strict Open XML."""
+    from metaex.core.ooxml import parse_package
+
+    parsed = parse_package(data, "docx",
+                           [variables_section, comments_section, people_section, tracked_changes_section,
+                 hidden_section, revision_ids_section])
+    parsed.pop("package")
+    return parsed

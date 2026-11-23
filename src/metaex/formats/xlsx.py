@@ -144,3 +144,19 @@ def external_data_section(pkg: Package) -> Section | None:
             section.add(f"connection.{n}", f"Data connection {conn.get('name') or n}",
                         shorten("; ".join(details) or "(no details)"), sensitive=True)
     return section if section.fields else None
+
+
+# -- parse -------------------------------------------------------------------------------
+
+
+def parse(data: bytes | bytearray | memoryview) -> dict:
+    """Parse a XLSX file and return its warnings, report sections and
+    structure. Raises MalformedFileError if it can't be opened at all,
+    UnsupportedFormatError for Strict Open XML and binary workbooks."""
+    from metaex.core.ooxml import parse_package
+
+    parsed = parse_package(data, "xlsx",
+                           [comments_section, people_section, hidden_section, workbook_section,
+                 external_data_section])
+    parsed.pop("package")
+    return parsed
