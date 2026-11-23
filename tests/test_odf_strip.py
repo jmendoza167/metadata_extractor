@@ -56,7 +56,7 @@ def test_what_changes_in_the_files():
     assert b"<dc:date>2000-01-01T00:00:00</dc:date>" in content  # tracked change: required
     assert b"2024-05-01T10:00:00" not in content  # the comment's date is gone
     assert b"creator-initials" not in content
-    assert b"<text:p>1200</text:p>" in content  # deleted text is content: kept (with a warning)
+    assert b"<text:p>twelve hundred</text:p>" in content  # deleted text is content: kept (with a warning)
     manifest = cleaned.read("META-INF/manifest.xml")
     assert b"Thumbnails" not in manifest and b"Configurations2" not in manifest
     picture = cleaned.read("Pictures/10000000000000300000002096C8C1A2.jpg")

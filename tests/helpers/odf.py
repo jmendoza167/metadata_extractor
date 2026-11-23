@@ -172,7 +172,7 @@ TRACKED = (
     '<text:tracked-changes text:track-changes="true">'
     '<text:changed-region xml:id="ct1" text:id="ct1"><text:deletion><office:change-info>'
     "<dc:creator>Jane Doe</dc:creator><dc:date>2024-05-01T10:15:00</dc:date>"
-    "</office:change-info><text:p>1200</text:p></text:deletion></text:changed-region>"
+    "</office:change-info><text:p>twelve hundred</text:p></text:deletion></text:changed-region>"
     '<text:changed-region xml:id="ct2" text:id="ct2"><text:insertion><office:change-info>'
     "<dc:creator>John Example</dc:creator><dc:date>2024-05-02T09:00:00</dc:date>"
     "</office:change-info></text:insertion></text:changed-region></text:tracked-changes>")

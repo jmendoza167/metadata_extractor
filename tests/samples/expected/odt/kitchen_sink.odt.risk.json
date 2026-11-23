@@ -35,13 +35,13 @@
       "level": "critical",
       "section": "Tracked changes",
       "label": "Deleted text still in the file (characters)",
-      "value": "4"
+      "value": "14"
     },
     {
       "level": "critical",
       "section": "Tracked changes",
       "label": "Deleted text",
-      "value": "1200"
+      "value": "\"twelve hundred\""
     },
     {
       "level": "critical",
@@ -495,7 +495,7 @@
     }
   ],
   "warnings": [
-    "CRITICAL: the document has tracked changes, and 4 characters of deleted text are still stored in the file",
+    "CRITICAL: the document has tracked changes, and 14 characters of deleted text are still stored in the file",
     "CRITICAL: 1 file path(s) reveal a user name",
     "CRITICAL: Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
     "CRITICAL: Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",

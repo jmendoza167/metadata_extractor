@@ -62,7 +62,7 @@ def test_tracked_changes_in_a_text_document():
     assert found["tracked_changes"] == {
         "insertions": 1, "deletions": 1, "authors": ["Jane Doe", "John Example"],
         "dates": "2024-05-01T10:15:00 to 2024-05-02T09:00:00 (2 dates)",
-        "deleted_characters": 4, "deleted_text": "1200"}
+        "deleted_characters": 14, "deleted_text": '"twelve hundred"'}
     assert found["revision_ids"]["rsid_attributes"] == 3
     assert found["office_external"] == {"content.xml:1": "https://example.com/flat"}
 

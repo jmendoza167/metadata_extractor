@@ -66,7 +66,7 @@ def test_show_warns_about_deleted_text_and_user_paths(tmp_path):
     path.write_bytes(word_file())
     warnings = show_json(path)["warnings"]
     assert warnings[0].startswith("CRITICAL")
-    assert any("4 characters of deleted text" in w for w in warnings)
+    assert any("14 characters of deleted text" in w for w in warnings)
     assert any("reveal a user name" in w for w in warnings)
 
 

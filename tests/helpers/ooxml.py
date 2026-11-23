@@ -339,7 +339,7 @@ COMMENTED_BODY = (
 TRACKED_BODY = (
     '<w:p w:rsidR="00A1B2C3" w:rsidRDefault="00D4E5F6"><w:r><w:t xml:space="preserve">The rent is </w:t></w:r>'
     '<w:del w:id="1" w:author="Jane Doe" w:date="2024-05-01T10:15:00Z">'
-    '<w:r w:rsidDel="00D4E5F6"><w:delText>1200</w:delText></w:r></w:del>'
+    '<w:r w:rsidDel="00D4E5F6"><w:delText>twelve hundred</w:delText></w:r></w:del>'
     '<w:ins w:id="2" w:author="John Example" w:date="2024-05-02T09:00:00Z">'
     '<w:r w:rsidR="00D4E5F6"><w:t>950</w:t></w:r></w:ins>'
     '<w:r><w:rPr><w:b/><w:rPrChange w:id="3" w:author="Jane Doe" w:date="2024-05-01T10:16:00Z">'

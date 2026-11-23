@@ -23,8 +23,8 @@ import re
 from dataclasses import dataclass, field
 
 from metaex.core.errors import MalformedFileError, UnsupportedFormatError
-from metaex.core.ooxml import (MAX_LISTED, add_link, comments_summary, date_range, distinct,
-                               shorten)
+from metaex.core.ooxml import (MAX_LISTED, add_link, comments_summary, date_range,
+                               deleted_text_value, distinct, shorten)
 from metaex.core.result import Section
 from metaex.core.xmldoc import XmlDocument, XmlElement, check_no_dtd, parse_xml
 from metaex.core.ziparchive import DEFAULT_LIMITS, ZipArchive, ZipLimits, open_archive
@@ -371,8 +371,7 @@ def tracked_changes_section(pkg: OdfPackage) -> Section | None:
     if text:
         section.add("deleted_characters", "Deleted text still in the file (characters)",
                     len(text), sensitive=True)
-        section.add("deleted_text", "Deleted text",
-                    text if len(text) <= 200 else text[:200] + "...", sensitive=True)
+        section.add("deleted_text", "Deleted text", deleted_text_value(text), sensitive=True)
     return section
 
 

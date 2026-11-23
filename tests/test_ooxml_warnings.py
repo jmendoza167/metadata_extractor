@@ -27,7 +27,7 @@ def one(warnings, text):
 def test_tracked_changes_with_deleted_text_are_critical():
     warnings = warnings_for(docx_format, docx(TRACKED_BODY).build())
     warning = one(warnings, "DELETED TEXT")
-    assert warning.startswith("CRITICAL: ") and "4 characters" in warning
+    assert warning.startswith("CRITICAL: ") and "14 characters" in warning
     assert "Accept All" in warning and "LibreOffice" in warning
     assert warnings[0] == warning  # the most important first
 

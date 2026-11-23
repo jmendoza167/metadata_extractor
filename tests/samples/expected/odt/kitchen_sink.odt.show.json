@@ -1,7 +1,7 @@
 {
   "subject": "odt/kitchen_sink.odt",
   "warnings": [
-    "CRITICAL: the document has tracked changes, and 4 characters of deleted text are still stored in the file",
+    "CRITICAL: the document has tracked changes, and 14 characters of deleted text are still stored in the file",
     "CRITICAL: 1 file path(s) reveal a user name",
     "CRITICAL: Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
     "CRITICAL: Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
@@ -299,13 +299,13 @@
         },
         "deleted_characters": {
           "label": "Deleted text still in the file (characters)",
-          "value": 4,
+          "value": 14,
           "sensitive": true,
           "note": null
         },
         "deleted_text": {
           "label": "Deleted text",
-          "value": "1200",
+          "value": "\"twelve hundred\"",
           "sensitive": true,
           "note": null
         }
@@ -636,7 +636,7 @@
         },
         "size_bytes": {
           "label": "Size (bytes)",
-          "value": 12858,
+          "value": 12868,
           "sensitive": false,
           "note": null
         },
@@ -653,19 +653,19 @@
       "fields": {
         "md5": {
           "label": "MD5",
-          "value": "cfb683c929dfb483b51100b3fcc81f1b",
+          "value": "515209c5cd5b5031be475731342175e8",
           "sensitive": false,
           "note": null
         },
         "sha1": {
           "label": "SHA-1",
-          "value": "661f7a0979957903bc9107ac13504ec6b010883b",
+          "value": "67ed1b843ce0d50cd980debb3920465d29f38132",
           "sensitive": false,
           "note": null
         },
         "sha256": {
           "label": "SHA-256",
-          "value": "0db5808c209ead7e99aecdc1d6d449c7c5b9e926c948ced87fa61a658837a166",
+          "value": "e036ce91473d0c704761a4a6281c9890d14ec1c29c89802844af3d95597420de",
           "sensitive": false,
           "note": null
         }

@@ -8,8 +8,8 @@ revision IDs and hidden text.
 
 from __future__ import annotations
 
-from metaex.core.ooxml import (Package, add_person, comments_summary, date_range, distinct,
-                               shorten)
+from metaex.core.ooxml import (Package, add_person, comments_summary, date_range,
+                               deleted_text_value, distinct, shorten)
 from metaex.core.result import Section
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -147,7 +147,7 @@ def tracked_changes_section(pkg: Package) -> Section | None:
     if text:
         section.add("deleted_characters", "Deleted text still in the file (characters)",
                     len(text), sensitive=True)
-        section.add("deleted_text", "Deleted text", _sample(text), sensitive=True)
+        section.add("deleted_text", "Deleted text", deleted_text_value(text), sensitive=True)
     return section
 
 

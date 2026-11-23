@@ -744,8 +744,8 @@ CRITICAL (19)
   Document properties: Last modified by     Jane Doe
   Application properties: Template          C:\Users\jane.doe\AppData\Roaming\Microsoft\Templates\Normal.dotm
   People: Person 1: user ID                 S::jane.doe@example.com::aaaaaaaa-1111-2222-3333-444444444444
-  Tracked changes: Deleted text still in the file (characters)  4
-  Tracked changes: Deleted text             1200
+  Tracked changes: Deleted text still in the file (characters)  14
+  Tracked changes: Deleted text             "twelve hundred"
   Local file paths: Attached template (word/settings.xml)  file:///C:\Users\jane.doe\Documents\Custom Office Templates\Letter.dotm
   word/media/image1.jpeg (JPEG): GPS: Coordinates  48.858367, 2.294481
   ...                                       (output shortened here)
@@ -767,7 +767,7 @@ metaex strip: letter.docx
 Wrote letter_clean.docx (9.3 KiB; original 20.9 KiB)
 
 *** WARNING ***
-the document still contains tracked changes, and 4 characters of DELETED TEXT are still stored in the file, where anyone can read them. Accept or reject all changes in Word (Review > Accept > Accept All Changes) or LibreOffice (Edit > Track Changes > Accept All), save, and run metaex again.
+the document still contains tracked changes, and 14 characters of DELETED TEXT are still stored in the file, where anyone can read them. Accept or reject all changes in Word (Review > Accept > Accept All Changes) or LibreOffice (Edit > Track Changes > Accept All), save, and run metaex again.
 
 Removed:
   Document properties             15 fields: Title, Subject, Author, Keywords, ...
@@ -785,7 +785,7 @@ Removed:
 Kept by design:
   Comments: Comments = 1, Comment authors = Author
   People: Person 1 = Author
-  Tracked changes: Insertions = 1, Deletions = 1, Formatting changes = 1, Revision authors = Author, Deleted text still in the file (characters) = 4, Deleted text = 1200
+  Tracked changes: Insertions = 1, Deletions = 1, Formatting changes = 1, Revision authors = Author, Deleted text still in the file (characters) = 14, Deleted text = "twelve hundred"
   Hidden content: Hidden text (runs) = 1, Hidden text = Secret note to self, Glossary document (building blocks) = word/glossary/document.xml, 1 paragraphs: Old letterhead of Jane Doe
   External links: Hyperlink (word/document.xml) = https://example.com/flat
   Embedded images: word/media/image1.jpeg = JPEG, 962 bytes
@@ -795,7 +795,7 @@ Kept by design:
   Warning: kept 1 external link(s) (e.g. https://example.com/flat); they are part of the document, and opening it may contact those addresses
 
 Verification: clean
-  Document content unchanged (SHA-256 a151a0548f1d470c88791462b7365b65a837eed04d0696db4f16b258d858baac)
+  Document content unchanged (SHA-256 c8445705967bf84f23ebff4e32cda57f3bcddbe09bd70cb7f6d12bf1adc0e348)
 
 File timestamps: new (not copied from the original)
 Windows Zone.Identifier stream: none (no download origin attached)
@@ -806,8 +806,8 @@ $ metaex verify letter_clean.docx --original letter.docx
 metaex verify: letter_clean.docx
 Result: CLEAN
 ...                                       (output shortened here)
-Document content: matches the original (SHA-256 a151a0548f1d470c88791462b7365b65a837eed04d0696db4f16b258d858baac)
-Note: CRITICAL: the document still contains tracked changes, and 4 characters of DELETED TEXT are still stored in the file, ...
+Document content: matches the original (SHA-256 c8445705967bf84f23ebff4e32cda57f3bcddbe09bd70cb7f6d12bf1adc0e348)
+Note: CRITICAL: the document still contains tracked changes, and 14 characters of DELETED TEXT are still stored in the file, ...
 ```
 
 OpenDocument files (`metaex strip notes.odt`) work the same way.

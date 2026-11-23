@@ -1,7 +1,7 @@
 {
   "subject": "docx/kitchen_sink.docx",
   "warnings": [
-    "CRITICAL: the document has tracked changes, and 4 characters of deleted text are still stored in the file",
+    "CRITICAL: the document has tracked changes, and 14 characters of deleted text are still stored in the file",
     "CRITICAL: 1 file path(s) reveal a user name",
     "CRITICAL: word/media/image1.jpeg (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
     "CRITICAL: word/media/image1.jpeg (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
@@ -465,13 +465,13 @@
         },
         "deleted_characters": {
           "label": "Deleted text still in the file (characters)",
-          "value": 4,
+          "value": 14,
           "sensitive": true,
           "note": null
         },
         "deleted_text": {
           "label": "Deleted text",
-          "value": "1200",
+          "value": "\"twelve hundred\"",
           "sensitive": true,
           "note": null
         }
@@ -831,7 +831,7 @@
         },
         "size_bytes": {
           "label": "Size (bytes)",
-          "value": 21376,
+          "value": 21386,
           "sensitive": false,
           "note": null
         },
@@ -848,19 +848,19 @@
       "fields": {
         "md5": {
           "label": "MD5",
-          "value": "4e774ea78a74a931f37604e735cbf737",
+          "value": "842584f15f95f189941be59a5b2a2424",
           "sensitive": false,
           "note": null
         },
         "sha1": {
           "label": "SHA-1",
-          "value": "ae023a56a1024d2ff2c9dbe6227feb3b66af0f87",
+          "value": "8877fa26f8874dc27272ac5bf54b8fba3cbd66e3",
           "sensitive": false,
           "note": null
         },
         "sha256": {
           "label": "SHA-256",
-          "value": "c8a138f5446e16edb66ea30c4341ca17d46f3885167cdce2183865728a4f0d11",
+          "value": "f2c707fdd85d4bf1d704829533234ff8ab1ffdc9c44ec5e1c0c7d0522c4e283d",
           "sensitive": false,
           "note": null
         }

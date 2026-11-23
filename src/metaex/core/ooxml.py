@@ -407,6 +407,16 @@ APP_LABELS = {
 }
 
 
+MAX_DELETED_SAMPLE = 200
+
+
+def deleted_text_value(text: str) -> str:
+    """How deleted text is shown: in double quotes (so "1200" is never read
+    as a count), shortened to MAX_DELETED_SAMPLE characters."""
+    sample = text if len(text) <= MAX_DELETED_SAMPLE else text[:MAX_DELETED_SAMPLE] + "..."
+    return f'"{sample}"'
+
+
 def shorten(text: str, limit: int = MAX_VALUE_CHARS) -> str:
     return text if len(text) <= limit else text[:limit] + f"... ({len(text)} characters)"
 

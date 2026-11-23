@@ -46,7 +46,7 @@ def test_word_document_changes_only_where_it_must():
                 .replace(b'w:author="Jane Doe" w:date="2024-05-01T10:16:00Z"', b'w:author="Author"'))
     expected = re.sub(rb' w:rsid[A-Za-z]*="[^"]*"', b"", expected)  # removed too (rsids)
     assert cleaned == expected
-    assert b'mc:Ignorable="w14 w15"' in cleaned and b"<w:delText>1200</w:delText>" in cleaned
+    assert b'mc:Ignorable="w14 w15"' in cleaned and b"<w:delText>twelve hundred</w:delText>" in cleaned
 
 
 def test_excel_comment_authors_and_persons():

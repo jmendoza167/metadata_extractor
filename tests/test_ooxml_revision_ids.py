@@ -41,7 +41,7 @@ def test_removing_revision_ids_keeps_everything_else():
     cleaned = open_package(docx_format.strip(word()))
     document = cleaned.read("word/document.xml")
     assert b'w14:paraId="1A2B3C4D"' in document and b'mc:Ignorable="w14 w15"' in document
-    assert b"<w:delText>1200</w:delText>" in document
+    assert b"<w:delText>twelve hundred</w:delText>" in document
     settings = cleaned.read("word/settings.xml")
     assert b'<w:zoom w:percent="100"/>' in settings
     styles = cleaned.read("word/styles.xml")

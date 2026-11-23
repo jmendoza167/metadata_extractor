@@ -49,7 +49,7 @@ def test_tracked_changes_and_deleted_text():
         "insertions": 1, "deletions": 1, "formatting": 1,
         "authors": ["Jane Doe", "John Example"],
         "dates": "2024-05-01T10:15:00Z to 2024-05-02T09:00:00Z (3 dates)",
-        "deleted_characters": 4, "deleted_text": "1200"}
+        "deleted_characters": 14, "deleted_text": '"twelve hundred"'}
 
 
 def test_tracked_changes_in_headers_and_footnotes():
@@ -62,14 +62,14 @@ def test_tracked_changes_in_headers_and_footnotes():
     opened = open_package(pkg.build())
     assert docx_format.story_parts(opened) == ["word/document.xml", "word/header1.xml"]
     found = fields(docx_format.tracked_changes_section(opened))
-    assert found["deleted_text"] == "Draft - do not share" and found["deletions"] == 1
+    assert found["deleted_text"] == '"Draft - do not share"' and found["deletions"] == 1
 
 
 def test_long_deleted_text_is_shortened_but_counted():
     body = ('<w:p><w:del w:id="1" w:author="A"><w:r><w:delText>' + "x" * 500
             + "</w:delText></w:r></w:del></w:p>")
     found = fields(docx_format.tracked_changes_section(open_package(docx(body).build())))
-    assert found["deleted_characters"] == 500 and len(found["deleted_text"]) == 203
+    assert found["deleted_characters"] == 500 and found["deleted_text"] == '"' + "x" * 200 + '..."'
 
 
 def test_no_comments_people_or_changes():
