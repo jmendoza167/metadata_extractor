@@ -18,6 +18,21 @@ Levels:
   SVG <title>/<desc> text
 - low: everything else (including zero padding after the end of the image,
   which formats report in a separate "padding" section)
+
+Office documents (DOCX, XLSX, PPTX, OpenDocument) have their own table,
+OFFICE_SECTIONS and OFFICE_FIELDS:
+- critical: author and last editor, people's user IDs (account e-mail
+  addresses), file paths that name a user, deleted text kept by tracked
+  changes, unused parts and data hidden in the ZIP container, the authors
+  of embedded Office files (and embedded images with GPS, by the image rules)
+- high: company, manager, template, dates, application and version, comment
+  and revision authors, people's names, sensitivity labels, custom
+  properties and custom XML, document variables, external links and data
+  connections, macros, embedded objects, hidden text, ZIP comments and
+  timestamps
+- medium: total editing time, revision number, printer settings, revision
+  IDs (rsids), thumbnail, hidden sheets and slides, speaker notes
+- low: counts and everything else
 """
 
 from __future__ import annotations
@@ -109,6 +124,65 @@ MEDIUM_NAMES = {
 }
 
 
+# -- Office documents ------------------------------------------------------------------
+OFFICE_SECTIONS = {
+    # section key -> level of its fields, unless OFFICE_FIELDS says otherwise
+    "office_core": LOW, "office_app": LOW, "office_comments": LOW, "office_people": HIGH,
+    "tracked_changes": LOW, "hidden_content": MEDIUM,
+    "office_custom": HIGH, "office_labels": HIGH, "office_custom_xml": HIGH,
+    "docx_variables": HIGH, "office_external": HIGH, "xlsx_external_data": HIGH,
+    "xlsx_workbook": MEDIUM, "macros": HIGH, "office_embedded": HIGH,
+    "office_thumbnail": MEDIUM, "printer_settings": MEDIUM, "revision_ids": MEDIUM,
+    "office_hidden_parts": CRITICAL, "embedded_images": LOW,
+    "zip_hidden": CRITICAL, "zip_comment": HIGH, "zip_extra": HIGH, "zip_entries": LOW,
+    "odf_meta": LOW, "odf_user_defined": HIGH, "odf_settings": LOW,
+}
+OFFICE_FIELDS = {
+    # (section key, field key or its last part after "." or ":") -> level
+    ("office_core", "creator"): CRITICAL, ("office_core", "lastModifiedBy"): CRITICAL,
+    ("office_core", "created"): HIGH, ("office_core", "modified"): HIGH,
+    ("office_core", "lastPrinted"): HIGH, ("office_core", "revision"): MEDIUM,
+    ("office_app", "Company"): HIGH, ("office_app", "Manager"): HIGH,
+    ("office_app", "Template"): HIGH, ("office_app", "Application"): HIGH,
+    ("office_app", "AppVersion"): HIGH, ("office_app", "HyperlinkBase"): HIGH,
+    ("office_app", "HLinks"): HIGH, ("office_app", "TotalTime"): MEDIUM,
+    ("office_comments", "authors"): HIGH, ("office_comments", "initials"): HIGH,
+    ("office_comments", "dates"): HIGH, ("office_comments", "dateUtc"): HIGH,
+    ("office_people", "userId"): CRITICAL, ("office_people", "providerId"): MEDIUM,
+    ("tracked_changes", "deleted_text"): CRITICAL,
+    ("tracked_changes", "deleted_characters"): CRITICAL,
+    ("tracked_changes", "authors"): HIGH, ("tracked_changes", "dates"): HIGH,
+    ("hidden_content", "hidden_text"): HIGH, ("hidden_content", "hidden_text_runs"): HIGH,
+    ("hidden_content", "glossary"): HIGH,
+    ("xlsx_workbook", "absPath"): HIGH, ("xlsx_workbook", "fileVersion"): HIGH,
+    ("xlsx_workbook", "documentId"): HIGH, ("xlsx_workbook", "uidLastSave"): HIGH,
+    ("office_embedded", "creator"): CRITICAL, ("office_embedded", "lastModifiedBy"): CRITICAL,
+    ("zip_entries", "entry_times"): HIGH,
+    # OpenDocument (meta.xml, settings.xml)
+    ("odf_meta", "initial-creator"): CRITICAL, ("odf_meta", "creator"): CRITICAL,
+    ("odf_meta", "creation-date"): HIGH, ("odf_meta", "date"): HIGH,
+    ("odf_meta", "print-date"): HIGH, ("odf_meta", "printed-by"): CRITICAL,
+    ("odf_meta", "generator"): HIGH, ("odf_meta", "template"): HIGH,
+    ("odf_meta", "editing-duration"): MEDIUM, ("odf_meta", "editing-cycles"): MEDIUM,
+    ("odf_settings", "PrinterName"): MEDIUM, ("odf_settings", "PrinterSetup"): MEDIUM,
+    ("odf_settings", "PrinterPaperFromSetup"): MEDIUM,
+}
+
+
+def _office_level(section_key: str, field_key: str, value: str) -> str:
+    """Level of a field in an Office section (see OFFICE_SECTIONS)."""
+    from metaex.core.paths import local_paths, user_name
+
+    if any(user_name(p) for p in local_paths(value)):
+        return CRITICAL  # a file path that names a user
+    for key in (field_key, field_key.rsplit(".", 1)[-1], field_key.split(".", 1)[0],
+                field_key.rsplit(":", 1)[-1]):
+        level = OFFICE_FIELDS.get((section_key, key))
+        if level is not None:
+            return level
+    return OFFICE_SECTIONS[section_key]
+
+
 @dataclass(frozen=True)
 class RiskFinding:
     level: str
@@ -139,8 +213,11 @@ def _is_date(name: str) -> bool:
             or name == "when")
 
 
-def classify(section_key: str, field_key: str, label: str = "") -> str:
-    """Risk level of one field."""
+def classify(section_key: str, field_key: str, label: str = "", value: str = "") -> str:
+    """Risk level of one field (``value`` is its displayed value; only Office
+    sections look at it, for file paths that name a user)."""
+    if section_key in OFFICE_SECTIONS:
+        return _office_level(section_key, field_key, value)
     if section_key == "icc":
         # ICC fields share names with personal fields (Description, Copyright) but
         # describe a color profile; only the device fields can fingerprint.
@@ -187,8 +264,9 @@ def assess(sections: list[Section]) -> list[RiskFinding]:
         if section.key in NOT_METADATA_SECTIONS:
             continue
         for f in section.fields:
-            finding = RiskFinding(classify(section.key, f.key, f.label), section.title,
-                                  f.label, format_value(f.value), section.key, f.key)
+            value = format_value(f.value)
+            finding = RiskFinding(classify(section.key, f.key, f.label, value), section.title,
+                                  f.label, value, section.key, f.key)
             key = _dedup_key(finding)
             if key is not None and key in merged:
                 i = merged[key]

@@ -109,7 +109,7 @@ def test_merged_xmp_keeps_the_highest_level(monkeypatch):
     from metaex.core import risk
 
     monkeypatch.setattr(risk, "classify",
-                        lambda section, key, label="": HIGH if key.startswith("(ext") else LOW)
+                        lambda section, key, label="", value="": HIGH if key.startswith("(ext") else LOW)
     findings = assess([_xmp(("xmp:Rating", "5"), ("(extended) xmp:Rating", "5"))])
     assert [(f.level, f.field_key) for f in findings] == [(HIGH, "(extended) xmp:Rating")]
 
