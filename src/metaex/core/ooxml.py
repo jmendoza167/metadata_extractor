@@ -577,3 +577,56 @@ def custom_xml_section(pkg: Package) -> Section | None:
                 section.add(f"{part}:{path}", f"{part}: {path}", text, sensitive=True)
     _limited(section, total)
     return section if section.fields else None
+
+
+# -- helpers for comments and people -----------------------------------------------------
+
+
+def date_range(values: list[str]) -> str:
+    """"first to last (n dates)" for ISO dates, or the single date."""
+    dates = sorted(v for v in values if v)
+    if not dates:
+        return ""
+    if dates[0] == dates[-1]:
+        return dates[0] if len(dates) == 1 else f"{dates[0]} ({len(dates)} times)"
+    return f"{dates[0]} to {dates[-1]} ({len(dates)} dates)"
+
+
+def distinct(values) -> list[str]:
+    """Values in first-seen order, each once, empty ones left out."""
+    out: list[str] = []
+    for v in values:
+        if v and v not in out:
+            out.append(v)
+    return out
+
+
+def comments_summary(section: Section, count: int, authors: list[str], initials: list[str],
+                     dates: list[str], where: str = "") -> None:
+    """Add the usual comment fields: count, authors, initials, dates."""
+    if not count:
+        return
+    suffix = f" ({where})" if where else ""
+    key = f"{where}." if where else ""
+    section.add(f"{key}count", f"Comments{suffix}", count)
+    if any(authors):
+        section.add(f"{key}authors", f"Comment authors{suffix}", distinct(authors),
+                    sensitive=True)
+    if any(initials):
+        section.add(f"{key}initials", f"Comment author initials{suffix}", distinct(initials),
+                    sensitive=True)
+    if any(dates):
+        section.add(f"{key}dates", f"Comment dates{suffix}", date_range(dates), sensitive=True)
+
+
+def add_person(section: Section, n: int, name: str | None, user_id: str | None,
+               provider: str | None, initials: str | None = None) -> None:
+    """One person of a people / persons / authors list."""
+    section.add(f"person.{n}.name", f"Person {n}", name or "(no name)", sensitive=True)
+    if initials:
+        section.add(f"person.{n}.initials", f"Person {n}: initials", initials, sensitive=True)
+    if user_id:
+        section.add(f"person.{n}.userId", f"Person {n}: user ID", user_id, sensitive=True)
+    if provider:
+        section.add(f"person.{n}.providerId", f"Person {n}: account provider", provider,
+                    sensitive=True)

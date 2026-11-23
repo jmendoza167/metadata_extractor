@@ -310,3 +310,155 @@ def doc_vars(**pairs: str) -> str:
     items = "".join(f'<w:docVar w:name="{escape(k)}" w:val={quoteattr(v)}/>'
                     for k, v in pairs.items())
     return f"<w:docVars>{items}</w:docVars>"
+
+
+# -- comments, people, tracked changes ------------------------------------------------------
+
+W14_NS = "http://schemas.microsoft.com/office/word/2010/wordml"
+W15_NS = "http://schemas.microsoft.com/office/word/2012/wordml"
+W16CID_NS = "http://schemas.microsoft.com/office/word/2016/wordml/cid"
+W16CEX_NS = "http://schemas.microsoft.com/office/word/2018/wordml/cex"
+WORD_CT = "application/vnd.openxmlformats-officedocument.wordprocessingml."
+JANE_USER_ID = "S::jane.doe@example.com::aaaaaaaa-1111-2222-3333-444444444444"
+WORD_NAMESPACES = (f' xmlns:w14="{W14_NS}" xmlns:w15="{W15_NS}" '
+                   f'xmlns:mc="{MC_NS}" mc:Ignorable="w14 w15"')
+
+COMMENTED_BODY = (
+    '<w:p w14:paraId="1A2B3C4D" w14:textId="77777777" w:rsidR="00A1B2C3" w:rsidRDefault="00A1B2C3">'
+    '<w:commentRangeStart w:id="0"/><w:r w:rsidR="00A1B2C3"><w:t>Kitchen</w:t></w:r>'
+    '<w:commentRangeEnd w:id="0"/><w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr>'
+    '<w:commentReference w:id="0"/></w:r></w:p>')
+
+TRACKED_BODY = (
+    '<w:p w:rsidR="00A1B2C3" w:rsidRDefault="00D4E5F6"><w:r><w:t xml:space="preserve">The rent is </w:t></w:r>'
+    '<w:del w:id="1" w:author="Jane Doe" w:date="2024-05-01T10:15:00Z">'
+    '<w:r w:rsidDel="00D4E5F6"><w:delText>1200</w:delText></w:r></w:del>'
+    '<w:ins w:id="2" w:author="John Example" w:date="2024-05-02T09:00:00Z">'
+    '<w:r w:rsidR="00D4E5F6"><w:t>950</w:t></w:r></w:ins>'
+    '<w:r><w:rPr><w:b/><w:rPrChange w:id="3" w:author="Jane Doe" w:date="2024-05-01T10:16:00Z">'
+    '<w:rPr/></w:rPrChange></w:rPr><w:t xml:space="preserve"> euros.</w:t></w:r></w:p>')
+
+
+def word_comments(*comments: tuple[str, str, str, str]) -> str:
+    """comments.xml with (author, initials, date, text) comments."""
+    items = "".join(
+        f'<w:comment w:id="{i}" w:author={quoteattr(a)} w:date="{d}" w:initials={quoteattr(n)}>'
+        f'<w:p w14:paraId="0000000{i + 1}" w14:textId="77777777"><w:r><w:t>{escape(t)}</w:t>'
+        "</w:r></w:p></w:comment>" for i, (a, n, d, t) in enumerate(comments))
+    return f'{DECL}<w:comments xmlns:w="{W_NS}"{WORD_NAMESPACES}>{items}</w:comments>'
+
+
+def word_people(*people: tuple[str, str | None]) -> str:
+    """people.xml with (name, user ID or None) people."""
+    items = []
+    for name, user in people:
+        presence = (f'<w15:presenceInfo w15:providerId="AD" w15:userId="{user}"/>'
+                    if user else "")
+        items.append(f'<w15:person w15:author={quoteattr(name)}>{presence}</w15:person>')
+    return (f'{DECL}<w15:people xmlns:w="{W_NS}" xmlns:w15="{W15_NS}" xmlns:mc="{MC_NS}" '
+            f'mc:Ignorable="w15">{"".join(items)}</w15:people>')
+
+
+def comments_extensible(*dates: str) -> str:
+    items = "".join(f'<w16cex:commentExtensible w16cex:durableId="1{i:07d}" '
+                    f'w16cex:dateUtc="{d}"/>' for i, d in enumerate(dates))
+    return (f'{DECL}<w16cex:commentsExtensible xmlns:w16cex="{W16CEX_NS}" xmlns:mc="{MC_NS}" '
+            f'mc:Ignorable="w16cex">{items}</w16cex:commentsExtensible>')
+
+
+def add_word_comments(pkg: Package, people: bool = True) -> Package:
+    """Jane Doe's comment, with commentsExtensible.xml and people.xml."""
+    main = "word/document.xml"
+    pkg.add_linked(main, "comments", "word/comments.xml",
+                   word_comments(("Jane Doe", "JD", "2024-05-01T10:00:00Z", "Ask about stairs")),
+                   WORD_CT + "comments+xml")
+    pkg.add_linked(main, "http://schemas.microsoft.com/office/2018/08/relationships/"
+                   "commentsExtensible", "word/commentsExtensible.xml",
+                   comments_extensible("2024-05-01T08:00:00Z"), WORD_CT + "commentsExtensible+xml")
+    if people:
+        pkg.add_linked(main, "http://schemas.microsoft.com/office/2011/relationships/people",
+                       "word/people.xml", word_people(("Jane Doe", JANE_USER_ID),
+                                                      ("John Example", None)),
+                       WORD_CT + "people+xml")
+    return pkg
+
+
+EXCEL_COMMENTS = "application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml"
+THREADED = "application/vnd.ms-excel.threadedcomments+xml"
+PERSON = "application/vnd.ms-excel.person+xml"
+TC_NS = "http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments"
+PERSON_GUID = "{AAAAAAAA-0000-1111-2222-333333333333}"
+
+
+def excel_comments(author: str = "Jane Doe", text: str = "Check the totals") -> str:
+    return (f'{DECL}<comments xmlns="{S_NS}"><authors><author>{escape(author)}</author></authors>'
+            '<commentList><comment ref="A1" authorId="0"><text><r><rPr><b/><sz val="9"/></rPr>'
+            f'<t>{escape(author)}:</t></r><r><rPr><sz val="9"/></rPr><t xml:space="preserve">\n'
+            f'{escape(text)}</t></r></text></comment></commentList></comments>')
+
+
+def excel_threaded(date: str = "2024-05-01T10:00:00.00") -> str:
+    return (f'{DECL}<ThreadedComments xmlns="{TC_NS}"><threadedComment ref="B2" dT="{date}" '
+            f'personId="{PERSON_GUID}" id="{{BBBBBBBB-0000-1111-2222-333333333333}}">'
+            "<text>Is this right?</text></threadedComment></ThreadedComments>")
+
+
+def excel_persons(name: str = "Jane Doe", user: str = "jane.doe@example.com") -> str:
+    return (f'{DECL}<personList xmlns="{TC_NS}" xmlns:x="{S_NS}"><person '
+            f'displayName={quoteattr(name)} id="{PERSON_GUID}" userId={quoteattr(user)} '
+            'providerId="AD"/></personList>')
+
+
+def add_excel_comments(pkg: Package) -> Package:
+    sheet = "xl/worksheets/sheet1.xml"
+    pkg.add_linked(sheet, "comments", "xl/comments1.xml", excel_comments(), EXCEL_COMMENTS)
+    pkg.add_linked(sheet, "http://schemas.microsoft.com/office/2017/10/relationships/"
+                   "threadedComment", "xl/threadedComments/threadedComment1.xml",
+                   excel_threaded(), THREADED)
+    pkg.add_linked("xl/workbook.xml", "http://schemas.microsoft.com/office/2017/10/"
+                   "relationships/person", "xl/persons/person.xml", excel_persons(), PERSON)
+    return pkg
+
+
+PPT_CT = "application/vnd.openxmlformats-officedocument.presentationml."
+P188_NS = "http://schemas.microsoft.com/office/powerpoint/2018/8/main"
+AUTHOR_GUID = "{CCCCCCCC-0000-1111-2222-333333333333}"
+
+
+def ppt_comment_authors(name: str = "Jane Doe", initials: str = "JD") -> str:
+    return (f'{DECL}<p:cmAuthorLst xmlns:a="{A_NS}" xmlns:r="{R_NS}" xmlns:p="{P_NS}">'
+            f'<p:cmAuthor id="0" name={quoteattr(name)} initials={quoteattr(initials)} '
+            'lastIdx="1" clrIdx="0"/></p:cmAuthorLst>')
+
+
+def ppt_comments(date: str = "2024-05-01T10:00:00.000") -> str:
+    return (f'{DECL}<p:cmLst xmlns:a="{A_NS}" xmlns:r="{R_NS}" xmlns:p="{P_NS}">'
+            f'<p:cm authorId="0" dt="{date}" idx="1"><p:pos x="10" y="10"/>'
+            "<p:text>Bigger font?</p:text></p:cm></p:cmLst>")
+
+
+def ppt_authors(name: str = "Jane Doe", user: str = "jane.doe@example.com") -> str:
+    return (f'{DECL}<p188:authorLst xmlns:a="{A_NS}" xmlns:r="{R_NS}" xmlns:p188="{P188_NS}">'
+            f'<p188:author id="{AUTHOR_GUID}" name={quoteattr(name)} initials="JD" '
+            f'userId={quoteattr(user)} providerId="AD"/></p188:authorLst>')
+
+
+def ppt_modern_comments(date: str = "2024-05-02T11:00:00.000") -> str:
+    return (f'{DECL}<p188:cmLst xmlns:a="{A_NS}" xmlns:r="{R_NS}" xmlns:p188="{P188_NS}">'
+            f'<p188:cm id="{{DDDDDDDD-0000-1111-2222-333333333333}}" authorId="{AUTHOR_GUID}" '
+            f'created="{date}"><p188:txBody><a:bodyPr/><a:p><a:r><a:t>Approved</a:t></a:r></a:p>'
+            "</p188:txBody></p188:cm></p188:cmLst>")
+
+
+def add_ppt_comments(pkg: Package) -> Package:
+    main, slide1 = "ppt/presentation.xml", "ppt/slides/slide1.xml"
+    pkg.add_linked(main, "commentAuthors", "ppt/commentAuthors.xml", ppt_comment_authors(),
+                   PPT_CT + "commentAuthors+xml")
+    pkg.add_linked(slide1, "comments", "ppt/comments/comment1.xml", ppt_comments(),
+                   PPT_CT + "comments+xml")
+    pkg.add_linked(main, "http://schemas.microsoft.com/office/2018/10/relationships/authors",
+                   "ppt/authors.xml", ppt_authors(), "application/vnd.ms-powerpoint.authors+xml")
+    pkg.add_linked(slide1, "http://schemas.microsoft.com/office/2018/10/relationships/comments",
+                   "ppt/comments/modernComment_100_ABCDEF12.xml", ppt_modern_comments(),
+                   "application/vnd.ms-powerpoint.comments+xml")
+    return pkg
