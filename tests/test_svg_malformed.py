@@ -64,17 +64,17 @@ def test_illustrator_style_is_refused_only_for_its_linked_file():
 
 
 @pytest.mark.parametrize("data", [
-    b'<?xml version="1.0"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
-    b'"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n<svg xmlns="' + SVG_NS.encode()
-    + b'"/>',
+    b'<?xml version="1.0"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1 Tiny//EN" '
+    b'"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11-tiny.dtd">\n<svg xmlns="'
+    + SVG_NS.encode() + b'"/>',
     b'<!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;">]>'
     b"<svg>&lol2;</svg>",
     b'<!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><svg>&xxe;</svg>',
 ])
-def test_doctype_and_entities_are_refused_everywhere(data):
-    with pytest.raises(MalformedFileError, match="DOCTYPE or ENTITY"):
+def test_unsupported_doctype_and_entities_are_refused_everywhere(data):
+    with pytest.raises(MalformedFileError, match="DOCTYPE|ENTITY"):
         svg.parse(data)
-    with pytest.raises(MalformedFileError, match="DOCTYPE or ENTITY"):
+    with pytest.raises(MalformedFileError, match="DOCTYPE|ENTITY"):
         svg.strip(data)
 
 
@@ -84,7 +84,7 @@ def test_doctype_inside_an_embedded_svg_is_reported_not_parsed():
     inner = b'<!DOCTYPE svg [<!ENTITY a "b">]><svg>&a;</svg>'
     data = simple_svg(f'<image href="{data_uri(inner, "image/svg+xml")}"/>')
     listing = next(s for s in svg.parse(data)["sections"] if s.key == "embedded_images")
-    assert "DOCTYPE or ENTITY" in listing.fields[0].value
+    assert "ENTITY declaration" in listing.fields[0].value
     with pytest.raises(CannotCleanError):
         svg.strip(data)
 

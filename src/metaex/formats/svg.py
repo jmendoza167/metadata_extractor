@@ -9,10 +9,13 @@ An SVG file is XML text. Besides the drawing it often carries:
 - absolute local file paths (C:\\Users\\<name>\\..., /home/<name>/...),
 - embedded images as data: URIs, which carry their own metadata.
 
-Security: SVG is untrusted XML. Files with a DOCTYPE or ENTITY declaration
-are refused before parsing (no entity-expansion or external-entity
-attacks), only UTF-8 is accepted (so that check can't be bypassed), and
-sizes, element counts and nesting depth are capped. The file is parsed
+Security: SVG is untrusted XML. Files with an ENTITY declaration, or with
+any DOCTYPE other than the standard W3C SVG 1.0 / 1.1 one (no internal
+subset), are refused before parsing (no entity-expansion or
+external-entity attacks); the DTD a standard DOCTYPE names is never
+loaded, and entity references other than the predefined ones are refused.
+Only UTF-8 is accepted (so those checks can't be bypassed), and sizes,
+element counts and nesting depth are capped. The file is parsed
 with expat without namespace processing, so every prefix is kept exactly
 as written; namespaces are resolved here.
 """
@@ -62,7 +65,22 @@ EDITOR_NAMESPACES = {
 }
 EDITOR_NAMESPACE_PREFIXES = {"http://ns.adobe.com/": "Adobe Illustrator"}
 
-_UNSAFE = re.compile(r"<!\s*(DOCTYPE|ENTITY)", re.IGNORECASE)
+_XML_SPACE = "[ \t\r\n]"
+_STANDARD_DOCTYPE = re.compile(
+    f"<!DOCTYPE{_XML_SPACE}+svg{_XML_SPACE}+PUBLIC{_XML_SPACE}+"
+    r"""(?P<q1>["'])(?P<public>[^"'<>\[\]]*)(?P=q1)""" f"{_XML_SPACE}+"
+    r"""(?P<q2>["'])(?P<system>[^"'<>\[\]]*)(?P=q2)""" f"{_XML_SPACE}*>")
+STANDARD_DOCTYPES = {
+    ("-//W3C//DTD SVG 1.0//EN", "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd"):
+        "SVG 1.0",
+    ("-//W3C//DTD SVG 1.1//EN", "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"): "SVG 1.1",
+}
+"""The only DOCTYPEs accepted: (public ID, system ID) -> SVG version. The DTD
+is never loaded; the DOCTYPE has no effect on the drawing."""
+_PROLOG_MARKUP = re.compile(r"<\?|<!--")
+_MARKUP_OR_REFERENCE = re.compile(r"<!--|<!\[CDATA\[|<\?|&")
+_REFERENCE = re.compile(r"&(#[0-9]+|#x[0-9A-Fa-f]+|[A-Za-z_:][A-Za-z0-9_.:\-]*);")
+_PREDEFINED_ENTITIES = {"amp", "lt", "gt", "quot", "apos"}
 _DECLARED_ENCODING = re.compile(r"""<\?xml[^>]*?encoding\s*=\s*["']([^"']+)["']""")
 _UTF8_NAMES = {"utf-8", "utf8", "us-ascii", "ascii"}
 
@@ -151,15 +169,107 @@ class Document:
     """Comments and processing instructions before the root element."""
     epilog: list = field(default_factory=list)
     element_count: int = 0
+    doctype: tuple[str, str, str, int] | None = None
+    """(SVG version, public ID, system ID, line) of the standard DOCTYPE, if any."""
 
 
 def is_namespace_declaration(name: str) -> bool:
     return name == "xmlns" or name.startswith("xmlns:")
 
 
+_DOCTYPE_START = re.compile(r"<!\s*DOCTYPE", re.IGNORECASE)
+_ENTITY_START = re.compile(r"<!\s*ENTITY", re.IGNORECASE)
+_SPACES = re.compile(r"[ \t\r\n]*")
+_CLOSERS = {"<!--": "-->", "<![CDATA[": "]]>", "<?": "?>"}
+
+
+def _only_prolog(text: str, end: int) -> bool:
+    """True if text[:end] holds only what may come before a DOCTYPE: the XML
+    declaration, processing instructions, comments and whitespace."""
+    pos = _SPACES.match(text, 0, end).end()
+    while pos < end:
+        m = _PROLOG_MARKUP.match(text, pos)
+        if m is None:
+            return False
+        close = text.find(_CLOSERS[m.group()], m.end(), end)
+        if close < 0:
+            return False
+        pos = _SPACES.match(text, close + len(_CLOSERS[m.group()]), end).end()
+    return True
+
+
+def _undeclared_entity(text: str) -> str | None:
+    """The first entity reference other than the five predefined ones and
+    character references (outside comments, CDATA sections and processing
+    instructions), or None. With a DOCTYPE whose DTD is not loaded, expat
+    silently drops such references (in attribute values without telling at
+    all), which would change the drawing, so they are refused."""
+    pos = 0
+    while True:
+        m = _MARKUP_OR_REFERENCE.search(text, pos)
+        if m is None:
+            return None
+        if m.group() == "&":
+            ref = _REFERENCE.match(text, m.start())
+            if ref is None:
+                pos = m.end()  # not a reference: expat rejects the file
+                continue
+            name = ref.group(1)
+            if not name.startswith("#") and name not in _PREDEFINED_ENTITIES:
+                return name
+            pos = ref.end()
+            continue
+        close = text.find(_CLOSERS[m.group()], m.end())
+        if close < 0:
+            return None  # unterminated: expat rejects the file
+        pos = close + len(_CLOSERS[m.group()])
+
+
+def check_doctype(text: str) -> str | None:
+    """The SVG version of the file's DOCTYPE ("SVG 1.0" or "SVG 1.1"), or
+    None if it has none; raises MalformedFileError for every other DOCTYPE.
+
+    Only the official W3C SVG 1.0 and 1.1 DOCTYPEs are accepted: exactly
+    that public and system ID (quotes and whitespace between the parts may
+    vary), no internal subset, a single DOCTYPE, before the root element.
+    ENTITY declarations are always refused, and so is any entity reference
+    other than &amp; &lt; &gt; &quot; &apos; and character references."""
+    if _ENTITY_START.search(text):
+        raise MalformedFileError("SVG contains an ENTITY declaration (possible XML entity "
+                                 "attack); refused")
+    first = _DOCTYPE_START.search(text)
+    if first is None:
+        return None
+    if _DOCTYPE_START.search(text, first.end()):
+        raise MalformedFileError("SVG has more than one DOCTYPE; refused")
+    if not _only_prolog(text, first.start()):
+        raise MalformedFileError("SVG has a DOCTYPE after the start of the drawing (it may "
+                                 "only come before the <svg> element); refused")
+    standard = _STANDARD_DOCTYPE.match(text, first.start())
+    version = None
+    if standard is not None:
+        version = STANDARD_DOCTYPES.get((standard.group("public"), standard.group("system")))
+    if version is None:
+        close = text.find(">", first.start())
+        declaration = text[first.start():close + 1 if close >= 0 else len(text)]
+        if "[" in declaration:
+            raise MalformedFileError("SVG has a DOCTYPE with an internal subset (it can define "
+                                     "entities and change the drawing); refused")
+        shown = " ".join(declaration.split())
+        shown = shown if len(shown) <= 200 else shown[:200] + "..."
+        raise MalformedFileError(f"SVG has a DOCTYPE that is not the standard SVG 1.0 or 1.1 "
+                                 f"one ({shown!r}); refused")
+    name = _undeclared_entity(text)
+    if name is not None:
+        raise MalformedFileError(f"SVG uses the entity &{name}; which is not defined in the "
+                                 "file (metaex never loads the DTD); refused")
+    return version
+
+
 def decode(data: bytes) -> str:
     """The file as text; raises MalformedFileError for anything metaex won't
-    parse: too large, not UTF-8, or with a DOCTYPE or ENTITY declaration."""
+    parse: too large, not UTF-8, with an ENTITY declaration, or with a
+    DOCTYPE other than the standard SVG 1.0 / 1.1 one (see check_doctype)."""
     if len(data) > MAX_SVG_SIZE:
         raise MalformedFileError(f"SVG is larger than {MAX_SVG_SIZE // (1024 * 1024)} MiB")
     if data.startswith((b"\xff\xfe", b"\xfe\xff")) or b"\x00" in data[:1024]:
@@ -175,9 +285,7 @@ def decode(data: bytes) -> str:
     if declared and declared.group(1).strip().lower() not in _UTF8_NAMES:
         raise MalformedFileError(f"SVG declares the {declared.group(1)!r} encoding; only "
                                  "UTF-8 is supported; refused")
-    if _UNSAFE.search(text):
-        raise MalformedFileError("SVG contains a DOCTYPE or ENTITY declaration (possible XML "
-                                 "entity attack); refused")
+    check_doctype(text)
     return text
 
 
@@ -191,6 +299,7 @@ class _Builder:
         self.declaration: tuple[str, str | None, int] | None = None
         self.count = 0
         self.in_cdata = False
+        self.doctype: tuple[str, str, str, int] | None = None
 
     def _line(self) -> int:
         return self.parser.CurrentLineNumber
@@ -255,8 +364,25 @@ class _Builder:
     def xml_decl(self, version: str, encoding: str | None, standalone: int) -> None:
         self.declaration = (version, encoding, standalone)
 
-    def refuse(self, *_args) -> None:
-        raise MalformedFileError("SVG contains a DOCTYPE or ENTITY declaration; refused")
+    def start_doctype(self, name: str, system_id: str | None, public_id: str | None,
+                      has_internal_subset: int) -> None:
+        # check_doctype() already accepted it; expat's view must agree.
+        version = STANDARD_DOCTYPES.get((public_id, system_id))
+        if (name != "svg" or version is None or has_internal_subset or self.doctype is not None
+                or self.root is not None):
+            raise MalformedFileError("SVG has a DOCTYPE that is not the standard SVG 1.0 or "
+                                     "1.1 one; refused")
+        self.doctype = (version, public_id, system_id, self._line())
+
+    def refuse_entity_declaration(self, *_args) -> None:
+        raise MalformedFileError("SVG contains an ENTITY declaration; refused")
+
+    def refuse_entity_reference(self, name: str, *_args) -> None:
+        raise MalformedFileError(f"SVG uses the entity &{name}; which is not defined in the "
+                                 "file (metaex never loads the DTD); refused")
+
+    def refuse_external_entity(self, *_args) -> int:
+        raise MalformedFileError("SVG refers to an external entity; refused")
 
 
 def parse_document(data: bytes | bytearray | memoryview) -> Document:
@@ -275,8 +401,13 @@ def parse_document(data: bytes | bytearray | memoryview) -> Document:
     parser.StartCdataSectionHandler = b.start_cdata
     parser.EndCdataSectionHandler = b.end_cdata
     parser.XmlDeclHandler = b.xml_decl
-    parser.StartDoctypeDeclHandler = b.refuse
-    parser.EntityDeclHandler = b.refuse
+    # The DTD named by a standard DOCTYPE is never loaded (no network, no
+    # external entities): parameter entity parsing is off and every hook
+    # that could pull in or expand an entity refuses the file.
+    parser.StartDoctypeDeclHandler = b.start_doctype
+    parser.EntityDeclHandler = b.refuse_entity_declaration
+    parser.SkippedEntityHandler = b.refuse_entity_reference
+    parser.ExternalEntityRefHandler = b.refuse_external_entity
     try:
         parser.Parse(text.encode("utf-8"), True)
     except xml.parsers.expat.ExpatError as exc:
@@ -287,7 +418,7 @@ def parse_document(data: bytes | bytearray | memoryview) -> Document:
         raise MalformedFileError("SVG has no root element")
     if b.root.local != "svg":
         raise MalformedFileError(f"the root element is <{b.root.name}>, not <svg>")
-    return Document(b.root, b.declaration, b.prolog, b.epilog, b.count)
+    return Document(b.root, b.declaration, b.prolog, b.epilog, b.count, b.doctype)
 
 
 # -- walking and writing ----------------------------------------------------------------
@@ -762,6 +893,18 @@ def active_content_warnings(doc: Document, warnings: list[str]) -> None:
                         "its contents were not examined")
 
 
+def doctype_sections(doc: Document) -> list[Section]:
+    """The standard SVG DOCTYPE: harmless (its DTD is never loaded and it
+    doesn't change the drawing), listed for completeness; strip removes it."""
+    if doc.doctype is None:
+        return []
+    version, public_id, system_id, line = doc.doctype
+    section = Section("doctype", "Document type")
+    section.add("doctype", "DOCTYPE", f"{version} ({public_id}, {system_id})",
+                note=f"line {line}; standard W3C DTD, never loaded")
+    return [section]
+
+
 def structure_section(doc: Document) -> Section:
     section = Section("structure", "SVG structure")
     if doc.declaration is not None:
@@ -786,6 +929,7 @@ def _parse(data: bytes, depth: int) -> dict:
         warnings.append("the root element is not in the SVG namespace "
                         f"({doc.root.uri or 'none'}); viewers may not display it")
     sections: list[Section] = []
+    sections += doctype_sections(doc)
     sections += metadata_sections(doc, warnings)
     sections += title_desc_sections(doc)
     sections += comment_sections(doc)
@@ -888,8 +1032,9 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     SVG is text, so the copy is written again from the parsed document
     rather than copied byte-for-byte: every element, attribute and text that
     is kept comes out as parsed, and prefixes (the default SVG namespace,
-    xlink:) stay exactly as written. Removed: <metadata>, comments,
-    processing instructions (the XML declaration stays), every element and
+    xlink:) stay exactly as written. Removed: the standard DOCTYPE (it has
+    no effect on the drawing), <metadata>, comments, processing
+    instructions (the XML declaration stays), every element and
     attribute in an editor namespace (sodipodi:namedview, inkscape:*,
     Illustrator i:*, ...) and the declarations of those namespaces and of
     any other namespace no longer used. <title> and <desc> are kept (they
@@ -1164,7 +1309,9 @@ def _details(cleaned: bytes, original: bytes | None, depth: int) -> dict:
 def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
     """SVG-specific verification, beyond the section-level whitelist.
 
-    - The file must be an SVG metaex accepts (UTF-8, no DOCTYPE, well-formed).
+    - The file must be an SVG metaex accepts (UTF-8, well-formed, no DOCTYPE
+      other than the standard SVG one). A DOCTYPE left in a cleaned file
+      is a leftover (strip removes it).
     - Leftovers: unused namespace declarations; comments, processing
       instructions, <metadata>, editor data and local paths are reported by
       parse() and are leftovers too.
@@ -1182,7 +1329,8 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
 def parse(data: bytes | bytearray | memoryview) -> dict:
     """Parse an SVG and return its warnings, report sections and structure.
 
-    Raises MalformedFileError if the file is refused (DOCTYPE/ENTITY, not
-    UTF-8, too large) or is not well-formed XML with an <svg> root.
+    Raises MalformedFileError if the file is refused (ENTITY declaration,
+    a DOCTYPE other than the standard SVG 1.0 / 1.1 one, not UTF-8, too
+    large) or is not well-formed XML with an <svg> root.
     """
     return _parse(bytes(data), 0)

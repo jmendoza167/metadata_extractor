@@ -25,11 +25,12 @@ def warnings(data):
 
 
 @pytest.mark.parametrize("data,message", [
-    (b'<?xml version="1.0"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
-     b'"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd"><svg/>', "DOCTYPE or ENTITY"),
+    (b'<?xml version="1.0"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1 Tiny//EN" '
+     b'"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11-tiny.dtd"><svg/>',
+     "not the standard SVG 1.0 or 1.1"),
     (b'<!DOCTYPE svg [<!ENTITY a "aaaa"><!ENTITY b "&a;&a;&a;">]><svg>&b;</svg>',
-     "DOCTYPE or ENTITY"),
-    (b'<svg><!ENTITY x "y"></svg>', "DOCTYPE or ENTITY"),
+     "ENTITY declaration"),
+    (b'<svg><!ENTITY x "y"></svg>', "ENTITY declaration"),
     ("<svg/>".encode("utf-16"), "not UTF-8"),
     (b'<?xml version="1.0" encoding="ISO-8859-1"?><svg/>', "only UTF-8 is supported"),
     (b"<svg>\xff\xfe</svg>", "not valid UTF-8"),

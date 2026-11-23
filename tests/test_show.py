@@ -545,11 +545,11 @@ def test_show_svg_structure(tmp_path):
     assert "SVG structure" in result.stdout and "xmlns:i" in result.stdout
 
 
-def test_show_svg_with_doctype_is_refused(tmp_path):
+def test_show_svg_with_unsupported_doctype_is_refused(tmp_path):
     p = tmp_path / "old.svg"
-    p.write_bytes(b'<?xml version="1.0"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
-                  b'"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n'
+    p.write_bytes(b'<?xml version="1.0"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1 Tiny//EN" '
+                  b'"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11-tiny.dtd">\n'
                   b'<svg xmlns="http://www.w3.org/2000/svg"/>')
     data = show_json(p)
     assert field(data, "file_type", "embedded_metadata") == "not examined (file is malformed)"
-    assert any("DOCTYPE or ENTITY" in w for w in data["warnings"])
+    assert any("not the standard SVG 1.0 or 1.1" in w for w in data["warnings"])

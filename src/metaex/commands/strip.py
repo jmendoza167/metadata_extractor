@@ -233,6 +233,7 @@ _SECTION_GROUPS = {
     "plain_text": "Plain text",
     "app_extensions": "Application extensions",
     # SVG
+    "doctype": "DOCTYPE",
     "svg_metadata": "Metadata",
     "title_desc": "Title and description",
     "processing_instructions": "Processing instructions",
