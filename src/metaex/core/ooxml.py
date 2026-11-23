@@ -119,7 +119,9 @@ class ContentTypes:
         found = self.overrides.get(part.lower())
         if found is not None:
             return found
-        ext = posixpath.splitext(part)[1][1:].lower()
+        base = posixpath.basename(part)
+        # Not posixpath.splitext: it gives "_rels/.rels" no extension.
+        ext = base.rsplit(".", 1)[-1].lower() if "." in base else ""
         return self.defaults.get(ext)
 
 
@@ -1109,6 +1111,13 @@ class PackageEditor:
         keep = reachable | {ct_name}
         keep |= {n for n in (pkg.entry_name(rels_name(s)) for s in [""] + sorted(reachable))
                  if n is not None and n not in self.removed}
+        # Content type overrides for parts that are not in the output (also
+        # ones that never existed) would point nowhere.
+        kept_lower = {n.lower() for n in keep}
+        for name, elements in pkg.content_types.override_elements.items():
+            if name not in kept_lower:
+                for e in elements:
+                    self.editor(CONTENT_TYPES).remove(e)
         entries = []
         for entry in pkg.archive.entries:
             name = entry.name

@@ -439,9 +439,15 @@ TRACKED_CHANGES_ADVICE = ("Accept or reject all changes in Word (Review > Accept
 
 def kept_warnings(cleaned: bytes) -> list[str]:
     """What a cleaned document still contains that the user should know about."""
-    from metaex.core.ooxml import kept_package_warnings, open_package
+    from metaex.core.ooxml import open_package
 
-    pkg = open_package(cleaned)
+    return warnings_for(open_package(cleaned))
+
+
+def warnings_for(pkg: Package) -> list[str]:
+    """kept_warnings() for an opened package."""
+    from metaex.core.ooxml import kept_package_warnings
+
     out = []
     changes = tracked_changes_section(pkg)
     if changes is not None:
@@ -476,3 +482,34 @@ def kept_warnings(cleaned: bytes) -> list[str]:
                    "author's name or the company); the text they show is part of the "
                    "document and was not changed")
     return out
+
+
+# -- verify ------------------------------------------------------------------------------
+
+IMAGE_LABEL = "Document content"
+
+
+def is_kept_by_design(section_key: str, field) -> bool:
+    """What may stay in a cleaned document (see core/ooxml_verify.py)."""
+    from metaex.core.ooxml_verify import kept_by_design
+
+    return kept_by_design(section_key, field)
+
+
+def _details(pkg: Package) -> tuple[list[tuple[str, str, str]], list[str]]:
+    from metaex.core.ooxml import custom_xml_parts
+
+    bound = bound_custom_xml(pkg)
+    leftovers = [("Custom XML data", part, "not shown by any content control")
+                 for part in custom_xml_parts(pkg) if part not in bound]
+    return leftovers, warnings_for(pkg)
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """DOCX-specific verification (see core/ooxml_verify.py): a valid
+    package, nothing strip removes left, and, compared with the original,
+    the same content."""
+    from metaex.core.ooxml_verify import verify_package
+
+    return verify_package(bytes(cleaned), None if original is None else bytes(original),
+                          "docx", _details)

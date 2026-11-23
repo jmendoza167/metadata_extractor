@@ -65,11 +65,17 @@ def verify(cleaned: bytes, original: bytes | None = None,
     result.notes.extend(detected.warnings)
     parsed = module.parse(cleaned)
     whitelist: dict[str, set[str] | None] = getattr(module, "KEPT_BY_DESIGN", {})
+    # A format can decide by value too (Office: authors may stay as "Author").
+    kept_hook = getattr(module, "is_kept_by_design", None)
     for section in parsed.get("sections", []):
         allowed = whitelist.get(section.key, set())
         for f in section.fields:
             finding = Finding(section.title, f.label, format_value(f.value))
-            if allowed is None or f.key in allowed:
+            if callable(kept_hook):
+                kept = kept_hook(section.key, f)
+            else:
+                kept = allowed is None or f.key in allowed
+            if kept:
                 result.kept_by_design.append(finding)
             else:
                 result.leftovers.append(finding)
@@ -84,6 +90,7 @@ def verify(cleaned: bytes, original: bytes | None = None,
         details = details_hook(cleaned, None if original is None else bytes(original))
         result.leftovers.extend(Finding(*item) for item in details.get("leftovers", []))
         result.problems.extend(details.get("problems", []))
+        result.notes.extend(details.get("notes", []))
         result.image_sha256 = details.get("image_sha256")
         result.original_image_sha256 = details.get("original_image_sha256")
         result.image_data_match = details.get("image_data_match")

@@ -88,7 +88,7 @@ def field(data: dict, section: str, key: str):
 
 
 PLANNED = "planned (not implemented yet)"
-VIEWING = "viewing supported; stripping not implemented yet"
+SUPPORTED = "supported"
 UNRECOGNIZED = "not supported (unrecognized format)"
 
 
@@ -159,7 +159,7 @@ def test_show_malformed_jpeg_is_partly_examined(tmp_path):
         ("song.flac", FLAC, "FLAC", PLANNED),
         ("sound.wav", b"RIFF\x24\x00\x00\x00WAVEfmt " + bytes(20), "WAV", PLANNED),
         ("letter.docx", make_zip({"[Content_Types].xml": "<T/>", "word/document.xml": "<w/>"}),
-         "DOCX", VIEWING),
+         "DOCX", SUPPORTED),
         ("bundle.zip", make_zip({"a.txt": "a"}), "ZIP", PLANNED),
         ("backup.tar", make_tar(), "TAR", PLANNED),
         ("paper.pdf", b"%PDF-1.7\n", "PDF", "not supported"),

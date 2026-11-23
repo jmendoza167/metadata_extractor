@@ -301,9 +301,15 @@ def names_in_comment_text(pkg: Package) -> list[str]:
 
 def kept_warnings(cleaned: bytes) -> list[str]:
     """What a cleaned workbook still contains that the user should know about."""
-    from metaex.core.ooxml import kept_package_warnings, open_package
+    from metaex.core.ooxml import open_package
 
-    pkg = open_package(cleaned)
+    return warnings_for(open_package(cleaned))
+
+
+def warnings_for(pkg: Package) -> list[str]:
+    """kept_warnings() for an opened package."""
+    from metaex.core.ooxml import kept_package_warnings
+
     out = []
     comments = comments_section(pkg)
     if comments is not None:
@@ -326,3 +332,33 @@ def kept_warnings(cleaned: bytes) -> list[str]:
         out.append(f"kept {len(connections)} data connection(s); connection strings can name "
                    "servers, databases and user names")
     return out + kept_package_warnings(pkg)
+
+
+# -- verify ------------------------------------------------------------------------------
+
+IMAGE_LABEL = "Document content"
+
+
+def is_kept_by_design(section_key: str, field) -> bool:
+    """What may stay in a cleaned workbook (see core/ooxml_verify.py)."""
+    from metaex.core.ooxml_verify import kept_by_design
+
+    return kept_by_design(section_key, field)
+
+
+def _details(pkg: Package) -> tuple[list[tuple[str, str, str]], list[str]]:
+    from metaex.core.ooxml import custom_xml_parts
+
+    leftovers = [("Custom XML data", part, "custom XML is removed by strip")
+                 for part in custom_xml_parts(pkg)]
+    return leftovers, warnings_for(pkg)
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """XLSX-specific verification (see core/ooxml_verify.py): a valid
+    package, nothing strip removes left, and, compared with the original,
+    the same content."""
+    from metaex.core.ooxml_verify import verify_package
+
+    return verify_package(bytes(cleaned), None if original is None else bytes(original),
+                          "xlsx", _details)
