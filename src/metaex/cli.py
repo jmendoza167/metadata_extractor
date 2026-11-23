@@ -83,6 +83,9 @@ def build_parser() -> argparse.ArgumentParser:
                        help="PNG: if hidden data is found inside the compressed image "
                             "data, compress the image data again without it (pixels stay "
                             "identical; without this option such files are refused)")
+    strip.add_argument("--remove-comments", action="store_true",
+                       help='Office documents: remove comments completely (by default they '
+                            'are kept and every author becomes "Author")')
     strip.add_argument("--fixed-time", action="store_true",
                        help="set the output's modified/accessed time to 2000-01-01T00:00:00Z")
     strip.add_argument("--json", action="store_true", help="print the summary as JSON")
@@ -173,7 +176,8 @@ def _cmd_strip(args: argparse.Namespace) -> int:
     outcome = strip_file(args.path, args.output, paranoid=args.paranoid,
                          keep_orientation=not args.no_orientation, max_size=args.max_size,
                          in_place=args.in_place, fixed_time=args.fixed_time,
-                         rename=args.rename, rebuild_image_data=args.rebuild_image_data)
+                         rename=args.rename, rebuild_image_data=args.rebuild_image_data,
+                         remove_comments=args.remove_comments)
     if args.json:
         write_text(json.dumps(outcome.to_dict(), indent=2, ensure_ascii=True) + "\n")
     else:

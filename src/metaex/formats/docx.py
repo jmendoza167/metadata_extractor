@@ -370,23 +370,65 @@ def remove_settings_paths(ed) -> None:
                     ed.remove_relationship(r)
 
 
-def _strip_word(ed) -> None:
+COMMENT_PART_TYPES = (COMMENTS_TYPE, COMMENTS_EXTENDED_TYPE, COMMENTS_IDS_TYPE,
+                      COMMENTS_EXTENSIBLE_TYPE)
+COMMENT_ANCHORS = ("commentRangeStart", "commentRangeEnd")
+
+
+def remove_comments(ed) -> None:
+    """Remove the comments completely: the comment parts, their anchors in
+    the text (comment ranges, and the runs that only hold a comment mark)
+    and people.xml if no tracked change is left to refer to it."""
+    pkg = ed.pkg
+    comment_parts = set()
+    for content_type in COMMENT_PART_TYPES:
+        for part in pkg.parts_of_type(content_type):
+            comment_parts.add(part)
+            ed.remove_part(part)
+    revisions = False
+    for part in story_parts(pkg):
+        if part in comment_parts:
+            continue
+        for e in pkg.xml(part).iter():
+            if e.uri != W_NS:
+                continue
+            if e.local in COMMENT_ANCHORS:
+                ed.editor(part).remove(e)
+            elif e.local == "commentReference":
+                run = e.parent
+                rest = [c for c in run.elements() if c is not e and not c.is_(W_NS, "rPr")]
+                ed.editor(part).remove(run if run.is_(W_NS, "r") and not rest else e)
+            elif e.local in REVISIONS:
+                revisions = True
+    if not revisions:
+        for part in pkg.parts_of_type(PEOPLE_TYPE):
+            ed.remove_part(part)
+
+
+def _strip_word(ed, remove_all_comments: bool = False) -> None:
     from metaex.core.ooxml import strip_custom_xml
 
     strip_custom_xml(ed, keep=bound_custom_xml(ed.pkg))
+    if remove_all_comments:
+        remove_comments(ed)
     anonymize(ed)
     remove_revision_ids(ed)
     remove_settings_paths(ed)
 
 
+CAN_REMOVE_COMMENTS = True
+
+
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
-          paranoid: bool = False) -> bytes:
+          paranoid: bool = False, remove_comments: bool = False) -> bytes:
     """Return a cleaned copy of a DOCX file (see core/ooxml.py for what the
-    package-level clean-up does). Raises MalformedFileError for damaged or
-    unsafe files and UnsupportedFormatError for Strict Open XML."""
+    package-level clean-up does). Comment authors become "Author", unless
+    ``remove_comments`` removes the comments completely. Raises
+    MalformedFileError for damaged or unsafe files and
+    UnsupportedFormatError for Strict Open XML."""
     from metaex.core.ooxml import strip_package
 
-    return strip_package(data, "docx", _strip_word,
+    return strip_package(data, "docx", lambda ed: _strip_word(ed, remove_comments),
                          keep_orientation=keep_orientation, paranoid=paranoid)
 
 

@@ -9,6 +9,8 @@ history pointers.
 
 from __future__ import annotations
 
+import re
+
 from metaex.core.ooxml import Package, add_person, comments_summary
 from metaex.core.result import Section
 
@@ -215,22 +217,68 @@ def remove_workbook_history(ed) -> None:
             editor.remove(e)
 
 
-def _strip_xlsx(ed) -> None:
+VML_OBJECT_TYPE = re.compile(rb"""ObjectType\s*=\s*["']([A-Za-z]+)["']""")
+
+
+def remove_comments(ed) -> None:
+    """Remove the comments completely: legacy notes with the drawings that
+    show them, threaded comments, and the list of persons. A sheet whose
+    legacy drawing also holds other objects (form controls) is refused:
+    its notes can't be removed without them."""
+    from metaex.core.errors import CannotCleanError
+    from metaex.core.ooxml import R_NS
+
+    pkg = ed.pkg
+    comment_parts = set(pkg.parts_of_type(COMMENTS_TYPE)) | set(pkg.parts_of_type(THREADED_TYPE))
+    for source in list(pkg.relationships):
+        rels = pkg.rels(source)
+        if not any(not r.external and r.part is not None and pkg.entry_name(r.part) in comment_parts
+                   for r in rels):
+            continue
+        for r in rels:
+            if r.external or r.part is None or r.type_name != "vmlDrawing":
+                continue
+            vml = pkg.entry_name(r.part)
+            if vml is None:
+                continue
+            kinds = {k.decode("ascii") for k in VML_OBJECT_TYPE.findall(pkg.read(vml))}
+            if kinds - {"Note"}:
+                raise CannotCleanError(f"can't remove the comments of {source}: its drawing "
+                                       f"{vml} also holds other objects "
+                                       f"({', '.join(sorted(kinds - {'Note'}))})")
+            for e in pkg.xml(source).find_all(S_NS, "legacyDrawing"):
+                if e.get("id", R_NS) == r.id:
+                    ed.editor(source).remove(e)
+            ed.remove_part(vml)
+    for part in sorted(comment_parts):
+        ed.remove_part(part)
+    for part in pkg.parts_of_type(PERSON_TYPE):
+        ed.remove_part(part)
+
+
+def _strip_xlsx(ed, remove_all_comments: bool = False) -> None:
     from metaex.core.ooxml import strip_custom_xml
 
     strip_custom_xml(ed)
+    if remove_all_comments:
+        remove_comments(ed)
     anonymize(ed)
     remove_workbook_history(ed)
 
 
+CAN_REMOVE_COMMENTS = True
+
+
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
-          paranoid: bool = False) -> bytes:
-    """Return a cleaned copy of a XLSX file (see core/ooxml.py for what the
-    package-level clean-up does). Raises MalformedFileError for damaged or
-    unsafe files and UnsupportedFormatError for Strict Open XML."""
+          paranoid: bool = False, remove_comments: bool = False) -> bytes:
+    """Return a cleaned copy of an XLSX file (see core/ooxml.py for what the
+    package-level clean-up does). Comment authors become "Author", unless
+    ``remove_comments`` removes the comments completely. Raises
+    MalformedFileError for damaged or unsafe files and
+    UnsupportedFormatError for Strict Open XML and binary workbooks."""
     from metaex.core.ooxml import strip_package
 
-    return strip_package(data, "xlsx", _strip_xlsx,
+    return strip_package(data, "xlsx", lambda ed: _strip_xlsx(ed, remove_comments),
                          keep_orientation=keep_orientation, paranoid=paranoid)
 
 

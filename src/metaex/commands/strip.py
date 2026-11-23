@@ -105,7 +105,7 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
                paranoid: bool = False, keep_orientation: bool = True,
                max_size: int = DEFAULT_MAX_SIZE, in_place: bool = False,
                fixed_time: bool = False, rename: bool = False,
-               rebuild_image_data: bool = False) -> StripOutcome:
+               rebuild_image_data: bool = False, remove_comments: bool = False) -> StripOutcome:
     """load -> detect -> strip -> temp file -> verify -> move into place.
 
     With ``in_place`` the original is replaced (still via a verified temp
@@ -116,7 +116,9 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     random name (img_<hex>.<ext>) in the original's folder. With
     ``rebuild_image_data`` (PNG only), image data that hides extra bytes is
     decompressed and compressed again without them (identical pixels)
-    instead of being refused.
+    instead of being refused. With ``remove_comments`` (Office documents)
+    comments are removed completely instead of being kept with "Author" as
+    their author.
 
     Raises (and writes nothing) for unsupported types, malformed input, an
     existing output file, or a failed verification.
@@ -137,6 +139,9 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     if rebuild_image_data and not getattr(module, "CAN_REBUILD_IMAGE_DATA", False):
         raise MetaexError(f"--rebuild-image-data is not available for {detected.name} files; "
                           "no file written")
+    if remove_comments and not getattr(module, "CAN_REMOVE_COMMENTS", False):
+        raise MetaexError(f"--remove-comments is not available for {detected.name} files; "
+                          "no file written")
     if sum((in_place, output is not None, rename)) > 1:
         raise MetaexError("choose only one of --in-place, -o and --rename")
     if in_place:
@@ -149,7 +154,11 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
             hint = "" if output is not None else " Use -o to choose another name."
             raise MetaexError(f"{target}: already exists; refusing to overwrite it.{hint} "
                               "No file written.")
-    options = {"rebuild_image_data": True} if rebuild_image_data else {}
+    options: dict[str, bool] = {}
+    if rebuild_image_data:
+        options["rebuild_image_data"] = True
+    if remove_comments:
+        options["remove_comments"] = True
     try:
         cleaned = module.strip(data, keep_orientation=keep_orientation, paranoid=paranoid,
                                **options)

@@ -175,21 +175,38 @@ def anonymize(ed) -> None:
                     ed.editor(part).set_attr(c, c.attr_name("created"), PLACEHOLDER_DATE)
 
 
-def _strip_pptx(ed) -> None:
+def remove_comments(ed) -> None:
+    """Remove the comments completely: legacy and modern comments and both
+    lists of comment authors."""
+    pkg = ed.pkg
+    for content_type in (COMMENTS_TYPE, MODERN_COMMENTS_TYPE, COMMENT_AUTHORS_TYPE,
+                         AUTHORS_TYPE):
+        for part in pkg.parts_of_type(content_type):
+            ed.remove_part(part)
+
+
+def _strip_pptx(ed, remove_all_comments: bool = False) -> None:
     from metaex.core.ooxml import strip_custom_xml
 
     strip_custom_xml(ed)
+    if remove_all_comments:
+        remove_comments(ed)
     anonymize(ed)
 
 
+CAN_REMOVE_COMMENTS = True
+
+
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
-          paranoid: bool = False) -> bytes:
+          paranoid: bool = False, remove_comments: bool = False) -> bytes:
     """Return a cleaned copy of a PPTX file (see core/ooxml.py for what the
-    package-level clean-up does). Raises MalformedFileError for damaged or
-    unsafe files and UnsupportedFormatError for Strict Open XML."""
+    package-level clean-up does). Comment authors become "Author", unless
+    ``remove_comments`` removes the comments completely. Raises
+    MalformedFileError for damaged or unsafe files and
+    UnsupportedFormatError for Strict Open XML."""
     from metaex.core.ooxml import strip_package
 
-    return strip_package(data, "pptx", _strip_pptx,
+    return strip_package(data, "pptx", lambda ed: _strip_pptx(ed, remove_comments),
                          keep_orientation=keep_orientation, paranoid=paranoid)
 
 
