@@ -38,7 +38,7 @@ MAX_TOTAL_SIZE = 1024 * 1024
 if str(ROOT / "tests") not in sys.path:
     sys.path.insert(0, str(ROOT / "tests"))
 
-from helpers import gif, jpeg, ooxml, png, svg, tiff, webp, zip  # noqa: E402
+from helpers import gif, jpeg, odf, ooxml, png, svg, tiff, webp, zip  # noqa: E402
 from helpers.deflate import repeat_deflate  # noqa: E402
 from helpers.jpeg_encoder import jpeg_file  # noqa: E402
 
@@ -284,6 +284,16 @@ def office_samples() -> dict[str, bytes]:
         "pptx/clean.pptx": ooxml.pptx().build(),
         "pptx/kitchen_sink.pptx": ooxml.kitchen_sink_pptx(),
     }
+
+
+@sample_set
+def opendocument_samples() -> dict[str, bytes]:
+    """Laid out as LibreOffice writes them, with STORED entries."""
+    out = {}
+    for kind in ("odt", "ods", "odp"):
+        out[f"{kind}/clean.{kind}"] = odf.Document(kind).build()
+        out[f"{kind}/kitchen_sink.{kind}"] = odf.kitchen_sink(kind)
+    return out
 
 
 BOMB_MATCHES = 8200

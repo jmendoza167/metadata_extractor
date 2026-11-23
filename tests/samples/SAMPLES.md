@@ -101,6 +101,25 @@ hidden content, comments with "Author" as their author, links).
 | `pptx/clean.pptx` | `helpers.ooxml.pptx()`, one slide | None | 0 / 0 / 0 / 0 |
 | `pptx/kitchen_sink.pptx` | `helpers.ooxml.kitchen_sink_pptx()` | Properties, custom properties and XML, legacy and modern comments with their authors, a hidden slide, speaker notes, printer settings, a thumbnail, a photo with GPS | 16 / 38 / 13 / 31 |
 
+## OpenDocument (ODT, ODS, ODP)
+
+Built by `helpers.odf` the way LibreOffice lays out its files: `mimetype`
+first, then the XML files, the manifest last; every entry stored. The
+kitchen sinks hold `meta.xml` with every field (authors, dates, editing
+time, a template in `/home/jane.doe/...`, who printed it, a custom
+property), a printer and revision IDs in `settings.xml`, a comment, a
+thumbnail, a photo with GPS, user interface settings and a Basic macro
+(a placeholder). Strip cleans each of them and verify reports it clean.
+
+| File | How it was made | Metadata | Risk |
+|---|---|---|---|
+| `odt/clean.odt` | `helpers.odf.Document("odt")`, one paragraph | None | 0 / 0 / 0 / 0 |
+| `odt/kitchen_sink.odt` | `helpers.odf.kitchen_sink("odt")` | Everything listed above, plus tracked changes with deleted text, revision IDs in the text, hidden text and a link | 18 / 29 / 13 / 21 |
+| `ods/clean.ods` | `helpers.odf.Document("ods")`, one sheet | None | 0 / 0 / 0 / 0 |
+| `ods/kitchen_sink.ods` | `helpers.odf.kitchen_sink("ods")` | Everything listed above, with the comment on a cell, plus a hidden sheet | 16 / 25 / 13 / 19 |
+| `odp/clean.odp` | `helpers.odf.Document("odp")`, one slide | None | 0 / 0 / 0 / 0 |
+| `odp/kitchen_sink.odp` | `helpers.odf.kitchen_sink("odp")` | Everything listed above, plus a hidden slide and speaker notes | 16 / 25 / 15 / 19 |
+
 ## Damaged files (`malformed/`)
 
 metaex refuses to strip each of these, with an error that says what is
@@ -123,11 +142,11 @@ and show whatever they could read before it.
 
 `real/` is for files saved by real programs, because they hold metadata
 that generated files don't. It is empty for now. Only add formats metaex
-supports today: JPEG, PNG, GIF, WebP, SVG, DOCX, XLSX and PPTX (for
-example from a phone camera, GIMP, Inkscape, Word, Excel or PowerPoint).
-OpenDocument files (LibreOffice) are planned, not supported yet. The
-generator never touches `real/`, but the other sample tests include every
-file in it, so a file added there is tested like the others.
+supports: JPEG, PNG, GIF, WebP, SVG, DOCX, XLSX, PPTX, ODT, ODS and ODP
+(for example from a phone camera, GIMP, Inkscape, Word, Excel,
+PowerPoint or LibreOffice). The generator never touches `real/`, but the
+other sample tests include every file in it, so a file added there is
+tested like the others.
 
 A real file carries the identity of whoever made it. **Only add a file you
 made from scratch for this repository**, never one you already had. Before

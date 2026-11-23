@@ -162,7 +162,7 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     try:
         cleaned = module.strip(data, keep_orientation=keep_orientation, paranoid=paranoid,
                                **options)
-    except (MalformedFileError, CannotCleanError) as exc:
+    except (MalformedFileError, CannotCleanError, UnsupportedFormatError) as exc:
         raise type(exc)(f"{source}: {exc}; no file written") from None
 
     def check(on_disk: bytes) -> VerifyResult:

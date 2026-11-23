@@ -45,9 +45,13 @@ def office_samples() -> dict[str, bytes]:
                                                   extra_ns=WORD_NAMESPACES)))
     add_media(word, "word/document.xml", "word/media/image1.jpeg", jpeg.sample_photo(), "jpeg",
               "image/jpeg")
+    from helpers.odf import kitchen_sink
+
     return {"letter.docx": word.build(),
             "budget.xlsx": with_properties(add_excel_comments(xlsx())).build(),
-            "talk.pptx": with_properties(add_ppt_comments(pptx())).build()}
+            "talk.pptx": with_properties(add_ppt_comments(pptx())).build(),
+            "notes.odt": kitchen_sink("odt"), "sheet.ods": kitchen_sink("ods"),
+            "slides.odp": kitchen_sink("odp")}
 
 
 def test_cli_never_imports_test_only_packages(tmp_path):

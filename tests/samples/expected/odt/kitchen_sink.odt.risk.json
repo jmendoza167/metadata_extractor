@@ -1,0 +1,506 @@
+{
+  "path": "odt/kitchen_sink.odt",
+  "summary": {
+    "critical": 18,
+    "high": 29,
+    "medium": 13,
+    "low": 21
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "Document properties",
+      "label": "Author (initial creator)",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "critical",
+      "section": "Document properties",
+      "label": "Last modified by",
+      "value": "John Example"
+    },
+    {
+      "level": "critical",
+      "section": "Document properties",
+      "label": "Last printed by",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "critical",
+      "section": "Local file paths",
+      "label": "Template",
+      "value": "file:///home/jane.doe/Templates/Letter.ott"
+    },
+    {
+      "level": "critical",
+      "section": "Tracked changes",
+      "label": "Deleted text still in the file (characters)",
+      "value": "4"
+    },
+    {
+      "level": "critical",
+      "section": "Tracked changes",
+      "label": "Deleted text",
+      "value": "1200"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Created",
+      "value": "2024-05-01T10:00:00.000000000"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Modified",
+      "value": "2024-05-02T09:30:00.000000000"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Application",
+      "value": "LibreOffice/7.6.4.1$Linux_X86_64 LibreOffice_project/example"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Template name",
+      "value": "Letter"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Template date",
+      "value": "2024-04-30T08:00:00.000000000"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Last printed",
+      "value": "2024-05-02T08:00:00.000000000"
+    },
+    {
+      "level": "high",
+      "section": "Custom properties",
+      "label": "Client",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment authors",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment author initials",
+      "value": "JD"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment dates",
+      "value": "2024-05-01T10:00:00.000000000"
+    },
+    {
+      "level": "high",
+      "section": "Tracked changes",
+      "label": "Revision authors",
+      "value": "Jane Doe, John Example"
+    },
+    {
+      "level": "high",
+      "section": "Tracked changes",
+      "label": "Revision dates",
+      "value": "2024-05-01T10:15:00 to 2024-05-02T09:00:00 (2 dates)"
+    },
+    {
+      "level": "high",
+      "section": "Hidden content",
+      "label": "Hidden text",
+      "value": "Secret note to self"
+    },
+    {
+      "level": "high",
+      "section": "External links",
+      "label": "<text:a> (content.xml)",
+      "value": "https://example.com/flat"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "Macros",
+      "label": "Basic/Standard/Module1.xml",
+      "value": "225 bytes"
+    },
+    {
+      "level": "medium",
+      "section": "Document properties",
+      "label": "Revision number (editing cycles)",
+      "value": "7"
+    },
+    {
+      "level": "medium",
+      "section": "Document properties",
+      "label": "Total editing time",
+      "value": "PT42M10S"
+    },
+    {
+      "level": "medium",
+      "section": "Printer settings",
+      "label": "PrinterName",
+      "value": "HP LaserJet Example"
+    },
+    {
+      "level": "medium",
+      "section": "Printer settings",
+      "label": "Printer setup",
+      "value": "162 bytes (HP LaserJet Example, HPDriverExample)"
+    },
+    {
+      "level": "medium",
+      "section": "Revision IDs (rsids)",
+      "label": "Rsid (settings.xml)",
+      "value": "1234567"
+    },
+    {
+      "level": "medium",
+      "section": "Revision IDs (rsids)",
+      "label": "RsidRoot (settings.xml)",
+      "value": "7654321"
+    },
+    {
+      "level": "medium",
+      "section": "Revision IDs (rsids)",
+      "label": "Revision ID attributes",
+      "value": "3"
+    },
+    {
+      "level": "medium",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "medium",
+      "section": "Thumbnail",
+      "label": "Thumbnails/thumbnail.png",
+      "value": "268 bytes"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Title",
+      "value": "Floor plan notes"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Subject",
+      "value": "Flat"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Comments (description)",
+      "value": "Second draft for the landlord"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Keywords",
+      "value": "plan"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Language",
+      "value": "en-US"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "page-count",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "paragraph-count",
+      "value": "3"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "word-count",
+      "value": "20"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "character-count",
+      "value": "120"
+    },
+    {
+      "level": "low",
+      "section": "Comments",
+      "label": "Comments",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Tracked changes",
+      "label": "Insertions",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Tracked changes",
+      "label": "Deletions",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Embedded images",
+      "label": "Pictures/10000000000000300000002096C8C1A2.jpg",
+      "value": "JPEG, 2920 bytes"
+    },
+    {
+      "level": "low",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    },
+    {
+      "level": "low",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    },
+    {
+      "level": "low",
+      "section": "User interface settings (Configurations2/)",
+      "label": "Configurations2/accelerator/current.xml",
+      "value": "0 bytes"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: the document has tracked changes, and 4 characters of deleted text are still stored in the file",
+    "CRITICAL: 1 file path(s) reveal a user name",
+    "CRITICAL: Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "the document contains macros (Basic or scripts); their code can hold names, paths and other identifying information",
+    "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): embedded thumbnail may show the original, uncropped image"
+  ],
+  "can_strip": true
+}

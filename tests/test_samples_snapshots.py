@@ -145,6 +145,8 @@ GENERATED = [
     "gif/animated_metadata.gif", "gif/clean.gif",
     "jpeg/clean.jpg", "jpeg/gps_camera.jpg", "jpeg/kitchen_sink.jpg",
     "jpeg/orientation_6.jpg",
+    "odp/clean.odp", "odp/kitchen_sink.odp", "ods/clean.ods", "ods/kitchen_sink.ods",
+    "odt/clean.odt", "odt/kitchen_sink.odt",
     "png/apng_metadata.png", "png/clean.png", "png/exif_time.png", "png/text_chunks.png",
     "pptx/clean.pptx", "pptx/kitchen_sink.pptx",
     "svg/clean.svg", "svg/doctype_svg11.svg", "svg/editor.svg", "svg/embedded_jpeg.svg",

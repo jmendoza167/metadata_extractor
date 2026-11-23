@@ -1,0 +1,625 @@
+{
+  "subject": "odp/kitchen_sink.odp",
+  "warnings": [
+    "CRITICAL: 1 file path(s) reveal a user name",
+    "CRITICAL: Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "the document contains macros (Basic or scripts); their code can hold names, paths and other identifying information",
+    "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): embedded thumbnail may show the original, uncropped image"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "ODP",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "application/vnd.oasis.opendocument.presentation",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".odp",
+            ".otp"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "odf_meta": {
+      "title": "Document properties",
+      "fields": {
+        "initial-creator": {
+          "label": "Author (initial creator)",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "creation-date": {
+          "label": "Created",
+          "value": "2024-05-01T10:00:00.000000000",
+          "sensitive": true,
+          "note": null
+        },
+        "creator": {
+          "label": "Last modified by",
+          "value": "John Example",
+          "sensitive": true,
+          "note": null
+        },
+        "date": {
+          "label": "Modified",
+          "value": "2024-05-02T09:30:00.000000000",
+          "sensitive": true,
+          "note": null
+        },
+        "editing-cycles": {
+          "label": "Revision number (editing cycles)",
+          "value": "7",
+          "sensitive": true,
+          "note": null
+        },
+        "editing-duration": {
+          "label": "Total editing time",
+          "value": "PT42M10S",
+          "sensitive": true,
+          "note": null
+        },
+        "generator": {
+          "label": "Application",
+          "value": "LibreOffice/7.6.4.1$Linux_X86_64 LibreOffice_project/example",
+          "sensitive": true,
+          "note": null
+        },
+        "template-title": {
+          "label": "Template name",
+          "value": "Letter",
+          "sensitive": true,
+          "note": null
+        },
+        "template-date": {
+          "label": "Template date",
+          "value": "2024-04-30T08:00:00.000000000",
+          "sensitive": true,
+          "note": null
+        },
+        "printed-by": {
+          "label": "Last printed by",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "print-date": {
+          "label": "Last printed",
+          "value": "2024-05-02T08:00:00.000000000",
+          "sensitive": true,
+          "note": null
+        },
+        "title": {
+          "label": "Title",
+          "value": "Floor plan notes",
+          "sensitive": true,
+          "note": null
+        },
+        "subject": {
+          "label": "Subject",
+          "value": "Flat",
+          "sensitive": true,
+          "note": null
+        },
+        "description": {
+          "label": "Comments (description)",
+          "value": "Second draft for the landlord",
+          "sensitive": true,
+          "note": null
+        },
+        "keyword": {
+          "label": "Keywords",
+          "value": "plan",
+          "sensitive": true,
+          "note": null
+        },
+        "language": {
+          "label": "Language",
+          "value": "en-US",
+          "sensitive": true,
+          "note": null
+        },
+        "document-statistic.page-count": {
+          "label": "page-count",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "document-statistic.paragraph-count": {
+          "label": "paragraph-count",
+          "value": "3",
+          "sensitive": false,
+          "note": null
+        },
+        "document-statistic.word-count": {
+          "label": "word-count",
+          "value": "20",
+          "sensitive": false,
+          "note": null
+        },
+        "document-statistic.character-count": {
+          "label": "character-count",
+          "value": "120",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "odf_user_defined": {
+      "title": "Custom properties",
+      "fields": {
+        "Client": {
+          "label": "Client",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "local_paths": {
+      "title": "Local file paths",
+      "fields": {
+        "template": {
+          "label": "Template",
+          "value": "file:///home/jane.doe/Templates/Letter.ott",
+          "sensitive": true,
+          "note": "reveals the user name 'jane.doe'; reveals the server 'home'"
+        }
+      }
+    },
+    "printer_settings": {
+      "title": "Printer settings",
+      "fields": {
+        "PrinterName": {
+          "label": "PrinterName",
+          "value": "HP LaserJet Example",
+          "sensitive": true,
+          "note": null
+        },
+        "PrinterSetup": {
+          "label": "Printer setup",
+          "value": "162 bytes (HP LaserJet Example, HPDriverExample)",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "revision_ids": {
+      "title": "Revision IDs (rsids)",
+      "fields": {
+        "Rsid": {
+          "label": "Rsid (settings.xml)",
+          "value": "1234567",
+          "sensitive": false,
+          "note": null
+        },
+        "RsidRoot": {
+          "label": "RsidRoot (settings.xml)",
+          "value": "7654321",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "office_comments": {
+      "title": "Comments",
+      "fields": {
+        "count": {
+          "label": "Comments",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "authors": {
+          "label": "Comment authors",
+          "value": [
+            "Jane Doe"
+          ],
+          "sensitive": true,
+          "note": null
+        },
+        "initials": {
+          "label": "Comment author initials",
+          "value": [
+            "JD"
+          ],
+          "sensitive": true,
+          "note": null
+        },
+        "dates": {
+          "label": "Comment dates",
+          "value": "2024-05-01T10:00:00.000000000",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "hidden_content": {
+      "title": "Hidden content",
+      "fields": {
+        "hidden_slide.page2": {
+          "label": "Hidden slide",
+          "value": "page2",
+          "sensitive": true,
+          "note": null
+        },
+        "notes": {
+          "label": "Slides with speaker notes",
+          "value": 1,
+          "sensitive": true,
+          "note": null
+        },
+        "notes_text": {
+          "label": "Speaker notes",
+          "value": "Mention the deadline: 2024-06-01",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "embedded_images": {
+      "title": "Embedded images",
+      "fields": {
+        "Pictures/10000000000000300000002096C8C1A2.jpg": {
+          "label": "Pictures/10000000000000300000002096C8C1A2.jpg",
+          "value": "JPEG, 2920 bytes",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "exif": {
+      "title": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): EXIF",
+      "fields": {
+        "byte_order": {
+          "label": "Byte order",
+          "value": "little-endian (II)",
+          "sensitive": false,
+          "note": null
+        },
+        "Make": {
+          "label": "Make",
+          "value": "ExampleCam",
+          "sensitive": true,
+          "note": null
+        },
+        "Model": {
+          "label": "Model",
+          "value": "Model X",
+          "sensitive": true,
+          "note": null
+        },
+        "Orientation": {
+          "label": "Orientation",
+          "value": "Horizontal (normal)",
+          "sensitive": false,
+          "note": null
+        },
+        "Software": {
+          "label": "Software",
+          "value": "Firmware 1.0",
+          "sensitive": true,
+          "note": null
+        },
+        "DateTime": {
+          "label": "DateTime",
+          "value": "2024-05-01T14:30:00",
+          "sensitive": true,
+          "note": "no time zone recorded"
+        },
+        "ExposureTime": {
+          "label": "ExposureTime",
+          "value": "1/250 s",
+          "sensitive": false,
+          "note": null
+        },
+        "FNumber": {
+          "label": "FNumber",
+          "value": "f/1.8",
+          "sensitive": false,
+          "note": null
+        },
+        "ISOSpeedRatings": {
+          "label": "ISOSpeedRatings",
+          "value": 100,
+          "sensitive": false,
+          "note": null
+        },
+        "DateTimeOriginal": {
+          "label": "DateTimeOriginal",
+          "value": "2024-05-01T14:30:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "OffsetTimeOriginal": {
+          "label": "OffsetTimeOriginal",
+          "value": "+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "Flash": {
+          "label": "Flash",
+          "value": "Did not fire, flash suppressed",
+          "sensitive": false,
+          "note": null
+        },
+        "FocalLength": {
+          "label": "FocalLength",
+          "value": "4.2 mm",
+          "sensitive": false,
+          "note": null
+        },
+        "BodySerialNumber": {
+          "label": "BodySerialNumber",
+          "value": "SN-0001",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "gps": {
+      "title": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): GPS",
+      "fields": {
+        "coordinates": {
+          "label": "Coordinates",
+          "value": "48.858367, 2.294481",
+          "sensitive": true,
+          "note": "decimal degrees"
+        },
+        "latitude": {
+          "label": "Latitude",
+          "value": "48.858367",
+          "sensitive": true,
+          "note": null
+        },
+        "longitude": {
+          "label": "Longitude",
+          "value": "2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "openstreetmap": {
+          "label": "OpenStreetMap",
+          "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "google_maps": {
+          "label": "Google Maps",
+          "value": "https://www.google.com/maps?q=48.858367,2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "altitude": {
+          "label": "Altitude",
+          "value": "35.0 m above sea level",
+          "sensitive": true,
+          "note": null
+        },
+        "datetime_utc": {
+          "label": "Date/time (UTC)",
+          "value": "2024-05-01T12:30:15Z",
+          "sensitive": true,
+          "note": null
+        },
+        "GPSVersionID": {
+          "label": "GPSVersionID",
+          "value": "2.3.0.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "thumbnail": {
+      "title": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): Thumbnail",
+      "fields": {
+        "embedded_thumbnail": {
+          "label": "Embedded thumbnail",
+          "value": "JPEG, 123 bytes",
+          "sensitive": true,
+          "note": "at offset 562 in the EXIF data"
+        },
+        "dimensions": {
+          "label": "Dimensions",
+          "value": "160 x 120 pixels",
+          "sensitive": false,
+          "note": null
+        },
+        "Compression": {
+          "label": "Compression",
+          "value": "JPEG (old-style)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "xmp": {
+      "title": "Pictures/10000000000000300000002096C8C1A2.jpg (JPEG): XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "office_thumbnail": {
+      "title": "Thumbnail",
+      "fields": {
+        "Thumbnails/thumbnail.png": {
+          "label": "Thumbnails/thumbnail.png",
+          "value": "268 bytes",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "macros": {
+      "title": "Macros",
+      "fields": {
+        "Basic/Standard/Module1.xml": {
+          "label": "Basic/Standard/Module1.xml",
+          "value": "225 bytes",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "odf_configurations": {
+      "title": "User interface settings (Configurations2/)",
+      "fields": {
+        "Configurations2/accelerator/current.xml": {
+          "label": "Configurations2/accelerator/current.xml",
+          "value": "0 bytes",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "odp/kitchen_sink.odp",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 12496,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "12.2 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "975402379fe75ca412fe2b68af523afe",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "d2c426ce85797e194730141979ed8b752b48c82b",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "27437a9209e576ba3a363263c4e0871f75373ea2109fdbb6f699f628dd8f63ac",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}
