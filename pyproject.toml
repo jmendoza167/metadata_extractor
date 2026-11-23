@@ -13,7 +13,7 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest", "Pillow>=11.0"]
+dev = ["pytest", "Pillow>=11.0", "python-docx>=1.1", "openpyxl>=3.1", "python-pptx>=1.0"]
 
 [project.scripts]
 metaex = "metaex.cli:main"
