@@ -1,18 +1,25 @@
 """Build small, structurally valid JPEG files for tests.
 
-The images are not meant to decode to real pictures; they only need the
-marker structure metaex reads.
+make_jpeg() writes placeholder images: they only have the marker structure
+metaex reads and don't decode to a real picture. sample_photo(),
+sample_photo_rotated() and kitchen_sink_jpeg() hold a real baseline image
+(helpers.jpeg_encoder), so their pixels can be checked with a decoder.
 """
 
 from __future__ import annotations
 
 import struct
 
+from helpers.jpeg_encoder import jpeg_file
+
 SOI = b"\xff\xd8"
 EOI = b"\xff\xd9"
 
 # Entropy-coded data containing a stuffed 0xFF byte (FF00).
 SCAN_DATA = b"\x12\x34\xff\x00\x56\x78"
+
+PHOTO_WIDTH, PHOTO_HEIGHT = 48, 32
+"""Size of the real image in sample_photo() and kitchen_sink_jpeg()."""
 
 
 def segment(marker: int, payload: bytes) -> bytes:
@@ -191,13 +198,14 @@ SAMPLE_XMP = """<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <?xpacket end="w"?>"""
 
 
-def sample_photo(order: str = "<", trailing: bytes = b"") -> bytes:
-    """A JPEG like a phone photo: EXIF with camera info, GPS and a thumbnail,
-    plus XMP. All values are made up."""
+def sample_photo(order: str = "<", trailing: bytes = b"", orientation: int = 1) -> bytes:
+    """A JPEG like a phone photo: a real 48x32 image, EXIF with camera info,
+    GPS, ``orientation`` and a thumbnail, plus XMP. All values are made up."""
     from helpers.tiff import ASCII, BYTE, RATIONAL, SHORT, UNDEFINED, build_tiff, exif_payload
 
     tiff = build_tiff(
-        [(0x010F, ASCII, "ExampleCam"), (0x0110, ASCII, "Model X"), (0x0112, SHORT, 1),
+        [(0x010F, ASCII, "ExampleCam"), (0x0110, ASCII, "Model X"),
+         (0x0112, SHORT, orientation),
          (0x0131, ASCII, "Firmware 1.0"), (0x0132, ASCII, "2024:05:01 14:30:00")],
         exif=[(0x829A, RATIONAL, (1, 250)), (0x829D, RATIONAL, (18, 10)),
               (0x8827, SHORT, 100), (0x9003, ASCII, "2024:05:01 14:30:00"),
@@ -212,8 +220,37 @@ def sample_photo(order: str = "<", trailing: bytes = b"") -> bytes:
         thumbnail=make_jpeg(width=160, height=120),
         order=order,
     )
-    return make_jpeg(app(1, exif_payload(tiff)), xmp_segment(SAMPLE_XMP),
-                     width=4000, height=3000, trailing=trailing)
+    return jpeg_file(app(1, exif_payload(tiff)), xmp_segment(SAMPLE_XMP),
+                     width=PHOTO_WIDTH, height=PHOTO_HEIGHT, trailing=trailing)
+
+
+def sample_photo_rotated(order: str = "<") -> bytes:
+    """sample_photo() taken with the camera turned: Orientation = 6 (the
+    stored 48x32 image is shown rotated 90 degrees clockwise, as 32x48)."""
+    return sample_photo(order=order, orientation=6)
+
+
+def scan_range(data: bytes) -> tuple[int, int]:
+    """(start, end) of the entropy-coded data of the first scan (the files
+    built here have one scan and no restart markers)."""
+    sos = data.index(b"\xff\xda")
+    start = sos + 2 + int.from_bytes(data[sos + 2:sos + 4], "big")
+    return start, data.index(EOI, start)
+
+
+def corrupt_scan(data: bytes, where: float = 0.5) -> bytes:
+    """``data`` with one bit of the scan data flipped, ``where`` of the way
+    through it; never a 0xFF byte or a stuffed 0x00, so the marker structure
+    stays valid and only the picture changes."""
+    start, end = scan_range(data)
+    i = start + int((end - start - 1) * where)
+    while i < end and (data[i] == 0xFF or data[i - 1] == 0xFF or data[i] ^ 0x10 == 0xFF):
+        i += 1
+    if i >= end:
+        raise ValueError("no byte in the scan can be changed safely")
+    out = bytearray(data)
+    out[i] ^= 0x10
+    return bytes(out)
 
 
 def kitchen_sink_jpeg(order: str = "<") -> bytes:

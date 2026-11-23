@@ -3,7 +3,8 @@ import hashlib
 import pytest
 
 from helpers.jpeg import (
-    SCAN_DATA, app, icc_profile, icc_segments, kitchen_sink_jpeg, make_jpeg, sample_photo, segment,
+    app, corrupt_scan, icc_profile, icc_segments, kitchen_sink_jpeg, make_jpeg, sample_photo,
+    segment,
 )
 from metaex.core.errors import UnsupportedFormatError
 from metaex.core.verify import verify
@@ -90,7 +91,8 @@ def test_image_data_matches_original():
 def test_changed_image_data_is_detected():
     original = sample_photo()
     cleaned = jpeg.strip(original)
-    altered = cleaned.replace(SCAN_DATA, b"\x99" + SCAN_DATA[1:])
+    altered = corrupt_scan(cleaned)
+    assert altered != cleaned
     result = verify(altered, original)
     assert result.image_data_match is False
     assert not result.clean

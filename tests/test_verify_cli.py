@@ -4,7 +4,7 @@ import json
 import subprocess
 import sys
 
-from helpers.jpeg import SCAN_DATA, kitchen_sink_jpeg, sample_photo
+from helpers.jpeg import corrupt_scan, kitchen_sink_jpeg, sample_photo
 from metaex.formats import jpeg
 
 
@@ -52,7 +52,7 @@ def test_with_original(tmp_path):
 def test_changed_image_data_is_not_clean(tmp_path):
     original = sample_photo()
     o = write(tmp_path, "o.jpg", original)
-    altered = jpeg.strip(original).replace(SCAN_DATA, b"\x77" + SCAN_DATA[1:])
+    altered = corrupt_scan(jpeg.strip(original))
     c = write(tmp_path, "c.jpg", altered)
     result = run(str(c), "--original", str(o))
     assert result.returncode == 3
