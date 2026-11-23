@@ -1,0 +1,219 @@
+{
+  "subject": "gif/animated_metadata.gif",
+  "warnings": [
+    "CRITICAL: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "GIF",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "image/gif",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".gif"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "comments": {
+      "title": "Comments",
+      "fields": {
+        "comment_1": {
+          "label": "Comment",
+          "value": "Made by Jane Doe (jane.doe@example.com) with Editor 2.0",
+          "sensitive": true,
+          "note": "Comment extension at offset 25"
+        },
+        "comment_2": {
+          "label": "Comment",
+          "value": "Second draft, 2024-05-01",
+          "sensitive": true,
+          "note": "Comment extension at offset 1835"
+        }
+      }
+    },
+    "xmp": {
+      "title": "XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "animation": {
+      "title": "Animation",
+      "fields": {
+        "frames": {
+          "label": "Frames",
+          "value": 3,
+          "sensitive": false,
+          "note": null
+        },
+        "loop_count": {
+          "label": "Loop count",
+          "value": "forever",
+          "sensitive": false,
+          "note": "NETSCAPE2.0"
+        }
+      }
+    },
+    "app_extensions": {
+      "title": "Application extensions",
+      "fields": {
+        "ImageMagick@1806": {
+          "label": "ImageMagick",
+          "value": "24 bytes at offset 1806",
+          "sensitive": true,
+          "note": "application extension; contents not examined"
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "gif/animated_metadata.gif",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 1864,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "1.8 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "6c7d635a8167d23e9eebcd7ce95acaf3",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "7d6a315a4fe6080b39326566a9963a0a840d1138",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "2f9c7ee33d96acf7b020a85d19f3d1cc60ad71848b2d6b5775ad4204fe95e9ef",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

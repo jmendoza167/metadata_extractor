@@ -1,0 +1,123 @@
+{
+  "path": "gif/animated_metadata.gif",
+  "summary": {
+    "critical": 2,
+    "high": 11,
+    "medium": 0,
+    "low": 5
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment",
+      "value": "Made by Jane Doe (jane.doe@example.com) with Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment",
+      "value": "Second draft, 2024-05-01"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "Application extensions",
+      "label": "ImageMagick",
+      "value": "24 bytes at offset 1806"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    },
+    {
+      "level": "low",
+      "section": "Animation",
+      "label": "Frames",
+      "value": "3"
+    },
+    {
+      "level": "low",
+      "section": "Animation",
+      "label": "Loop count",
+      "value": "forever"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)"
+  ],
+  "can_strip": true
+}

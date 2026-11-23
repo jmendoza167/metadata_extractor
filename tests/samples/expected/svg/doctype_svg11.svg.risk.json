@@ -1,0 +1,25 @@
+{
+  "path": "svg/doctype_svg11.svg",
+  "summary": {
+    "critical": 0,
+    "high": 0,
+    "medium": 1,
+    "low": 1
+  },
+  "findings": [
+    {
+      "level": "medium",
+      "section": "Title and description",
+      "label": "Title",
+      "value": "Logo"
+    },
+    {
+      "level": "low",
+      "section": "Document type",
+      "label": "DOCTYPE",
+      "value": "SVG 1.1 (-//W3C//DTD SVG 1.1//EN, http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd)"
+    }
+  ],
+  "warnings": [],
+  "can_strip": true
+}

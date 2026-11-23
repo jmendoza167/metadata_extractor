@@ -1,0 +1,99 @@
+{
+  "path": "png/exif_time.png",
+  "summary": {
+    "critical": 6,
+    "high": 6,
+    "medium": 0,
+    "low": 2
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "Software",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Time",
+      "label": "Last modified",
+      "value": "2024-05-01T12:30:00Z"
+    },
+    {
+      "level": "low",
+      "section": "EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "EXIF",
+      "label": "Orientation",
+      "value": "Rotated 90 degrees clockwise"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken"
+  ],
+  "can_strip": true
+}

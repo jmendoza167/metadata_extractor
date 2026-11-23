@@ -1,0 +1,674 @@
+{
+  "subject": "jpeg/kitchen_sink.jpg",
+  "warnings": [
+    "CRITICAL: GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: 1 extra image(s) hidden in the file (MPF): Large thumbnail (VGA equivalent)",
+    "CRITICAL: 138 bytes after the end of the image (JPEG); this can hide a whole video or file",
+    "embedded thumbnail may show the original, uncropped image",
+    "Photoshop thumbnail present: it may show an earlier, uncropped or unedited version of the image"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "JPEG",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "image/jpeg",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".jpg",
+            ".jpeg",
+            ".jpe",
+            ".jfif"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "exif": {
+      "title": "EXIF",
+      "fields": {
+        "byte_order": {
+          "label": "Byte order",
+          "value": "little-endian (II)",
+          "sensitive": false,
+          "note": null
+        },
+        "Make": {
+          "label": "Make",
+          "value": "ExampleCam",
+          "sensitive": true,
+          "note": null
+        },
+        "Model": {
+          "label": "Model",
+          "value": "Model X",
+          "sensitive": true,
+          "note": null
+        },
+        "Orientation": {
+          "label": "Orientation",
+          "value": "Horizontal (normal)",
+          "sensitive": false,
+          "note": null
+        },
+        "Software": {
+          "label": "Software",
+          "value": "Firmware 1.0",
+          "sensitive": true,
+          "note": null
+        },
+        "DateTime": {
+          "label": "DateTime",
+          "value": "2024-05-01T14:30:00",
+          "sensitive": true,
+          "note": "no time zone recorded"
+        },
+        "ExposureTime": {
+          "label": "ExposureTime",
+          "value": "1/250 s",
+          "sensitive": false,
+          "note": null
+        },
+        "FNumber": {
+          "label": "FNumber",
+          "value": "f/1.8",
+          "sensitive": false,
+          "note": null
+        },
+        "ISOSpeedRatings": {
+          "label": "ISOSpeedRatings",
+          "value": 100,
+          "sensitive": false,
+          "note": null
+        },
+        "DateTimeOriginal": {
+          "label": "DateTimeOriginal",
+          "value": "2024-05-01T14:30:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "OffsetTimeOriginal": {
+          "label": "OffsetTimeOriginal",
+          "value": "+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "Flash": {
+          "label": "Flash",
+          "value": "Did not fire, flash suppressed",
+          "sensitive": false,
+          "note": null
+        },
+        "FocalLength": {
+          "label": "FocalLength",
+          "value": "4.2 mm",
+          "sensitive": false,
+          "note": null
+        },
+        "BodySerialNumber": {
+          "label": "BodySerialNumber",
+          "value": "SN-0001",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "gps": {
+      "title": "GPS",
+      "fields": {
+        "coordinates": {
+          "label": "Coordinates",
+          "value": "48.858367, 2.294481",
+          "sensitive": true,
+          "note": "decimal degrees"
+        },
+        "latitude": {
+          "label": "Latitude",
+          "value": "48.858367",
+          "sensitive": true,
+          "note": null
+        },
+        "longitude": {
+          "label": "Longitude",
+          "value": "2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "openstreetmap": {
+          "label": "OpenStreetMap",
+          "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "google_maps": {
+          "label": "Google Maps",
+          "value": "https://www.google.com/maps?q=48.858367,2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "altitude": {
+          "label": "Altitude",
+          "value": "35.0 m above sea level",
+          "sensitive": true,
+          "note": null
+        },
+        "datetime_utc": {
+          "label": "Date/time (UTC)",
+          "value": "2024-05-01T12:30:15Z",
+          "sensitive": true,
+          "note": null
+        },
+        "GPSVersionID": {
+          "label": "GPSVersionID",
+          "value": "2.3.0.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "thumbnail": {
+      "title": "Thumbnail",
+      "fields": {
+        "embedded_thumbnail": {
+          "label": "Embedded thumbnail",
+          "value": "JPEG, 123 bytes",
+          "sensitive": true,
+          "note": "at offset 562 in the EXIF data"
+        },
+        "dimensions": {
+          "label": "Dimensions",
+          "value": "160 x 120 pixels",
+          "sensitive": false,
+          "note": null
+        },
+        "Compression": {
+          "label": "Compression",
+          "value": "JPEG (old-style)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "xmp": {
+      "title": "XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "Extended XMP 0123456789ABCDEF0123456789ABCDEF.size": {
+          "label": "Extended XMP 0123456789ABCDEF0123456789ABCDEF",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "(extended) xmp:CreatorTool": {
+          "label": "(extended) xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "(extended) xmpMM:DocumentID": {
+          "label": "(extended) xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "(extended) xmpMM:OriginalDocumentID": {
+          "label": "(extended) xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "(extended) tiff:Orientation": {
+          "label": "(extended) tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "(extended) exif:GPSLatitude": {
+          "label": "(extended) exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "(extended) exif:GPSLongitude": {
+          "label": "(extended) exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "(extended) dc:creator": {
+          "label": "(extended) dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "(extended) dc:subject": {
+          "label": "(extended) dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "(extended) xmpMM:History[1]/stEvt:action": {
+          "label": "(extended) xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "(extended) xmpMM:History[1]/stEvt:when": {
+          "label": "(extended) xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "(extended) xmpMM:History[2]/stEvt:action": {
+          "label": "(extended) xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "(extended) xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "(extended) xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "iptc": {
+      "title": "IPTC",
+      "fields": {
+        "1:90": {
+          "label": "CodedCharacterSet",
+          "value": "UTF-8",
+          "sensitive": false,
+          "note": null
+        },
+        "2:80": {
+          "label": "By-line",
+          "value": "Jane",
+          "sensitive": true,
+          "note": null
+        },
+        "2:90": {
+          "label": "City",
+          "value": "Paris",
+          "sensitive": true,
+          "note": null
+        },
+        "2:25": {
+          "label": "Keywords",
+          "value": "a",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "photoshop": {
+      "title": "Photoshop resources",
+      "fields": {
+        "0x0404": {
+          "label": "0x0404 IPTC-NAA record",
+          "value": "33 bytes",
+          "sensitive": true,
+          "note": null
+        },
+        "0x040c": {
+          "label": "0x040C Photoshop thumbnail",
+          "value": "40 bytes",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "icc": {
+      "title": "ICC profile",
+      "fields": {
+        "size": {
+          "label": "Size",
+          "value": "244 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "cmm": {
+          "label": "Preferred CMM",
+          "value": "lcms",
+          "sensitive": false,
+          "note": null
+        },
+        "version": {
+          "label": "Version",
+          "value": "4.3.0",
+          "sensitive": false,
+          "note": null
+        },
+        "device_class": {
+          "label": "Device class",
+          "value": "Display device",
+          "sensitive": false,
+          "note": null
+        },
+        "color_space": {
+          "label": "Color space",
+          "value": "RGB",
+          "sensitive": false,
+          "note": null
+        },
+        "pcs": {
+          "label": "Connection space",
+          "value": "XYZ",
+          "sensitive": false,
+          "note": null
+        },
+        "created": {
+          "label": "Profile created",
+          "value": "2024-05-01T12:30:00",
+          "sensitive": false,
+          "note": null
+        },
+        "platform": {
+          "label": "Primary platform",
+          "value": "Apple",
+          "sensitive": false,
+          "note": null
+        },
+        "device_manufacturer": {
+          "label": "Device manufacturer",
+          "value": "ACME",
+          "sensitive": true,
+          "note": null
+        },
+        "device_model": {
+          "label": "Device model",
+          "value": "X100",
+          "sensitive": true,
+          "note": null
+        },
+        "rendering_intent": {
+          "label": "Rendering intent",
+          "value": "Perceptual",
+          "sensitive": false,
+          "note": null
+        },
+        "creator": {
+          "label": "Profile creator",
+          "value": "meta",
+          "sensitive": false,
+          "note": null
+        },
+        "profile_id": {
+          "label": "Profile ID",
+          "value": "(not set)",
+          "sensitive": false,
+          "note": null
+        },
+        "description": {
+          "label": "Description",
+          "value": "Test RGB profile",
+          "sensitive": false,
+          "note": null
+        },
+        "copyright": {
+          "label": "Copyright",
+          "value": "Copyright Test",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "mpf": {
+      "title": "MPF (multi-picture)",
+      "fields": {
+        "images": {
+          "label": "Number of images",
+          "value": 2,
+          "sensitive": false,
+          "note": null
+        },
+        "image_1": {
+          "label": "Image 1",
+          "value": "Baseline MP primary image, 0 bytes (the main image)",
+          "sensitive": false,
+          "note": null
+        },
+        "image_2": {
+          "label": "Image 2",
+          "value": "Large thumbnail (VGA equivalent), 123 bytes at offset 4992",
+          "sensitive": true,
+          "note": "JPEG"
+        }
+      }
+    },
+    "comments": {
+      "title": "Comments",
+      "fields": {
+        "comment_1": {
+          "label": "Comment 1",
+          "value": "a comment",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "jfif": {
+      "title": "JFIF",
+      "fields": {
+        "version": {
+          "label": "Version",
+          "value": "1.02",
+          "sensitive": false,
+          "note": null
+        },
+        "density": {
+          "label": "Density",
+          "value": "72 x 72 dpi",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "adobe": {
+      "title": "Adobe",
+      "fields": {
+        "version": {
+          "label": "DCT encode version",
+          "value": 100,
+          "sensitive": false,
+          "note": null
+        },
+        "transform": {
+          "label": "Color transform",
+          "value": "YCbCr",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "other_app": {
+      "title": "Other APP segments",
+      "fields": {
+        "APP12@2063": {
+          "label": "APP12 \"Ducky\"",
+          "value": "7 bytes at offset 2063",
+          "sensitive": true,
+          "note": "contents not examined"
+        }
+      }
+    },
+    "trailing": {
+      "title": "Trailing data",
+      "fields": {
+        "size": {
+          "label": "Size",
+          "value": "138 bytes",
+          "sensitive": true,
+          "note": null
+        },
+        "offset": {
+          "label": "Starts at offset",
+          "value": 4992,
+          "sensitive": false,
+          "note": null
+        },
+        "content": {
+          "label": "Content",
+          "value": "JPEG",
+          "sensitive": true,
+          "note": "detected from the first bytes; more may follow"
+        },
+        "mpf": {
+          "label": "MPF",
+          "value": "includes the extra images listed in the MPF section",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "jpeg/kitchen_sink.jpg",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 5130,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "5.0 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "09373322b5fdb4ebf9a9c7c2277b5e76",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "c46c90367073556a8b1795444a6d5465cf032fd8",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "7a53b772110b3275b7d993fed63f955e6ef5bb2c71364ea14790cd2651c74f7e",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "subject": "svg/doctype_svg11.svg",
+  "warnings": [],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "SVG",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "image/svg+xml",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".svg"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "doctype": {
+      "title": "Document type",
+      "fields": {
+        "doctype": {
+          "label": "DOCTYPE",
+          "value": "SVG 1.1 (-//W3C//DTD SVG 1.1//EN, http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd)",
+          "sensitive": false,
+          "note": "line 2; standard W3C DTD, never loaded"
+        }
+      }
+    },
+    "title_desc": {
+      "title": "Title and description",
+      "fields": {
+        "title_1": {
+          "label": "Title",
+          "value": "Logo",
+          "sensitive": true,
+          "note": "<title> in <svg> at line 4"
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "svg/doctype_svg11.svg",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 386,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "386 B",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "751dd23db3d10723d0564b95c2b7727e",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "bf9aba3e4462579af632bcd4cb75d78424e5e980",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "b885b91c365c6933a3d9043cbe2486a08ce144de82375a1bfc70861828c03521",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

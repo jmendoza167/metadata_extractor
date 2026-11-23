@@ -1,0 +1,266 @@
+{
+  "subject": "svg/editor.svg",
+  "warnings": [
+    "CRITICAL: 1 attribute(s) contain absolute local file paths (user names: jane.doe)"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "SVG",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "image/svg+xml",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".svg"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "svg_metadata": {
+      "title": "Metadata",
+      "fields": {
+        "metadata element.size": {
+          "label": "metadata element",
+          "value": "695 bytes",
+          "sensitive": false,
+          "note": "<metadata> at line 32"
+        },
+        "dc:format": {
+          "label": "dc:format",
+          "value": "image/svg+xml",
+          "sensitive": false,
+          "note": null
+        },
+        "dc:title": {
+          "label": "dc:title",
+          "value": "Floor plan",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator/cc:Agent/dc:title": {
+          "label": "dc:creator/cc:Agent/dc:title",
+          "value": "Jane Doe <jane.doe@example.com>",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:date": {
+          "label": "dc:date",
+          "value": "2024-05-01",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "title_desc": {
+      "title": "Title and description",
+      "fields": {
+        "title_1": {
+          "label": "Title",
+          "value": "Floor plan",
+          "sensitive": true,
+          "note": "<title> in <svg> at line 22"
+        }
+      }
+    },
+    "comments": {
+      "title": "Comments",
+      "fields": {
+        "comment_1": {
+          "label": "Comment",
+          "value": "Created with Inkscape (http://www.inkscape.org/)",
+          "sensitive": true,
+          "note": "line 2"
+        },
+        "comment_2": {
+          "label": "Comment",
+          "value": "ask the landlord about the stairs",
+          "sensitive": true,
+          "note": "line 52"
+        }
+      }
+    },
+    "editor": {
+      "title": "Editor data",
+      "fields": {
+        "xmlns:inkscape@4": {
+          "label": "Inkscape namespace",
+          "value": "inkscape = http://www.inkscape.org/namespaces/inkscape",
+          "sensitive": true,
+          "note": "0 elements, 10 attributes"
+        },
+        "xmlns:sodipodi@4": {
+          "label": "Sodipodi (Inkscape) namespace",
+          "value": "sodipodi = http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd",
+          "sensitive": true,
+          "note": "1 elements, 3 attributes"
+        },
+        "<sodipodi:namedview>@24": {
+          "label": "<sodipodi:namedview>",
+          "value": "7 attributes, 0 children",
+          "sensitive": true,
+          "note": "line 24"
+        },
+        "inkscape:version@4": {
+          "label": "inkscape:version",
+          "value": "1.3.2 (091e20e, 2023-11-25)",
+          "sensitive": true,
+          "note": "on <svg> at line 4"
+        },
+        "sodipodi:docname@4": {
+          "label": "sodipodi:docname",
+          "value": "floor plan.svg",
+          "sensitive": true,
+          "note": "on <svg> at line 4"
+        },
+        "inkscape:export-filename@4": {
+          "label": "inkscape:export-filename",
+          "value": "C:\\Users\\jane.doe\\Pictures\\floor plan.png",
+          "sensitive": true,
+          "note": "on <svg> at line 4"
+        },
+        "inkscape:export-xdpi@4": {
+          "label": "inkscape:export-xdpi",
+          "value": "96",
+          "sensitive": true,
+          "note": "on <svg> at line 4"
+        },
+        "inkscape:export-ydpi@4": {
+          "label": "inkscape:export-ydpi",
+          "value": "96",
+          "sensitive": true,
+          "note": "on <svg> at line 4"
+        },
+        "inkscape:zoom@24": {
+          "label": "inkscape:zoom",
+          "value": "0.7",
+          "sensitive": true,
+          "note": "on <sodipodi:namedview> at line 24"
+        },
+        "inkscape:window-width@24": {
+          "label": "inkscape:window-width",
+          "value": "1920",
+          "sensitive": true,
+          "note": "on <sodipodi:namedview> at line 24"
+        },
+        "inkscape:window-height@24": {
+          "label": "inkscape:window-height",
+          "value": "1016",
+          "sensitive": true,
+          "note": "on <sodipodi:namedview> at line 24"
+        },
+        "inkscape:current-layer@24": {
+          "label": "inkscape:current-layer",
+          "value": "layer1",
+          "sensitive": true,
+          "note": "on <sodipodi:namedview> at line 24"
+        },
+        "inkscape:label@48": {
+          "label": "inkscape:label",
+          "value": "Layer 1",
+          "sensitive": true,
+          "note": "on <g> at line 48"
+        },
+        "inkscape:groupmode@48": {
+          "label": "inkscape:groupmode",
+          "value": "layer",
+          "sensitive": true,
+          "note": "on <g> at line 48"
+        },
+        "sodipodi:nodetypes@60": {
+          "label": "sodipodi:nodetypes",
+          "value": "cc",
+          "sensitive": true,
+          "note": "on <path> at line 60"
+        },
+        "sodipodi:role@69": {
+          "label": "sodipodi:role",
+          "value": "line",
+          "sensitive": true,
+          "note": "on <tspan> at line 69"
+        }
+      }
+    },
+    "local_paths": {
+      "title": "Local file paths",
+      "fields": {
+        "inkscape:export-filename@4": {
+          "label": "inkscape:export-filename on <svg>",
+          "value": "C:\\Users\\jane.doe\\Pictures\\floor plan.png",
+          "sensitive": true,
+          "note": "line 4; reveals the user name 'jane.doe'"
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "svg/editor.svg",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 2089,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "2.0 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "291926a7ee52ea1202752ac66f0528ad",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "317702d6d24c4b51d6c7322cb484ea8965395553",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "154f397804a3fac5cb86f2fd2ea2b48f0607473789495066152976c9098d2327",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

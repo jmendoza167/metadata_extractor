@@ -1,0 +1,358 @@
+{
+  "subject": "webp/lossy_metadata.webp",
+  "warnings": [
+    "CRITICAL: GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "WebP",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "image/webp",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".webp"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "exif": {
+      "title": "EXIF",
+      "fields": {
+        "byte_order": {
+          "label": "Byte order",
+          "value": "little-endian (II)",
+          "sensitive": false,
+          "note": null
+        },
+        "Make": {
+          "label": "Make",
+          "value": "ExampleCam",
+          "sensitive": true,
+          "note": null
+        },
+        "Model": {
+          "label": "Model",
+          "value": "Model X",
+          "sensitive": true,
+          "note": null
+        },
+        "Orientation": {
+          "label": "Orientation",
+          "value": "Rotated 90 degrees clockwise",
+          "sensitive": false,
+          "note": null
+        },
+        "Software": {
+          "label": "Software",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "DateTime": {
+          "label": "DateTime",
+          "value": "2024-05-01T14:30:00",
+          "sensitive": true,
+          "note": "no time zone recorded"
+        },
+        "DateTimeOriginal": {
+          "label": "DateTimeOriginal",
+          "value": "2024-05-01T14:30:00",
+          "sensitive": true,
+          "note": "no time zone recorded"
+        },
+        "BodySerialNumber": {
+          "label": "BodySerialNumber",
+          "value": "SN-0001",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "gps": {
+      "title": "GPS",
+      "fields": {
+        "coordinates": {
+          "label": "Coordinates",
+          "value": "48.858367, 2.294481",
+          "sensitive": true,
+          "note": "decimal degrees"
+        },
+        "latitude": {
+          "label": "Latitude",
+          "value": "48.858367",
+          "sensitive": true,
+          "note": null
+        },
+        "longitude": {
+          "label": "Longitude",
+          "value": "2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "openstreetmap": {
+          "label": "OpenStreetMap",
+          "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "google_maps": {
+          "label": "Google Maps",
+          "value": "https://www.google.com/maps?q=48.858367,2.294481",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "xmp": {
+      "title": "XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "icc": {
+      "title": "ICC profile",
+      "fields": {
+        "size": {
+          "label": "Size",
+          "value": "244 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "cmm": {
+          "label": "Preferred CMM",
+          "value": "lcms",
+          "sensitive": false,
+          "note": null
+        },
+        "version": {
+          "label": "Version",
+          "value": "4.3.0",
+          "sensitive": false,
+          "note": null
+        },
+        "device_class": {
+          "label": "Device class",
+          "value": "Display device",
+          "sensitive": false,
+          "note": null
+        },
+        "color_space": {
+          "label": "Color space",
+          "value": "RGB",
+          "sensitive": false,
+          "note": null
+        },
+        "pcs": {
+          "label": "Connection space",
+          "value": "XYZ",
+          "sensitive": false,
+          "note": null
+        },
+        "created": {
+          "label": "Profile created",
+          "value": "2024-05-01T12:30:00",
+          "sensitive": false,
+          "note": null
+        },
+        "platform": {
+          "label": "Primary platform",
+          "value": "Apple",
+          "sensitive": false,
+          "note": null
+        },
+        "device_manufacturer": {
+          "label": "Device manufacturer",
+          "value": "ACME",
+          "sensitive": true,
+          "note": null
+        },
+        "device_model": {
+          "label": "Device model",
+          "value": "X100",
+          "sensitive": true,
+          "note": null
+        },
+        "rendering_intent": {
+          "label": "Rendering intent",
+          "value": "Perceptual",
+          "sensitive": false,
+          "note": null
+        },
+        "creator": {
+          "label": "Profile creator",
+          "value": "meta",
+          "sensitive": false,
+          "note": null
+        },
+        "profile_id": {
+          "label": "Profile ID",
+          "value": "(not set)",
+          "sensitive": false,
+          "note": null
+        },
+        "description": {
+          "label": "Description",
+          "value": "Test RGB profile",
+          "sensitive": false,
+          "note": null
+        },
+        "copyright": {
+          "label": "Copyright",
+          "value": "Copyright Test",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "webp/lossy_metadata.webp",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 1868,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "1.8 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "ce5b19f2c4e23f6ee7bc4a0ee33ee13e",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "ed5eb5f9807be0fce5e9a1f9dfcf41b5d8cb6256",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "93c6685906a70b44b613c21718294e5c42622663e4987a7ca5f636cf5c0a551c",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

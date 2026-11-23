@@ -1,0 +1,124 @@
+{
+  "subject": "png/text_chunks.png",
+  "warnings": [],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "PNG",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "image/png",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".png"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "text": {
+      "title": "Text",
+      "fields": {
+        "Author": {
+          "label": "Author",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": "tEXt"
+        },
+        "Comment": {
+          "label": "Comment",
+          "value": "Contact: jane.doe@example.com",
+          "sensitive": true,
+          "note": "tEXt"
+        },
+        "Description": {
+          "label": "Description",
+          "value": "Floor plan of the flat, second draft",
+          "sensitive": true,
+          "note": "zTXt, compressed"
+        },
+        "Title": {
+          "label": "Title",
+          "value": "Plan de l'appartement",
+          "sensitive": true,
+          "note": "iTXt, compressed; language fr; translated keyword: Floor plan"
+        },
+        "Software": {
+          "label": "Software",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": "iTXt"
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "png/text_chunks.png",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 905,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "905 B",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "f70cb3a5da20eca4718b8ace49748022",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "623581023526830c40ea417ee78cf79c4c39cabe",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "37ae8a51f50b66f9d14dad54dca3b81a4644188273d67019cbd006d5de1388e6",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

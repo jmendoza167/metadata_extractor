@@ -74,3 +74,35 @@ def loop_count(source: bytes | bytearray | str | os.PathLike[str]) -> int | None
     """How often an animation repeats (0 = forever), or None if it doesn't say."""
     loop = open_image(source).info.get("loop")
     return None if loop is None else int(loop)
+
+
+def decoded(source: bytes | bytearray | str | os.PathLike[str], transpose: bool = False,
+            mode: str | None = None) -> list[Frame]:
+    """decode_frames(), with Pillow's decoding errors turned into a test failure."""
+    try:
+        return decode_frames(source, transpose=transpose, mode=mode)
+    except OSError as exc:
+        raise AssertionError(f"Pillow can't decode the image: {exc}") from None
+
+
+def assert_same_image(original: bytes | str | os.PathLike[str],
+                      cleaned: bytes | str | os.PathLike[str], *,
+                      primary_only: bool = False) -> None:
+    """Same mode, size and pixels for every frame (with their durations and
+    the loop count): as stored, as displayed (EXIF orientation applied) and
+    converted to RGBA (so palette colors and transparency count, not only
+    palette indices). With ``primary_only``, only the original's first
+    frame is compared (a JPEG's MPF extra images are removed by design)
+    and the cleaned copy must have exactly one."""
+    for transpose, mode in ((False, None), (True, None), (False, "RGBA")):
+        before, after = decoded(original, transpose, mode), decoded(cleaned, transpose, mode)
+        if primary_only:
+            before = before[:1]
+        assert len(after) == len(before), "number of frames differs"
+        for n, (a, b) in enumerate(zip(before, after), 1):
+            what = (f"frame {n}" + (" as displayed" if transpose else "")
+                    + (f" in {mode}" if mode else ""))
+            assert (a.mode, a.size) == (b.mode, b.size), f"{what}: mode or size differs"
+            assert a.pixels == b.pixels, f"{what}: pixels differ"
+            assert a.duration == b.duration, f"{what}: duration differs"
+    assert loop_count(original) == loop_count(cleaned), "loop count differs"

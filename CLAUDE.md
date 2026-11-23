@@ -126,6 +126,11 @@ pytest
   edit those files by hand: change the generator, run
   `python scripts/make_samples.py` and commit the result. The tests run
   `--check`, which fails on a missing, changed or extra file.
+- `tests/samples/expected/` holds snapshots of `show --json` and
+  `risk --json` for every valid sample. They are only ever updated on
+  purpose, with `METAEX_UPDATE_SNAPSHOTS=1 pytest tests/test_samples_snapshots.py`;
+  review the diff before committing, and never update them just to make a
+  failing test pass without understanding why the output changed.
 - `tests/samples/real/` is the only place for files saved by real software.
   It may only hold files made from scratch for this repository, after
   clearing the maker's identity with the checklist in `SAMPLES.md`; never a

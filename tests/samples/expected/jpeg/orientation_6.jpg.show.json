@@ -1,0 +1,126 @@
+{
+  "subject": "jpeg/orientation_6.jpg",
+  "warnings": [],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "JPEG",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "image/jpeg",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".jpg",
+            ".jpeg",
+            ".jpe",
+            ".jfif"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "exif": {
+      "title": "EXIF",
+      "fields": {
+        "byte_order": {
+          "label": "Byte order",
+          "value": "little-endian (II)",
+          "sensitive": false,
+          "note": null
+        },
+        "Orientation": {
+          "label": "Orientation",
+          "value": "Rotated 90 degrees clockwise",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "jfif": {
+      "title": "JFIF",
+      "fields": {
+        "version": {
+          "label": "Version",
+          "value": "1.02",
+          "sensitive": false,
+          "note": null
+        },
+        "density": {
+          "label": "Density",
+          "value": "72 x 72 dpi",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "jpeg/orientation_6.jpg",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 1016,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "1016 B",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "a3646439b5c0fbed96677eb51d70771c",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "d2d66d0e0d04a52eb80a8b550856341b758e9885",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "5228cbe8cf624660334aa28d7b024a0318363a89d929192c3b1624369e9ee30d",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "subject": "jpeg/clean.jpg",
+  "warnings": [],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "JPEG",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "image/jpeg",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".jpg",
+            ".jpeg",
+            ".jpe",
+            ".jfif"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "jfif": {
+      "title": "JFIF",
+      "fields": {
+        "version": {
+          "label": "Version",
+          "value": "1.02",
+          "sensitive": false,
+          "note": null
+        },
+        "density": {
+          "label": "Density",
+          "value": "72 x 72 dpi",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "jpeg/clean.jpg",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 980,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "980 B",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "170b3062d9a4f0d6e14d31795a8edcc9",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "036e2541899213d0383eb1be73800fef5c4384b3",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "f226fbf250e452a2c590997b45ea2d7284ba72a5f637e418dcbf3289d24e4837",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

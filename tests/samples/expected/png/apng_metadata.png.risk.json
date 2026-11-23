@@ -1,0 +1,129 @@
+{
+  "path": "png/apng_metadata.png",
+  "summary": {
+    "critical": 2,
+    "high": 10,
+    "medium": 0,
+    "low": 7
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "high",
+      "section": "Text",
+      "label": "Author",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "Time",
+      "label": "Last modified",
+      "value": "2024-05-01T12:30:00Z"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    },
+    {
+      "level": "low",
+      "section": "Animation",
+      "label": "Frames",
+      "value": "3"
+    },
+    {
+      "level": "low",
+      "section": "Animation",
+      "label": "Plays",
+      "value": "forever"
+    },
+    {
+      "level": "low",
+      "section": "Animation",
+      "label": "Frame control chunks (fcTL)",
+      "value": "3"
+    },
+    {
+      "level": "low",
+      "section": "Animation",
+      "label": "Frame data chunks (fdAT)",
+      "value": "2"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)"
+  ],
+  "can_strip": true
+}

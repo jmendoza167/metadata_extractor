@@ -1,0 +1,458 @@
+{
+  "path": "jpeg/kitchen_sink.jpg",
+  "summary": {
+    "critical": 20,
+    "high": 17,
+    "medium": 8,
+    "low": 28
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "critical",
+      "section": "Photoshop resources",
+      "label": "0x040C Photoshop thumbnail",
+      "value": "40 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "MPF (multi-picture)",
+      "label": "Number of images",
+      "value": "2"
+    },
+    {
+      "level": "critical",
+      "section": "MPF (multi-picture)",
+      "label": "Image 1",
+      "value": "Baseline MP primary image, 0 bytes (the main image)"
+    },
+    {
+      "level": "critical",
+      "section": "MPF (multi-picture)",
+      "label": "Image 2",
+      "value": "Large thumbnail (VGA equivalent), 123 bytes at offset 4992"
+    },
+    {
+      "level": "critical",
+      "section": "Trailing data",
+      "label": "Size",
+      "value": "138 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "Trailing data",
+      "label": "Starts at offset",
+      "value": "4992"
+    },
+    {
+      "level": "critical",
+      "section": "Trailing data",
+      "label": "Content",
+      "value": "JPEG"
+    },
+    {
+      "level": "critical",
+      "section": "Trailing data",
+      "label": "MPF",
+      "value": "includes the extra images listed in the MPF section"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "IPTC",
+      "label": "By-line",
+      "value": "Jane"
+    },
+    {
+      "level": "high",
+      "section": "IPTC",
+      "label": "City",
+      "value": "Paris"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment 1",
+      "value": "a comment"
+    },
+    {
+      "level": "medium",
+      "section": "EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "medium",
+      "section": "ICC profile",
+      "label": "Device manufacturer",
+      "value": "ACME"
+    },
+    {
+      "level": "medium",
+      "section": "ICC profile",
+      "label": "Device model",
+      "value": "X100"
+    },
+    {
+      "level": "medium",
+      "section": "Other APP segments",
+      "label": "APP12 \"Ducky\"",
+      "value": "7 bytes at offset 2063"
+    },
+    {
+      "level": "low",
+      "section": "EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "Extended XMP 0123456789ABCDEF0123456789ABCDEF",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "IPTC",
+      "label": "CodedCharacterSet",
+      "value": "UTF-8"
+    },
+    {
+      "level": "low",
+      "section": "IPTC",
+      "label": "Keywords",
+      "value": "a"
+    },
+    {
+      "level": "low",
+      "section": "Photoshop resources",
+      "label": "0x0404 IPTC-NAA record",
+      "value": "33 bytes"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Size",
+      "value": "244 bytes"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Preferred CMM",
+      "value": "lcms"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Version",
+      "value": "4.3.0"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Device class",
+      "value": "Display device"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Color space",
+      "value": "RGB"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Connection space",
+      "value": "XYZ"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Profile created",
+      "value": "2024-05-01T12:30:00"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Primary platform",
+      "value": "Apple"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Rendering intent",
+      "value": "Perceptual"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Profile creator",
+      "value": "meta"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Profile ID",
+      "value": "(not set)"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Description",
+      "value": "Test RGB profile"
+    },
+    {
+      "level": "low",
+      "section": "ICC profile",
+      "label": "Copyright",
+      "value": "Copyright Test"
+    },
+    {
+      "level": "low",
+      "section": "JFIF",
+      "label": "Version",
+      "value": "1.02"
+    },
+    {
+      "level": "low",
+      "section": "JFIF",
+      "label": "Density",
+      "value": "72 x 72 dpi"
+    },
+    {
+      "level": "low",
+      "section": "Adobe",
+      "label": "DCT encode version",
+      "value": "100"
+    },
+    {
+      "level": "low",
+      "section": "Adobe",
+      "label": "Color transform",
+      "value": "YCbCr"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: 1 extra image(s) hidden in the file (MPF): Large thumbnail (VGA equivalent)",
+    "CRITICAL: 138 bytes after the end of the image (JPEG); this can hide a whole video or file",
+    "embedded thumbnail may show the original, uncropped image",
+    "Photoshop thumbnail present: it may show an earlier, uncropped or unedited version of the image"
+  ],
+  "can_strip": true
+}

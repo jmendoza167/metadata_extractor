@@ -1,0 +1,43 @@
+{
+  "path": "png/text_chunks.png",
+  "summary": {
+    "critical": 0,
+    "high": 5,
+    "medium": 0,
+    "low": 0
+  },
+  "findings": [
+    {
+      "level": "high",
+      "section": "Text",
+      "label": "Author",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Text",
+      "label": "Comment",
+      "value": "Contact: jane.doe@example.com"
+    },
+    {
+      "level": "high",
+      "section": "Text",
+      "label": "Description",
+      "value": "Floor plan of the flat, second draft"
+    },
+    {
+      "level": "high",
+      "section": "Text",
+      "label": "Title",
+      "value": "Plan de l'appartement"
+    },
+    {
+      "level": "high",
+      "section": "Text",
+      "label": "Software",
+      "value": "Editor 2.0"
+    }
+  ],
+  "warnings": [],
+  "can_strip": true
+}

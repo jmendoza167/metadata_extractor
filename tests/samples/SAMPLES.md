@@ -24,6 +24,15 @@ fails if a file is missing, differs or wasn't made by the generator.
 The **risk** column is what `metaex risk` reports, as critical / high /
 medium / low findings.
 
+`expected/` holds snapshots of `metaex show --json` and `metaex risk --json`
+for every valid sample, without the parts that depend on the machine: the
+path, file times and permissions, the Mark of the Web, and the metaex
+version. The tests compare the real output with them, and also check that
+`strip` followed by `verify` is clean and that the pixels don't change. The
+snapshots are never updated automatically. When a change in output is
+intended, run `METAEX_UPDATE_SNAPSHOTS=1 pytest tests/test_samples_snapshots.py`
+and review the diff before committing.
+
 ## JPEG
 
 All four hold the same real 48×32 baseline image.
