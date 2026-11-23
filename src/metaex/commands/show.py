@@ -107,6 +107,10 @@ def _type_section(detected: ft.FileType, module: ModuleType | None, examined: st
 
 
 def _not_examined_warning(detected: ft.FileType) -> str:
+    reason = ft.refusal(detected)
+    if reason is not None:
+        return (f"{reason}. Embedded metadata (document properties, authors, ...) was NOT "
+                "examined. Only file system information is shown.")
     if detected.key == ft.UNKNOWN.key:
         what = "file type not recognized"
     elif not detected.supported:

@@ -126,6 +126,10 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     detected = ft.detect(data, source)
     module = format_module(detected)
     if not can_strip(module):
+        reason = ft.refusal(detected)
+        if reason is not None:
+            raise UnsupportedFormatError(f"metaex can't strip this file: {reason}; "
+                                         "no file written")
         what = ("this file: its type was not recognized" if detected.key == ft.UNKNOWN.key
                 else f"{detected.name} files yet")
         raise UnsupportedFormatError(f"metaex can't strip {what}; no file written")

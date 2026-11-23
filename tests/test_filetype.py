@@ -5,6 +5,8 @@ import zipfile
 
 import pytest
 
+from helpers import ole2
+
 from metaex.core import filetype as ft
 from metaex.core.filetype import detect
 
@@ -105,6 +107,10 @@ OTHER_FORMATS = [
     (make_zip({"mimetype": "application/vnd.oasis.opendocument.presentation"}), ft.ODP),
     (make_zip({"mimetype": "application/epub+zip", "META-INF/container.xml": "<c/>"}), ft.EPUB),
     (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 504, ft.OLE2),
+    (ole2.legacy_word(), ft.DOC),
+    (ole2.legacy_excel(), ft.XLS),
+    (ole2.legacy_powerpoint(), ft.PPT),
+    (ole2.encrypted_office(), ft.ENCRYPTED_OFFICE),
     (b"ID3\x04\x00\x00\x00\x00\x00\x00" + mpeg_frames(1), ft.MP3),
     (mpeg_frames(2), ft.MP3),
     (b"RIFF\x24\x00\x00\x00WAVEfmt ", ft.WAV),
@@ -130,7 +136,7 @@ def test_detects_other_formats(data, expected):
 def test_in_scope_formats_are_marked_supported():
     for t in (ft.DOCX, ft.XLSX, ft.PPTX, ft.ODT, ft.MP3, ft.WAV, ft.FLAC, ft.ZIP, ft.TAR):
         assert t.supported is True, t.key
-    for t in (ft.PDF, ft.OLE2, ft.ODS, ft.ODP, ft.EPUB, ft.OGG, ft.MP4, ft.MOV,
+    for t in (ft.PDF, ft.OLE2, ft.DOC, ft.XLS, ft.PPT, ft.ENCRYPTED_OFFICE, ft.ODS, ft.ODP, ft.EPUB, ft.OGG, ft.MP4, ft.MOV,
               ft.M4A, ft.GZIP, ft.SEVEN_ZIP, ft.RAR, ft.UNKNOWN):
         assert t.supported is False, t.key
 

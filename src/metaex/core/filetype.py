@@ -85,6 +85,15 @@ OLE2 = _t(
     "ole2", "Legacy Office (OLE2)", "application/x-ole-storage",
     ".doc .xls .ppt .dot .xlt .pot .msg .msi", False,
 )
+# OLE2 files told apart by the streams in their directory (core/ole2.py).
+DOC = _t("doc", "Word 97-2003 document (.doc)", "application/msword", ".doc .dot", False)
+XLS = _t("xls", "Excel 97-2003 workbook (.xls)", "application/vnd.ms-excel", ".xls .xlt", False)
+PPT = _t("ppt", "PowerPoint 97-2003 presentation (.ppt)", "application/vnd.ms-powerpoint",
+         ".ppt .pot .pps", False)
+ENCRYPTED_OFFICE = _t(
+    "encrypted_office", "Password-protected Office document", "application/x-ole-storage",
+    ".docx .docm .dotx .dotm .xlsx .xlsm .xltx .xltm .pptx .pptm .potx .potm .ppsx .ppsm", False,
+)
 
 # Audio / video
 MP3 = _t("mp3", "MP3", "audio/mpeg", ".mp3", True)
@@ -161,7 +170,7 @@ def _detect_content(data: bytes | bytearray | memoryview) -> FileType:
         return TAR
     for magic, filetype in _MAGIC_AT_START:
         if head.startswith(magic):
-            return filetype
+            return _detect_ole2(data) if filetype is OLE2 else filetype
     if head.startswith(b"RIFF") and len(head) >= 12:
         if head[8:12] == b"WEBP":
             return WEBP
@@ -182,6 +191,38 @@ def _detect_content(data: bytes | bytearray | memoryview) -> FileType:
     if _looks_like_svg(head):
         return SVG
     return UNKNOWN
+
+
+# -- OLE2 (legacy Office, encrypted Office) ----------------------------------------
+
+def _detect_ole2(data: bytes | bytearray | memoryview) -> FileType:
+    from metaex.core import ole2
+
+    kind = ole2.classify(data)
+    return {ole2.ENCRYPTED_OOXML: ENCRYPTED_OFFICE, ole2.WORD: DOC, ole2.EXCEL: XLS,
+            ole2.POWERPOINT: PPT}.get(kind, OLE2)
+
+
+_REFUSALS = {
+    ENCRYPTED_OFFICE.key: ("this Office document is password-protected (encrypted), so metaex "
+                           "can't read it. Remove the password in Word, Excel or PowerPoint "
+                           "(File > Info > Protect > Encrypt with Password, and clear it) or "
+                           "LibreOffice, save, and try again"),
+    DOC.key: ("legacy Word 97-2003 documents (.doc) are not supported. Open it in Word or "
+              "LibreOffice, save it as .docx, and try again"),
+    XLS.key: ("legacy Excel 97-2003 workbooks (.xls) are not supported. Open it in Excel or "
+              "LibreOffice, save it as .xlsx, and try again"),
+    PPT.key: ("legacy PowerPoint 97-2003 presentations (.ppt) are not supported. Open it in "
+              "PowerPoint or LibreOffice, save it as .pptx, and try again"),
+    OLE2.key: ("legacy Office (OLE2 compound) files are not supported. Save Office documents "
+               "in the current format (.docx, .xlsx, .pptx) and try again"),
+}
+
+
+def refusal(filetype: FileType) -> str | None:
+    """Why metaex will never handle this type, with what to do instead; None
+    for types without a specific reason."""
+    return _REFUSALS.get(filetype.key)
 
 
 # -- ISO base media (ftyp) -------------------------------------------------------
