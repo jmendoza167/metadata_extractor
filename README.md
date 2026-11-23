@@ -195,7 +195,7 @@ or set `NO_COLOR` to turn that off. `--json` prints the findings as JSON.
 ```
 $ metaex strip photo.jpg
 metaex strip: photo.jpg
-Wrote photo_clean.jpg (123 B; original 2.0 KiB)
+Wrote photo_clean.jpg (962 B; original 2.9 KiB)
 
 Removed:
   Camera and owner                3 fields: Make, Model, BodySerialNumber
@@ -210,7 +210,7 @@ Kept by design:
   (nothing)
 
 Verification: clean
-  Image data unchanged (SHA-256 46108f3adddde0570dd010216ff718b4a2e54111fddc2f88a27fe7df678b8487)
+  Image data unchanged (SHA-256 cbe659a3289989ba9faef835d6493ac530fbf3957ae2cae412e32b2f4308c4cb)
 
 File timestamps: new (not copied from the original)
 Windows Zone.Identifier stream: none (no download origin attached)
@@ -317,7 +317,7 @@ Result: CLEAN
 Kept by design:
   (nothing)
 
-Image data: matches the original (SHA-256 46108f3adddde0570dd010216ff718b4a2e54111fddc2f88a27fe7df678b8487)
+Image data: matches the original (SHA-256 cbe659a3289989ba9faef835d6493ac530fbf3957ae2cae412e32b2f4308c4cb)
 ```
 
 `verify` works on any supported file, including files cleaned by other
@@ -563,7 +563,7 @@ Run "metaex strip plan.svg" to remove these.
 ```
 $ metaex strip plan.svg
 metaex strip: plan.svg
-Wrote plan_clean.svg (1.5 KiB; original 6.3 KiB)
+Wrote plan_clean.svg (2.6 KiB; original 7.4 KiB)
 
 Removed:
   Metadata                        7 fields: metadata element, dc:format, dc:title, dc:creator/cc:Agent/dc:title, ...
@@ -571,7 +571,7 @@ Removed:
   Processing instructions         1 field: xml-stylesheet
   Editor data                     21 fields: Inkscape namespace, Sodipodi (Inkscape) namespace, <sodipodi:namedview>, <inkscape:path-effect>, ...
   Local file paths                2 fields: inkscape:export-filename on <svg>, sodipodi:absref on <image>
-  Embedded images                 3 fields: Embedded image 1 "JPEG, 2081 bytes" (replaced with "JPEG, 123 bytes"), Embedded image 2 "PNG, 182 bytes" (replaced with "PNG, 117 bytes"), Embedded image 3 "SVG, 157 bytes" (replaced with "SVG, 128 bytes")
+  Embedded images                 3 fields: Embedded image 1 "JPEG, 2920 bytes" (replaced with "JPEG, 962 bytes"), Embedded image 2 "PNG, 182 bytes" (replaced with "PNG, 117 bytes"), Embedded image 3 "SVG, 157 bytes" (replaced with "SVG, 128 bytes")
   Camera and owner                3 fields: Make, Model, BodySerialNumber
   ...                                       (output shortened here)
   GPS location                    8 fields: Coordinates, Latitude, Longitude, OpenStreetMap, ...
@@ -579,13 +579,13 @@ Removed:
 
 Kept by design:
   Title and description: Title = Floor plan for jane, Description = Draft for the landlord, do not share
-  Embedded images: Embedded image 1 = JPEG, 123 bytes, Embedded image 2 = PNG, 117 bytes, Embedded image 3 = SVG, 128 bytes
+  Embedded images: Embedded image 1 = JPEG, 962 bytes, Embedded image 2 = PNG, 117 bytes, Embedded image 3 = SVG, 128 bytes
   Warning: kept 2 <title>/<desc> element(s) for accessibility (e.g. 'Floor plan for jane'); use --paranoid to remove them
   Warning: the SVG contains 1 <script> element(s) (first at line 16); they can run code when the file is opened in a browser
   Warning: external reference: https://tracker.example/pixel.png (href of <image> at line 17); opening the SVG can contact that server, which can be used for tracking
 
 Verification: clean
-  Drawing unchanged (SHA-256 8ef895359f9aa4df7bcf88d63035fb004a078aeae464f1de91ce6b35e6334143)
+  Drawing unchanged (SHA-256 94199fe11aa26adc8bf224c540050cc88702f8a8cc30ba464a5912a26b997ab9)
 
 File timestamps: new (not copied from the original)
 Windows Zone.Identifier stream: none (no download origin attached)
@@ -599,11 +599,11 @@ Result: CLEAN
 Kept by design:
   Title and description: Title = Floor plan for jane
   Title and description: Description = Draft for the landlord, do not share
-  Embedded images: Embedded image 1 = JPEG, 123 bytes
+  Embedded images: Embedded image 1 = JPEG, 962 bytes
   Embedded images: Embedded image 2 = PNG, 117 bytes
   Embedded images: Embedded image 3 = SVG, 128 bytes
 
-Drawing: matches the original (SHA-256 8ef895359f9aa4df7bcf88d63035fb004a078aeae464f1de91ce6b35e6334143)
+Drawing: matches the original (SHA-256 94199fe11aa26adc8bf224c540050cc88702f8a8cc30ba464a5912a26b997ab9)
 Note: the SVG contains 1 <script> element(s) (first at line 16); they can run code when the file is opened in a browser
 Note: external reference: https://tracker.example/pixel.png (href of <image> at line 17); opening the SVG can contact that server, which can be used for tracking
 ```
