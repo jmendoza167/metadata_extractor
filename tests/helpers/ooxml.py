@@ -51,6 +51,8 @@ class Package:
         self.overrides: dict[str, str] = {}
         self.rels: dict[str, list[tuple[str, str, str, bool]]] = {}
         self.extra_entries: dict[str, bytes] = {}
+        self.finalizers: list = []
+        """Functions of the package run before its files are written."""
 
     def add(self, name: str, data: bytes | str, content_type: str | None = None) -> Package:
         self.parts[name] = data.encode("utf-8") if isinstance(data, str) else data
@@ -98,6 +100,8 @@ class Package:
         return name, "".join(out).encode("utf-8")
 
     def files(self) -> dict[str, bytes]:
+        for finalize in self.finalizers:
+            finalize(self)
         files = {"[Content_Types].xml": self.content_types()}
         if "" in self.rels:
             name, data = self.rels_part("")
@@ -151,21 +155,159 @@ def xlsx(*, main_type: str = EXCEL_MAIN) -> Package:
     return pkg
 
 
-def presentation(slides: str = '<p:sldId id="256" r:id="rId1"/>') -> str:
-    return (f'{DECL}<p:presentation xmlns:a="{A_NS}" xmlns:r="{R_NS}" xmlns:p="{P_NS}">'
-            f"<p:sldIdLst>{slides}</p:sldIdLst></p:presentation>")
+# A presentation PowerPoint opens needs, besides its slides, a slide master
+# with a theme and at least one layout (every slide uses one), the slide
+# and notes sizes, and, for speaker notes, a notes master with its own
+# theme. Every shape tree starts with its group properties, and every shape
+# has its non-visual properties and shape properties before its text.
+
+PML = "application/vnd.openxmlformats-officedocument.presentationml."
+THEME_TYPE = "application/vnd.openxmlformats-officedocument.theme+xml"
+P14_NS = "http://schemas.microsoft.com/office/powerpoint/2010/main"
+PPT = "ppt/presentation.xml"
+MASTER = "ppt/slideMasters/slideMaster1.xml"
+LAYOUT = "ppt/slideLayouts/slideLayout1.xml"
+NOTES_MASTER = "ppt/notesMasters/notesMaster1.xml"
+PPT_DECLS = f'xmlns:a="{A_NS}" xmlns:r="{R_NS}" xmlns:p="{P_NS}"'
+GROUP = ('<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
+         '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/>'
+         '<a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>')
+CLR_MAP = ('bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" '
+           'accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" '
+           'hlink="hlink" folHlink="folHlink"')
+FIRST_SLIDE_ID = 256
+CREATION_ID_BASE = 1000
+"""Slide n has the creation ID 1000 + n (modern comments point to it)."""
 
 
-def slide(text: str = "Hello") -> str:
-    return (f'{DECL}<p:sld xmlns:a="{A_NS}" xmlns:r="{R_NS}" xmlns:p="{P_NS}"><p:cSld><p:spTree>'
-            f"<p:sp><p:txBody><a:p><a:r><a:t>{escape(text)}</a:t></a:r></a:p></p:txBody></p:sp>"
-            "</p:spTree></p:cSld></p:sld>")
+def theme_xml() -> str:
+    colors = "".join(f"<a:{name}><a:srgbClr val=\"{value}\"/></a:{name}>" for name, value in (
+        ("dk2", "44546A"), ("lt2", "E7E6E6"), ("accent1", "4472C4"), ("accent2", "ED7D31"),
+        ("accent3", "A5A5A5"), ("accent4", "FFC000"), ("accent5", "5B9BD5"),
+        ("accent6", "70AD47"), ("hlink", "0563C1"), ("folHlink", "954F72")))
+    fill = '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>'
+    line = f'<a:ln w="6350">{fill}</a:ln>'
+    effect = "<a:effectStyle><a:effectLst/></a:effectStyle>"
+    font = '<a:latin typeface="{}"/><a:ea typeface=""/><a:cs typeface=""/>'
+    return (f'{DECL}<a:theme xmlns:a="{A_NS}" name="Office Theme"><a:themeElements>'
+            '<a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/>'
+            '</a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1>'
+            f'{colors}</a:clrScheme><a:fontScheme name="Office"><a:majorFont>'
+            f'{font.format("Calibri Light")}</a:majorFont><a:minorFont>{font.format("Calibri")}'
+            '</a:minorFont></a:fontScheme><a:fmtScheme name="Office">'
+            f"<a:fillStyleLst>{fill * 3}</a:fillStyleLst><a:lnStyleLst>{line * 3}</a:lnStyleLst>"
+            f"<a:effectStyleLst>{effect * 3}</a:effectStyleLst>"
+            f"<a:bgFillStyleLst>{fill * 3}</a:bgFillStyleLst></a:fmtScheme></a:themeElements>"
+            "<a:objectDefaults/><a:extraClrSchemeLst/></a:theme>")
+
+
+def slide_master_xml() -> str:
+    """The master's first relationship (rId1) is its layout."""
+    return (f'{DECL}<p:sldMaster {PPT_DECLS}><p:cSld><p:spTree>{GROUP}</p:spTree></p:cSld>'
+            f'<p:clrMap {CLR_MAP}/><p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/>'
+            "</p:sldLayoutIdLst></p:sldMaster>")
+
+
+def slide_layout_xml() -> str:
+    return (f'{DECL}<p:sldLayout {PPT_DECLS} type="blank" preserve="1"><p:cSld name="Blank">'
+            f"<p:spTree>{GROUP}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/>"
+            "</p:clrMapOvr></p:sldLayout>")
+
+
+def notes_master_xml() -> str:
+    return (f'{DECL}<p:notesMaster {PPT_DECLS}><p:cSld><p:spTree>{GROUP}</p:spTree></p:cSld>'
+            f'<p:clrMap {CLR_MAP}/></p:notesMaster>')
+
+
+def text_shape(shape_id: int, text: str, placeholder: str = "") -> str:
+    """A text box (or a placeholder, e.g. '<p:ph type="body" idx="1"/>')."""
+    non_visual = (f'<p:cNvSpPr txBox="1"/><p:nvPr/>' if not placeholder else
+                  f"<p:cNvSpPr/><p:nvPr>{placeholder}</p:nvPr>")
+    body = (f'<a:p><a:r><a:rPr lang="en-US"/><a:t>{escape(text)}</a:t></a:r></a:p>' if text
+            else "<a:p/>")
+    return (f'<p:sp><p:nvSpPr><p:cNvPr id="{shape_id}" name="Shape {shape_id}"/>{non_visual}'
+            '</p:nvSpPr><p:spPr><a:xfrm><a:off x="838200" y="1825625"/><a:ext cx="10515600" '
+            'cy="1000000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>'
+            f"<p:txBody><a:bodyPr/><a:lstStyle/>{body}</p:txBody></p:sp>")
+
+
+def picture_shape(shape_id: int, rel_id: str) -> str:
+    return (f'<p:pic><p:nvPicPr><p:cNvPr id="{shape_id}" name="Picture {shape_id}"/>'
+            '<p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>'
+            f'<p:blipFill><a:blip r:embed="{rel_id}"/><a:stretch><a:fillRect/></a:stretch>'
+            '</p:blipFill><p:spPr><a:xfrm><a:off x="838200" y="3000000"/><a:ext cx="4572000" '
+            'cy="3048000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>'
+            "</p:pic>")
+
+
+def slide(text: str = "Hello", n: int = 1, *, hidden: bool = False,
+          picture: str | None = None) -> str:
+    """Slide n with a text box (and a picture, by relationship ID). Its
+    creation ID (p14:creationId) is what modern comments refer to."""
+    show = ' show="0"' if hidden else ""
+    shapes = text_shape(2, text) + (picture_shape(3, picture) if picture else "")
+    return (f"{DECL}<p:sld {PPT_DECLS}{show}><p:cSld><p:spTree>{GROUP}{shapes}</p:spTree>"
+            "</p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr><p:extLst>"
+            '<p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}">'
+            f'<p14:creationId xmlns:p14="{P14_NS}" val="{CREATION_ID_BASE + n}"/></p:ext>'
+            "</p:extLst></p:sld>")
+
+
+def presentation_xml(pkg: Package) -> str:
+    """presentation.xml listing the master, notes master and slides that
+    presentation.xml's relationships lead to, in that order."""
+    rels = pkg.rels.get(PPT, [])
+    masters = "".join(f'<p:sldMasterId id="{2147483648 + i}" r:id="{rid}"/>'
+                      for i, (rid, t, _, _) in enumerate(r for r in rels
+                                                          if r[1] == REL + "slideMaster"))
+    notes = "".join(f'<p:notesMasterId r:id="{rid}"/>' for rid, t, _, _ in rels
+                    if t == REL + "notesMaster")
+    slides = "".join(f'<p:sldId id="{FIRST_SLIDE_ID + i}" r:id="{rid}"/>'
+                     for i, (rid, t, _, _) in enumerate(r for r in rels if r[1] == REL + "slide"))
+    return (f"{DECL}<p:presentation {PPT_DECLS} saveSubsetFonts=\"1\">"
+            f"<p:sldMasterIdLst>{masters}</p:sldMasterIdLst>"
+            + (f"<p:notesMasterIdLst>{notes}</p:notesMasterIdLst>" if notes else "")
+            + f"<p:sldIdLst>{slides}</p:sldIdLst>"
+            '<p:sldSz cx="12192000" cy="6858000"/><p:notesSz cx="6858000" cy="9144000"/>'
+            "</p:presentation>")
+
+
+def _write_presentation(pkg: Package) -> None:
+    pkg.parts[PPT] = presentation_xml(pkg).encode("utf-8")
+
+
+def slide_names(pkg: Package) -> list[str]:
+    return [posixpath.normpath(posixpath.join("ppt", target)) for _rid, t, target, _ext
+            in pkg.rels.get(PPT, []) if t == REL + "slide"]
+
+
+def add_slide(pkg: Package, text: str, *, hidden: bool = False) -> str:
+    """Add slide n (after the others), using the layout; returns its part name."""
+    n = len(slide_names(pkg)) + 1
+    name = f"ppt/slides/slide{n}.xml"
+    pkg.add_linked(PPT, "slide", name, slide(text, n, hidden=hidden), SLIDE)
+    pkg.link(name, "slideLayout", LAYOUT)
+    return name
 
 
 def pptx(*, main_type: str = PPT_MAIN) -> Package:
+    """One slide ("Hello") with its layout, master and theme."""
     pkg = Package()
-    pkg.add_linked("", "officeDocument", "ppt/presentation.xml", presentation(), main_type)
-    pkg.add_linked("ppt/presentation.xml", "slide", "ppt/slides/slide1.xml", slide(), SLIDE)
+    pkg.add_linked("", "officeDocument", PPT, "", main_type)
+    pkg.add_linked(PPT, "slideMaster", MASTER, slide_master_xml(), PML + "slideMaster+xml")
+    pkg.add_linked(MASTER, "slideLayout", LAYOUT, slide_layout_xml(), PML + "slideLayout+xml")
+    pkg.link(LAYOUT, "slideMaster", MASTER)
+    pkg.add_linked(MASTER, "theme", "ppt/theme/theme1.xml", theme_xml(), THEME_TYPE)
+    add_slide(pkg, "Hello")
+    pkg.add_linked(PPT, "presProps", "ppt/presProps.xml",
+                   f"{DECL}<p:presentationPr {PPT_DECLS}/>", PML + "presProps+xml")
+    pkg.add_linked(PPT, "viewProps", "ppt/viewProps.xml",
+                   f"{DECL}<p:viewPr {PPT_DECLS}/>", PML + "viewProps+xml")
+    pkg.link(PPT, "theme", "ppt/theme/theme1.xml")
+    pkg.add_linked(PPT, "tableStyles", "ppt/tableStyles.xml",
+                   f'{DECL}<a:tblStyleLst xmlns:a="{A_NS}" '
+                   'def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>', PML + "tableStyles+xml")
+    pkg.finalizers.append(_write_presentation)
     return pkg
 
 
@@ -453,8 +595,11 @@ def ppt_authors(name: str = "Jane Doe", user: str = "jane.doe@example.com") -> s
 def ppt_modern_comments(date: str = "2024-05-02T11:00:00.000") -> str:
     return (f'{DECL}<p188:cmLst xmlns:a="{A_NS}" xmlns:r="{R_NS}" xmlns:p188="{P188_NS}">'
             f'<p188:cm id="{{DDDDDDDD-0000-1111-2222-333333333333}}" authorId="{AUTHOR_GUID}" '
-            f'created="{date}"><p188:txBody><a:bodyPr/><a:p><a:r><a:t>Approved</a:t></a:r></a:p>'
-            "</p188:txBody></p188:cm></p188:cmLst>")
+            f'created="{date}"><pc:sldMkLst xmlns:pc="http://schemas.microsoft.com/office/'
+            'powerpoint/2013/main/command"><pc:docMk/>'
+            f'<pc:sldMk cId="{CREATION_ID_BASE + 1}" sldId="{FIRST_SLIDE_ID}"/></pc:sldMkLst>'
+            "<p188:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang=\"en-US\"/>"
+            "<a:t>Approved</a:t></a:r></a:p></p188:txBody></p188:cm></p188:cmLst>")
 
 
 def add_ppt_comments(pkg: Package) -> Package:
@@ -599,21 +744,33 @@ NOTES_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.notes
 
 
 def notes_slide(text: str = "Mention the deadline: 2024-06-01") -> str:
-    return (f'{DECL}<p:notes xmlns:a="{A_NS}" xmlns:r="{R_NS}" xmlns:p="{P_NS}"><p:cSld>'
-            '<p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image"/><p:cNvSpPr/>'
-            '<p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr></p:sp><p:sp><p:nvSpPr>'
-            '<p:cNvPr id="3" name="Notes"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="1"/>'
-            f'</p:nvPr></p:nvSpPr><p:txBody><a:p><a:r><a:t>{escape(text)}</a:t></a:r></a:p>'
-            "</p:txBody></p:sp></p:spTree></p:cSld></p:notes>")
+    image = ('<p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image"/><p:cNvSpPr><a:spLocks '
+             'noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg"/>'
+             "</p:nvPr></p:nvSpPr><p:spPr/></p:sp>")
+    return (f"{DECL}<p:notes {PPT_DECLS}><p:cSld><p:spTree>{GROUP}{image}"
+            f'{text_shape(3, text, placeholder="<p:ph type=\"body\" idx=\"1\"/>")}'
+            "</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>")
+
+
+def add_notes(pkg: Package, slide_name: str, text: str) -> str:
+    """Speaker notes for a slide (adding the notes master and its theme the
+    first time)."""
+    if NOTES_MASTER not in pkg.parts:
+        pkg.add_linked(PPT, "notesMaster", NOTES_MASTER, notes_master_xml(),
+                       PML + "notesMaster+xml")
+        pkg.add_linked(NOTES_MASTER, "theme", "ppt/theme/theme2.xml", theme_xml(), THEME_TYPE)
+    n = sum(1 for name in pkg.parts if name.startswith("ppt/notesSlides/")) + 1
+    name = f"ppt/notesSlides/notesSlide{n}.xml"
+    pkg.add_linked(slide_name, "notesSlide", name, notes_slide(text), NOTES_TYPE)
+    pkg.link(name, "notesMaster", NOTES_MASTER)
+    pkg.link(name, "slide", slide_name)
+    return name
 
 
 def add_hidden_slide_and_notes(pkg: Package) -> Package:
-    pkg.parts["ppt/presentation.xml"] = presentation(
-        '<p:sldId id="256" r:id="rId1"/><p:sldId id="257" r:id="rId2"/>').encode("utf-8")
-    pkg.add_linked("ppt/presentation.xml", "slide", "ppt/slides/slide2.xml",
-                   slide("Draft numbers").replace("<p:sld ", '<p:sld show="0" '), SLIDE)
-    pkg.add_linked("ppt/slides/slide1.xml", "notesSlide", "ppt/notesSlides/notesSlide1.xml",
-                   notes_slide(), NOTES_TYPE)
+    """A second, hidden slide, and speaker notes on the first."""
+    add_slide(pkg, "Draft numbers", hidden=True)
+    add_notes(pkg, "ppt/slides/slide1.xml", "Mention the deadline: 2024-06-01")
     return pkg
 
 
@@ -700,6 +857,7 @@ def kitchen_sink_pptx() -> bytes:
     add_custom(pkg, main)
     add_printer(pkg, main, "ppt", "presentationml")
     add_thumbnail(pkg, jpeg.sample_photo())
-    add_media(pkg, "ppt/slides/slide1.xml", "ppt/media/image1.jpeg", jpeg.sample_photo(), "jpeg",
-              "image/jpeg")
+    rel_id = add_media(pkg, "ppt/slides/slide1.xml", "ppt/media/image1.jpeg",
+                       jpeg.sample_photo(), "jpeg", "image/jpeg")
+    pkg.parts["ppt/slides/slide1.xml"] = slide("Hello", 1, picture=rel_id).encode("utf-8")
     return pkg.build()
