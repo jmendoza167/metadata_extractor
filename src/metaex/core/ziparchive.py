@@ -271,8 +271,7 @@ def open_archive(data: bytes | bytearray | memoryview, limits: ZipLimits = DEFAU
         _check_entry_flags(entry)
         _read_local_header(reader, entry, cd_start)
 
-    archive.hidden = _hidden_ranges(entries, cd_start, records_start, eocd, end, len(data),
-                                    reader)
+    archive.hidden = _hidden_ranges(entries, cd_start, end, len(data))
     return archive
 
 
@@ -496,8 +495,8 @@ def _check_descriptor(reader: ByteReader, entry: ZipEntry, cd_start: int,
     return pos + r.tell()
 
 
-def _hidden_ranges(entries: list[ZipEntry], cd_start: int, records_start: int, eocd: int,
-                   end: int, size: int, reader: ByteReader) -> list[HiddenRange]:
+def _hidden_ranges(entries: list[ZipEntry], cd_start: int, end: int,
+                   size: int) -> list[HiddenRange]:
     """Bytes that belong to no entry and no directory record."""
     hidden: list[HiddenRange] = []
     ordered = sorted(entries, key=lambda e: e.header_offset)
@@ -518,15 +517,8 @@ def _hidden_ranges(entries: list[ZipEntry], cd_start: int, records_start: int, e
         where = "before the first entry" if previous is None else \
             f"after the last entry ({previous.name!r}), before the central directory"
         hidden.append(HiddenRange(pos, cd_start, where))
-    # Between the central directory and the end record there may only be the
-    # ZIP64 end record and its locator.
-    if records_start != eocd:  # ZIP64: record, then locator right before the EOCD
-        locator = eocd - ZIP64_LOCATOR_SIZE
-        if locator > records_start:
-            z64_size = reader.sub(records_start + 4, 8, "ZIP64 record size").u64() + 12
-            if records_start + z64_size < locator:
-                hidden.append(HiddenRange(records_start + z64_size, locator,
-                                          "between the ZIP64 end records"))
+    # The central directory ends where the (ZIP64) end records start, and those
+    # were checked to follow each other without a gap.
     if end < size:
         hidden.append(HiddenRange(end, size, "after the end of the archive"))
     return hidden
