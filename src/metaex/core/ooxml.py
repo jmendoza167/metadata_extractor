@@ -1196,7 +1196,66 @@ def anonymize_attributes(ed: PackageEditor, part: str, element: XmlElement,
             editor.set_attr(element, qname, "")
 
 
-def strip_package(data: bytes | bytearray | memoryview, kind: str, format_strip) -> bytes:
+def strip_images(ed: PackageEditor, keep_orientation: bool = True, paranoid: bool = False
+                 ) -> None:
+    """Clean every embedded JPEG, PNG, GIF, WebP and SVG image with its own
+    format's stripper, and check the result the way a cleaned image file is
+    checked (no metadata left, image data unchanged). Other images (EMF,
+    WMF, TIFF, ...) are kept as they are; see kept_package_warnings()."""
+    from metaex.core import filetype
+    from metaex.core.errors import CannotCleanError, MetaexError
+    from metaex.core.registry import format_module
+    from metaex.core.verify import verify
+
+    for name in media_parts(ed.pkg):
+        data = ed.pkg.read(name)
+        detected = filetype.detect(data)
+        if detected.key not in IMAGE_KEYS:
+            continue
+        module = format_module(detected)
+        try:
+            cleaned = module.strip(data, keep_orientation=keep_orientation, paranoid=paranoid)
+            result = verify(cleaned, data)
+        except MetaexError as exc:
+            raise CannotCleanError(f"the embedded image {name} ({detected.name}) can't be "
+                                   f"stripped: {exc}") from None
+        if not result.clean or result.image_data_match is not True:
+            reasons = result.problems + [str(f) for f in result.leftovers]
+            raise CannotCleanError(f"the embedded image {name} ({detected.name}) could not be "
+                                   f"verified after stripping ({'; '.join(reasons[:3])})")
+        if cleaned != data:
+            ed.replace(name, cleaned)
+
+
+def uncleaned_media(pkg: Package) -> list[tuple[str, str]]:
+    """(part, kind) of the images and media metaex keeps without cleaning."""
+    from metaex.core import filetype
+
+    out = []
+    for name in media_parts(pkg):
+        detected = filetype.detect(pkg.read(name))
+        if detected.key not in IMAGE_KEYS:
+            kind = detected.name if detected.key != filetype.UNKNOWN.key else (
+                pkg.type_of(name) or "unknown type")
+            out.append((name, kind))
+    return out
+
+
+def kept_package_warnings(pkg: Package) -> list[str]:
+    """Warnings about what a cleaned package still contains (all formats)."""
+    out = []
+    media = uncleaned_media(pkg)
+    if media:
+        kinds = ", ".join(sorted({kind for _name, kind in media}))
+        listed = ", ".join(name for name, _kind in media[:5])
+        more = f" and {len(media) - 5} more" if len(media) > 5 else ""
+        out.append(f"kept {len(media)} embedded image(s) or media file(s) metaex can't clean "
+                   f"({kinds}: {listed}{more}); they may contain their own metadata")
+    return out
+
+
+def strip_package(data: bytes | bytearray | memoryview, kind: str, format_strip, *,
+                  keep_orientation: bool = True, paranoid: bool = False) -> bytes:
     """A cleaned copy of an OOXML file of ``kind``: the package-level
     clean-up plus ``format_strip(editor)`` for the format's own parts.
 
@@ -1214,6 +1273,7 @@ def strip_package(data: bytes | bytearray | memoryview, kind: str, format_strip)
         ed.remove_part(part)
     for part in printer_settings_parts(pkg):
         remove_with_references(ed, part)
+    strip_images(ed, keep_orientation, paranoid)
     format_strip(ed)
     refuse_user_paths(ed)
     return ed.build()

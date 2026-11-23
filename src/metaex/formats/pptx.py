@@ -189,9 +189,12 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     unsafe files and UnsupportedFormatError for Strict Open XML."""
     from metaex.core.ooxml import strip_package
 
-    return strip_package(data, "pptx", _strip_pptx)
+    return strip_package(data, "pptx", _strip_pptx,
+                         keep_orientation=keep_orientation, paranoid=paranoid)
 
 
 def kept_warnings(cleaned: bytes) -> list[str]:
     """What a cleaned presentation still contains that the user should know about."""
-    return []
+    from metaex.core.ooxml import kept_package_warnings, open_package
+
+    return kept_package_warnings(open_package(cleaned))

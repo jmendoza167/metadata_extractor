@@ -386,15 +386,18 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     unsafe files and UnsupportedFormatError for Strict Open XML."""
     from metaex.core.ooxml import strip_package
 
-    return strip_package(data, "docx", _strip_word)
+    return strip_package(data, "docx", _strip_word,
+                         keep_orientation=keep_orientation, paranoid=paranoid)
 
 
 def kept_warnings(cleaned: bytes) -> list[str]:
     """What a cleaned document still contains that the user should know about."""
     from metaex.core.ooxml import open_package
 
+    from metaex.core.ooxml import kept_package_warnings
+
     pkg = open_package(cleaned)
-    out = []
+    out = kept_package_warnings(pkg)
     bound = sorted(bound_custom_xml(pkg))
     if bound:
         out.append(f"kept {', '.join(bound)}: content controls show its data, so removing it "
