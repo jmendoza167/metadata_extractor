@@ -31,6 +31,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 
 from metaex.core import filetype, xmp
+from metaex.core.paths import local_paths, user_name  # noqa: F401 (part of this module's API)
 from metaex.core.errors import MalformedFileError
 from metaex.core.result import Section
 
@@ -647,27 +648,6 @@ def editor_sections(doc: Document) -> list[Section]:
         listed += 1
     _limited(section, listed)
     return [section] if section.fields else []
-
-
-_PATH_START = r"""(?:^|(?<=[\s"'(,;=]))"""
-_LOCAL_PATH = re.compile(_PATH_START + r"""(
-      file:/[^\s"')]*
-    | [A-Za-z]:[\\/][^"')]*
-    | \\\\[^\\\s"')]+\\[^"')]*
-    | /(?:home|Users|root|var/folders|private/var|mnt|media|tmp)/[^"')]*
-    )""", re.VERBOSE)
-_USER_NAME = re.compile(r"(?i)(?:[a-z]:[\\/]+(?:users|documents and settings)[\\/]+|"
-                        r"/home/|/users/)([^\\/\"']+)")
-
-
-def local_paths(value: str) -> list[str]:
-    """Absolute local file paths (Windows, UNC, Unix home folders, file: URLs)."""
-    return [m.group(1).rstrip() for m in _LOCAL_PATH.finditer(value)]
-
-
-def user_name(path: str) -> str | None:
-    m = _USER_NAME.search(urllib.parse.unquote(path))
-    return m.group(1) if m else None
 
 
 def path_attributes(doc: Document) -> list[tuple[Element, str, str, list[str]]]:

@@ -60,3 +60,87 @@ def people_section(pkg: Package) -> Section | None:
             add_person(section, n, person.get("displayName"), person.get("userId"),
                        person.get("providerId"))
     return section if section.fields else None
+
+
+# -- hidden sheets, workbook history, external data -----------------------------------------
+
+X15AC_NS = "http://schemas.microsoft.com/office/spreadsheetml/2010/11/ac"
+XR_NS = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision"
+XR6_NS = "http://schemas.microsoft.com/office/spreadsheetml/2016/revision6"
+XR10_NS = "http://schemas.microsoft.com/office/spreadsheetml/2016/revision10"
+EXTERNAL_LINK_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.externalLink+xml"
+CONNECTIONS_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml"
+
+FILE_VERSION_LABELS = {"appName": "Application", "lastEdited": "Last edited with version",
+                       "lowestEdited": "Lowest version edited with",
+                       "rupBuild": "Application build"}
+REVISION_PTR_LABELS = {"revIDLastSave": "Revision ID at last save",
+                       "documentId": "Document ID (co-authoring)",
+                       "coauthVersionLast": "Co-authoring version (last)",
+                       "coauthVersionMax": "Co-authoring version (highest)",
+                       "uidLastSave": "Unique ID at last save"}
+
+
+def hidden_section(pkg: Package) -> Section | None:
+    """Sheets hidden from view ("hidden" can be shown from Excel's menu;
+    "veryHidden" only with macros)."""
+    section = Section("hidden_content", "Hidden content")
+    for sheet in pkg.xml(pkg.main).find_all(S_NS, "sheet"):
+        state = sheet.get("state") or "visible"
+        if state in ("hidden", "veryHidden"):
+            name = sheet.get("name") or "(no name)"
+            label = "Hidden sheet" if state == "hidden" else "Very hidden sheet"
+            section.add(f"sheet.{name}", label, name, sensitive=True)
+    return section if section.fields else None
+
+
+def workbook_section(pkg: Package) -> list[Section]:
+    """What workbook.xml records about where and with what the file was
+    saved: the folder (x15ac:absPath), the Excel version (fileVersion) and
+    co-authoring revision pointers (xr:revisionPtr)."""
+    from metaex.core.ooxml import add_link
+
+    section = Section("xlsx_workbook", "Workbook information")
+    paths = Section("local_paths", "Local file paths")
+    root = pkg.xml(pkg.main).root
+    for e in root.iter():
+        if e.is_(X15AC_NS, "absPath"):
+            add_link(section, paths, "absPath", "Folder the workbook was saved in (absPath)",
+                     e.get("url") or "")
+        elif e.is_(S_NS, "fileVersion"):
+            for name, value in e.attrs:
+                if name in FILE_VERSION_LABELS:
+                    section.add(f"fileVersion.{name}", FILE_VERSION_LABELS[name], value)
+        elif e.is_(XR_NS, "revisionPtr"):
+            for name, value in e.attrs:
+                local = name.split(":", 1)[-1]
+                if local in REVISION_PTR_LABELS and not name.startswith("xmlns"):
+                    section.add(f"revisionPtr.{local}", REVISION_PTR_LABELS[local], value,
+                                sensitive=local in ("documentId", "uidLastSave"))
+    return [s for s in (section, paths) if s.fields]
+
+
+def external_data_section(pkg: Package) -> Section | None:
+    """Linked workbooks (with values copied from them) and data connections
+    (connection strings can name servers, databases and user names)."""
+    from metaex.core.ooxml import shorten
+
+    section = Section("xlsx_external_data", "External data")
+    for part in pkg.parts_of_type(EXTERNAL_LINK_TYPE):
+        root = pkg.xml(part).root
+        cells = len(root.find_all(S_NS, "cell"))
+        sheets = [s.get("val") or "" for s in root.find_all(S_NS, "sheetName")]
+        section.add(part, f"Linked workbook data ({part})",
+                    f"{cells} cached cells from sheets {', '.join(sheets) or '(none)'}",
+                    sensitive=True)
+    for part in pkg.parts_of_type(CONNECTIONS_TYPE):
+        for n, conn in enumerate(pkg.xml(part).find_all(S_NS, "connection"), 1):
+            details = []
+            for child in conn.elements():
+                for attr in ("connection", "command", "url", "sourceFile"):
+                    value = child.get(attr)
+                    if value:
+                        details.append(f"{attr}={value}")
+            section.add(f"connection.{n}", f"Data connection {conn.get('name') or n}",
+                        shorten("; ".join(details) or "(no details)"), sensitive=True)
+    return section if section.fields else None

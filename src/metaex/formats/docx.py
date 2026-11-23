@@ -147,6 +147,100 @@ def tracked_changes_section(pkg: Package) -> Section | None:
     if text:
         section.add("deleted_characters", "Deleted text still in the file (characters)",
                     len(text), sensitive=True)
-        sample = text if len(text) <= MAX_DELETED_SAMPLE else text[:MAX_DELETED_SAMPLE] + "..."
-        section.add("deleted_text", "Deleted text", sample, sensitive=True)
+        section.add("deleted_text", "Deleted text", _sample(text), sensitive=True)
+    return section
+
+
+def _sample(text: str) -> str:
+    return text if len(text) <= MAX_DELETED_SAMPLE else text[:MAX_DELETED_SAMPLE] + "..."
+
+
+# -- hidden content and revision IDs -------------------------------------------------------
+
+
+def _is_on(element) -> bool:
+    """A Word on/off property (w:vanish, w:b, ...): on unless w:val says false."""
+    return (element.get("val", W_NS) or "true").lower() not in ("false", "0", "off")
+
+
+def hidden_text(pkg: Package) -> tuple[int, str]:
+    """(number of runs, their text) formatted as hidden (w:vanish) in the
+    story parts other than the glossary."""
+    runs, texts = 0, []
+    glossary = set(glossary_parts(pkg))
+    for part in story_parts(pkg):
+        if part in glossary:
+            continue
+        for run in pkg.xml(part).find_all(W_NS, "r"):
+            props = run.child(W_NS, "rPr")
+            vanish = props.child(W_NS, "vanish") if props is not None else None
+            if vanish is not None and _is_on(vanish):
+                runs += 1
+                texts.append("".join(t.text() for t in run.elements()
+                                     if t.uri == W_NS and t.local in ("t", "delText")))
+    return runs, "".join(texts)
+
+
+def glossary_parts(pkg: Package) -> list[str]:
+    """The glossary document (building blocks, AutoText) and its stories."""
+    found = [pkg.entry_name(p) for p in pkg.related(pkg.main, "glossaryDocument")]
+    out = [n for n in found if n is not None]
+    for name in list(out):
+        for rel_type in STORY_REL_TYPES:
+            out += [n for n in (pkg.entry_name(p) for p in pkg.related(name, rel_type))
+                    if n is not None and n not in out]
+    return out
+
+
+def hidden_section(pkg: Package) -> Section | None:
+    """Text formatted as hidden, and the glossary document (building blocks
+    that can hold text from earlier documents)."""
+    section = Section("hidden_content", "Hidden content")
+    runs, text = hidden_text(pkg)
+    if runs:
+        section.add("hidden_text_runs", "Hidden text (runs)", runs, sensitive=True)
+        if text:
+            section.add("hidden_text", "Hidden text", _sample(text), sensitive=True)
+    glossary = glossary_parts(pkg)
+    if glossary:
+        paragraphs = len(pkg.xml(glossary[0]).find_all(W_NS, "p"))
+        sample = _sample(" ".join(pkg.xml(glossary[0]).root.text().split()))
+        section.add("glossary", "Glossary document (building blocks)",
+                    f"{glossary[0]}, {paragraphs} paragraphs" + (f": {sample}" if sample else ""),
+                    sensitive=True)
+    return section if section.fields else None
+
+
+def rsid_parts(pkg: Package) -> list[str]:
+    """XML parts in which Word writes revision IDs."""
+    parts = story_parts(pkg)
+    for rel_type in ("styles", "numbering", "settings", "stylesWithEffects"):
+        parts += [n for n in (pkg.entry_name(p) for p in pkg.related(pkg.main, rel_type))
+                  if n is not None and n not in parts]
+    return parts
+
+
+def is_rsid_attribute(element, name: str) -> bool:
+    return name.split(":", 1)[-1].startswith("rsid") and element.attr_uri(name) == W_NS
+
+
+def revision_ids_section(pkg: Package) -> Section | None:
+    """Revision save IDs (rsids): Word marks every edit with the ID of the
+    editing session, which links documents edited on the same computer."""
+    session_ids = 0
+    part = settings_part(pkg)
+    if part is not None:
+        session_ids = sum(1 for rsids in pkg.xml(part).find_all(W_NS, "rsids")
+                          for e in rsids.elements() if e.uri == W_NS)
+    attributes = 0
+    for name in rsid_parts(pkg):
+        for e in pkg.xml(name).iter():
+            attributes += sum(1 for a, _v in e.attrs if is_rsid_attribute(e, a))
+    if not session_ids and not attributes:
+        return None
+    section = Section("revision_ids", "Revision IDs (rsids)")
+    if session_ids:
+        section.add("rsids", "Editing sessions listed in settings.xml", session_ids)
+    if attributes:
+        section.add("rsid_attributes", "Revision ID attributes", attributes)
     return section

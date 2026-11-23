@@ -72,3 +72,53 @@ def people_section(pkg: Package) -> Section | None:
             break
         add_person(section, n, name, user_id, provider, initials)
     return section if section.fields else None
+
+
+# -- hidden slides and speaker notes ------------------------------------------------------
+
+A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+MAX_SAMPLE = 200
+
+
+def slide_parts(pkg: Package) -> list[str]:
+    return [n for n in (pkg.entry_name(p) for p in pkg.related(pkg.main, "slide"))
+            if n is not None]
+
+
+def notes_parts(pkg: Package) -> list[str]:
+    out = []
+    for slide in slide_parts(pkg):
+        out += [n for n in (pkg.entry_name(p) for p in pkg.related(slide, "notesSlide"))
+                if n is not None and n not in out]
+    return out
+
+
+def notes_text(pkg: Package, part: str) -> str:
+    """The text a speaker wrote in a notes page (without the slide image
+    placeholder and slide number)."""
+    texts = []
+    for shape in pkg.xml(part).find_all(P_NS, "sp"):
+        placeholder = next((e for e in shape.iter() if e.is_(P_NS, "ph")), None)
+        if placeholder is not None and placeholder.get("type") in ("sldImg", "sldNum"):
+            continue
+        texts.append(" ".join(t.text() for t in shape.find_all(A_NS, "t")))
+    return " ".join(" ".join(texts).split())
+
+
+def hidden_section(pkg: Package) -> Section | None:
+    """Slides hidden from the slide show, and speaker notes (visible to
+    anyone who opens the file, but easy to forget)."""
+    section = Section("hidden_content", "Hidden content")
+    for n, slide in enumerate(slide_parts(pkg), 1):
+        if (pkg.xml(slide).root.get("show") or "1").lower() in ("0", "false"):
+            section.add(f"hidden_slide.{slide}", "Hidden slide", f"slide {n} ({slide})",
+                        sensitive=True)
+    notes = [(part, notes_text(pkg, part)) for part in notes_parts(pkg)]
+    notes = [(part, text) for part, text in notes if text]
+    if notes:
+        section.add("notes", "Slides with speaker notes", len(notes), sensitive=True)
+        sample = " | ".join(text for _part, text in notes)
+        section.add("notes_text", "Speaker notes",
+                    sample if len(sample) <= MAX_SAMPLE else sample[:MAX_SAMPLE] + "...",
+                    sensitive=True)
+    return section if section.fields else None

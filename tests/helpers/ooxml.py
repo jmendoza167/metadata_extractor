@@ -462,3 +462,146 @@ def add_ppt_comments(pkg: Package) -> Package:
                    "ppt/comments/modernComment_100_ABCDEF12.xml", ppt_modern_comments(),
                    "application/vnd.ms-powerpoint.comments+xml")
     return pkg
+
+
+# -- external links, embedded content, hidden content ---------------------------------------
+
+TEMPLATE_PATH = "file:///C:\\Users\\jane.doe\\Documents\\Custom Office Templates\\Letter.dotm"
+SERVER_PATH = "file:///\\\\fileserver01\\projects\\flat\\budget.xlsx"
+THUMBNAIL_TYPE = "image/jpeg"
+OLE_TYPE = "application/vnd.openxmlformats-officedocument.oleObject"
+EMBEDDED_XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+PRINTER_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.printerSettings"
+
+
+def devmode(printer: str = "HP LaserJet Example") -> bytes:
+    """A Windows DEVMODE structure as Office stores it in printerSettings*.bin."""
+    name = printer.encode("utf-16-le")[:62].ljust(64, b"\x00")
+    return name + bytes([0x01, 0x04, 0x00, 0x05, 0xDC, 0x00]) + b"\x00" * 150
+
+
+def add_links_and_template(pkg: Package) -> Package:
+    """A hyperlink, a linked file on a server and an attached template in
+    the user's folder (from settings.xml, as Word stores it)."""
+    main = "word/document.xml"
+    pkg.link(main, "hyperlink", "https://example.com/flat", external=True)
+    pkg.link(main, "oleObject", SERVER_PATH, external=True)
+    pkg.add_linked(main, "settings", "word/settings.xml",
+                   settings_xml('<w:attachedTemplate r:id="rId1"/>'), SETTINGS_TYPE)
+    pkg.link("word/settings.xml", "attachedTemplate", TEMPLATE_PATH, external=True)
+    return pkg
+
+
+def add_media(pkg: Package, source: str, name: str, data: bytes, ext: str, ctype: str) -> str:
+    pkg.defaults.setdefault(ext, ctype)
+    return pkg.add_linked(source, "image", name, data)
+
+
+def add_thumbnail(pkg: Package, data: bytes) -> Package:
+    pkg.defaults.setdefault("jpeg", THUMBNAIL_TYPE)
+    pkg.add_linked("", PKG_REL + "metadata/thumbnail", "docProps/thumbnail.jpeg", data)
+    return pkg
+
+
+def add_embedded_workbook(pkg: Package, source: str, folder: str) -> Package:
+    """An Excel workbook embedded as an object (as charts and pasted tables are)."""
+    inner = with_properties(xlsx(), core=core_xml({"creator": "Jane Doe",
+                                                   "lastModifiedBy": "John Example"}),
+                            app=app_xml({"Company": "Example Corp"}, titles=())).build()
+    pkg.defaults.setdefault("xlsx", EMBEDDED_XLSX_TYPE)
+    pkg.defaults.setdefault("bin", OLE_TYPE)
+    pkg.add_linked(source, "package", f"{folder}/embeddings/Microsoft_Excel_Worksheet.xlsx", inner)
+    pkg.add_linked(source, "oleObject", f"{folder}/embeddings/oleObject1.bin",
+                   b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 56)
+    return pkg
+
+
+HIDDEN_TEXT_BODY = ('<w:p><w:r><w:t>Visible.</w:t></w:r><w:r><w:rPr><w:vanish/></w:rPr>'
+                    '<w:t>Secret note to self</w:t></w:r><w:r><w:rPr><w:vanish w:val="0"/>'
+                    '</w:rPr><w:t>shown</w:t></w:r></w:p>')
+
+GLOSSARY_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.glossary+xml"
+
+
+def add_glossary(pkg: Package, text: str = "Old letterhead of Jane Doe") -> Package:
+    glossary = (f'{DECL}<w:glossaryDocument xmlns:w="{W_NS}"><w:docParts><w:docPart>'
+                f'<w:docPartBody>{paragraph(text)}</w:docPartBody></w:docPart></w:docParts>'
+                "</w:glossaryDocument>")
+    pkg.add_linked("word/document.xml", "glossaryDocument", "word/glossary/document.xml",
+                   glossary, GLOSSARY_TYPE)
+    return pkg
+
+
+RSIDS = '<w:rsids><w:rsidRoot w:val="00A1B2C3"/><w:rsid w:val="00A1B2C3"/><w:rsid w:val="00D4E5F6"/></w:rsids>'
+
+HIDDEN_SHEETS = ('<sheet name="Sheet1" sheetId="1" r:id="rId1"/>'
+                 '<sheet name="Salaries" sheetId="2" state="hidden" r:id="rId2"/>'
+                 '<sheet name="Lookup" sheetId="3" state="veryHidden" r:id="rId3"/>')
+WORKBOOK_HISTORY = (
+    '<fileVersion appName="xl" lastEdited="7" lowestEdited="7" rupBuild="27425"/>'
+    '<workbookPr defaultThemeVersion="166925"/>'
+    '<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">'
+    '<mc:Choice Requires="x15"><x15ac:absPath url="C:\\Users\\jane.doe\\Documents\\Budget\\" '
+    'xmlns:x15ac="http://schemas.microsoft.com/office/spreadsheetml/2010/11/ac"/></mc:Choice>'
+    '</mc:AlternateContent>'
+    '<xr:revisionPtr revIDLastSave="0" documentId="13_ncr:1_{EEEEEEEE-0000-1111-2222-333333333333}" '
+    'xr6:coauthVersionLast="47" xr6:coauthVersionMax="47" '
+    'xr10:uidLastSave="{00000000-0000-0000-0000-000000000000}"/>')
+WORKBOOK_NS = (' xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
+               'mc:Ignorable="x15 xr xr6 xr10" '
+               'xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" '
+               'xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" '
+               'xmlns:xr6="http://schemas.microsoft.com/office/spreadsheetml/2016/revision6" '
+               'xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10"')
+
+
+def workbook_with(sheets: str, before_sheets: str = "", ns: str = WORKBOOK_NS) -> str:
+    return (f'{DECL}<workbook xmlns="{S_NS}" xmlns:r="{R_NS}"{ns}>{before_sheets}'
+            f"<sheets>{sheets}</sheets></workbook>")
+
+
+def kitchen_sink_xlsx_workbook(pkg: Package) -> Package:
+    """Hidden sheets and workbook history in xl/workbook.xml."""
+    pkg.parts["xl/workbook.xml"] = workbook_with(HIDDEN_SHEETS, WORKBOOK_HISTORY).encode("utf-8")
+    for n in (2, 3):
+        pkg.add_linked("xl/workbook.xml", "worksheet", f"xl/worksheets/sheet{n}.xml",
+                       worksheet(), SHEET)
+    return pkg
+
+
+def add_external_data(pkg: Package) -> Package:
+    link = (f'{DECL}<externalLink xmlns="{S_NS}" xmlns:r="{R_NS}"><externalBook r:id="rId1">'
+            '<sheetNames><sheetName val="Rates"/></sheetNames><sheetDataSet><sheetData sheetId="0">'
+            '<row r="1"><cell r="A1"><v>0.25</v></cell></row></sheetData></sheetDataSet>'
+            "</externalBook></externalLink>")
+    pkg.add_linked("xl/workbook.xml", "externalLink", "xl/externalLinks/externalLink1.xml", link,
+                   "application/vnd.openxmlformats-officedocument.spreadsheetml.externalLink+xml")
+    pkg.link("xl/externalLinks/externalLink1.xml", "externalLinkPath", SERVER_PATH, external=True)
+    connections = (f'{DECL}<connections xmlns="{S_NS}"><connection id="1" name="Payroll" type="1">'
+                   '<dbPr connection="DSN=Payroll;UID=jane.doe;Server=db01.example.com" '
+                   'command="SELECT * FROM salaries"/></connection></connections>')
+    pkg.add_linked("xl/workbook.xml", "connections", "xl/connections.xml", connections,
+                   "application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml")
+    return pkg
+
+
+NOTES_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"
+
+
+def notes_slide(text: str = "Mention the deadline: 2024-06-01") -> str:
+    return (f'{DECL}<p:notes xmlns:a="{A_NS}" xmlns:r="{R_NS}" xmlns:p="{P_NS}"><p:cSld>'
+            '<p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image"/><p:cNvSpPr/>'
+            '<p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr></p:sp><p:sp><p:nvSpPr>'
+            '<p:cNvPr id="3" name="Notes"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="1"/>'
+            f'</p:nvPr></p:nvSpPr><p:txBody><a:p><a:r><a:t>{escape(text)}</a:t></a:r></a:p>'
+            "</p:txBody></p:sp></p:spTree></p:cSld></p:notes>")
+
+
+def add_hidden_slide_and_notes(pkg: Package) -> Package:
+    pkg.parts["ppt/presentation.xml"] = presentation(
+        '<p:sldId id="256" r:id="rId1"/><p:sldId id="257" r:id="rId2"/>').encode("utf-8")
+    pkg.add_linked("ppt/presentation.xml", "slide", "ppt/slides/slide2.xml",
+                   slide("Draft numbers").replace("<p:sld ", '<p:sld show="0" '), SLIDE)
+    pkg.add_linked("ppt/slides/slide1.xml", "notesSlide", "ppt/notesSlides/notesSlide1.xml",
+                   notes_slide(), NOTES_TYPE)
+    return pkg

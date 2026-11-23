@@ -21,6 +21,8 @@ import urllib.parse
 from dataclasses import dataclass, field
 
 from metaex.core.errors import MalformedFileError, UnsupportedFormatError
+from metaex.core.inflate import Budget
+from metaex.core.paths import local_paths, server_name, user_name
 from metaex.core.result import Section
 from metaex.core.xmldoc import XmlDocument, XmlElement, parse_xml
 from metaex.core.ziparchive import ZipArchive, ZipLimits, DEFAULT_LIMITS, open_archive
@@ -300,12 +302,14 @@ def _parse_rels(archive: ZipArchive, entry_name: str, source: str) -> list[Relat
 
 
 def open_package(data: bytes | bytearray | memoryview,
-                 limits: ZipLimits = DEFAULT_LIMITS) -> Package:
+                 limits: ZipLimits = DEFAULT_LIMITS, *, depth: int = 0,
+                 budget: Budget | None = None) -> Package:
     """Open an OOXML package: content types, every relationship part and
     the main document's type. Raises MalformedFileError if the package is
     damaged or unsafe, UnsupportedFormatError for Strict Open XML and
-    binary workbooks."""
-    archive = open_archive(data, limits)
+    binary workbooks. ``depth`` and ``budget`` are for packages embedded in
+    other packages (they share the outer one's limits)."""
+    archive = open_archive(data, limits, depth=depth, budget=budget)
     content_types = _parse_content_types(archive)
     relationships: dict[str, list[Relationship]] = {}
     for entry in archive.entries:
@@ -630,3 +634,251 @@ def add_person(section: Section, n: int, name: str | None, user_id: str | None,
     if provider:
         section.add(f"person.{n}.providerId", f"Person {n}: account provider", provider,
                     sensitive=True)
+
+
+# -- external links and local paths -------------------------------------------------------
+
+REL_LABELS = {
+    "hyperlink": "Hyperlink", "image": "Linked image", "attachedTemplate": "Attached template",
+    "oleObject": "Linked object", "externalLinkPath": "Linked workbook",
+    "subDocument": "Subdocument", "frame": "Frame", "video": "Linked video",
+    "audio": "Linked audio", "media": "Linked media", "package": "Linked package",
+    "xmlMaps": "XML map", "mailMergeSource": "Mail merge data source",
+    "mailMergeHeaderSource": "Mail merge header source", "recipientData": "Mail merge data",
+    "dataSource": "Data source", "externalLink": "External link",
+}
+
+
+def path_note(path: str) -> str | None:
+    """What a local path reveals: a user name, a server name."""
+    user, server = user_name(path), server_name(path)
+    notes = []
+    if user:
+        notes.append(f"reveals the user name {user!r}")
+    if server:
+        notes.append(f"reveals the server {server!r}")
+    return "; ".join(notes) or None
+
+
+def add_link(links: Section, paths: Section, key: str, label: str, target: str) -> None:
+    """A link or path: into ``paths`` if it is a local path that names a
+    user, else into ``links`` (with a note naming a server, if any)."""
+    found = local_paths(target)
+    if found and any(user_name(p) for p in found):
+        paths.add(key, label, shorten(target), sensitive=True, note=path_note(found[0]))
+    else:
+        note = path_note(found[0]) if found else None
+        links.add(key, label, shorten(target), sensitive=True, note=note)
+
+
+def external_link_sections(pkg: Package) -> list[Section]:
+    """Every relationship that points outside the package: hyperlinks,
+    linked images and files, the attached template, linked workbooks, mail
+    merge sources. File paths that name a user go in "Local file paths"."""
+    links = Section("office_external", "External links")
+    paths = Section("local_paths", "Local file paths")
+    external = [r for r in pkg.all_relationships() if r.external]
+    for r in external[:MAX_LISTED]:
+        label = f"{REL_LABELS.get(r.type_name, r.type_name)} ({r.source or 'package'})"
+        add_link(links, paths, f"{r.source}:{r.id}", label, r.target)
+    _limited(links, len(external))
+    return [s for s in (links, paths) if s.fields]
+
+
+# -- embedded images and objects ----------------------------------------------------------
+
+MEDIA_REL_TYPES = ("image", "media", "video", "audio", "hdphoto")
+OBJECT_REL_TYPES = ("oleObject", "package", "control", "activeXControlBinary")
+EMBEDDED_PACKAGE_TYPES = {
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.ms-excel", "application/msword", "application/vnd.ms-powerpoint",
+    "application/vnd.ms-excel.sheet.macroEnabled.12", "application/vnd.ms-word.document.macroEnabled.12",
+}
+"""Content types of Office files embedded as objects (charts' workbooks, ...)."""
+MAX_EMBEDDED = 1000
+
+
+def media_parts(pkg: Package) -> list[str]:
+    """Images, audio and video stored in the package (not the thumbnail)."""
+    thumbs = set(thumbnail_parts(pkg))
+    found = []
+    for r in pkg.all_relationships():
+        if r.external or r.part is None or r.type_name not in MEDIA_REL_TYPES:
+            continue
+        name = pkg.entry_name(r.part)
+        if name is not None and name not in found and name not in thumbs:
+            found.append(name)
+    for name in pkg.part_names():
+        ctype = pkg.type_of(name) or ""
+        if ctype.startswith("image/") and name not in found and name not in thumbs:
+            found.append(name)
+    return found
+
+
+def object_parts(pkg: Package) -> list[str]:
+    """Embedded objects: OLE objects, embedded Office files and other
+    packages, ActiveX controls."""
+    found = []
+    for r in pkg.all_relationships():
+        if r.external or r.part is None or r.type_name not in OBJECT_REL_TYPES:
+            continue
+        name = pkg.entry_name(r.part)
+        if name is not None and name not in found:
+            found.append(name)
+    for name in pkg.part_names():
+        ctype = pkg.type_of(name) or ""
+        if name in found or name == pkg.main:
+            continue
+        if "oleObject" in ctype or "activeX" in ctype or ctype in EMBEDDED_PACKAGE_TYPES:
+            found.append(name)
+    return found
+
+
+def embedded_image_sections(pkg: Package, warnings: list[str]) -> list[Section]:
+    """A list of the images (and other media) in the package, then the
+    metadata sections of each image, found with its own format's parser."""
+    from metaex.core import filetype
+    from metaex.core.registry import format_module
+
+    listing = Section("embedded_images", "Embedded images")
+    inner: list[Section] = []
+    parts = media_parts(pkg)
+    for name in parts[:MAX_EMBEDDED]:
+        data = pkg.read(name)
+        detected = filetype.detect(data)
+        kind = detected.name if detected.key != filetype.UNKNOWN.key else (
+            pkg.type_of(name) or "unknown data")
+        module = format_module(detected) if detected.key in IMAGE_KEYS else None
+        if module is None:
+            listing.add(name, name, f"{kind}, {len(data)} bytes (not examined: metaex can't "
+                        "read this type)", sensitive=True)
+            continue
+        try:
+            parsed = module.parse(data)
+        except MalformedFileError as exc:
+            listing.add(name, name, f"{kind}, {len(data)} bytes (not examined: malformed: "
+                        f"{exc})", sensitive=True)
+            warnings.append(f"image {name} ({kind}) is malformed and was not examined: {exc}")
+            continue
+        prefix = f"{name} ({kind})"
+        if parsed.get("complete", True):
+            listing.add(name, name, f"{kind}, {len(data)} bytes")
+        else:
+            listing.add(name, name, f"{kind}, {len(data)} bytes (malformed: partly examined)",
+                        sensitive=True)
+            warnings.append(f"image {name} ({kind}) is malformed and was only partly examined")
+        for w in parsed.get("warnings", []):
+            if w.startswith("CRITICAL: "):
+                warnings.append(f"CRITICAL: {prefix}: {w[len('CRITICAL: '):]}")
+            else:
+                warnings.append(f"{prefix}: {w}")
+        for section in parsed.get("sections", []):
+            inner.append(Section(section.key, f"{prefix}: {section.title}", section.fields))
+    if len(parts) > MAX_EMBEDDED:
+        listing.add("more", "More", f"{len(parts) - MAX_EMBEDDED} more not examined")
+        warnings.append(f"only the first {MAX_EMBEDDED} of {len(parts)} images were examined")
+    return ([listing] if listing.fields else []) + inner
+
+
+IMAGE_KEYS = ("jpeg", "png", "gif", "webp", "svg")
+"""Embedded image types whose metadata metaex reads (and strips)."""
+
+
+def embedded_object_section(pkg: Package) -> Section | None:
+    """Embedded objects: OLE objects (oleObject*.bin), embedded Office files
+    and other packages, ActiveX controls. Their contents are not cleaned;
+    for embedded Office files, the authors are shown."""
+    section = Section("office_embedded", "Embedded objects")
+    parts = object_parts(pkg)
+    for name in parts[:MAX_LISTED]:
+        data = pkg.read(name)
+        section.add(name, name, f"{pkg.type_of(name) or 'unknown type'}, {len(data)} bytes",
+                    sensitive=True)
+        if data.startswith(b"PK\x03\x04"):
+            try:
+                inner = open_package(data, pkg.archive.limits, depth=pkg.archive.depth + 1,
+                                     budget=pkg.archive.budget)
+                core = core_section(inner)
+            except (MalformedFileError, UnsupportedFormatError):
+                continue
+            for f in (core.fields if core else []):
+                if f.key in ("creator", "lastModifiedBy", "created", "modified"):
+                    section.add(f"{name}:{f.key}", f"{name}: {f.label}", f.value, sensitive=True)
+    _limited(section, len(parts))
+    return section if section.fields else None
+
+
+# -- thumbnail, printer settings, macros, unused parts ---------------------------------------
+
+PRINTER_SETTINGS_HINT = "printerSettings"
+
+
+def thumbnail_parts(pkg: Package) -> list[str]:
+    found = {pkg.entry_name(r.part) for r in pkg.rels("")
+             if r.type == THUMBNAIL and not r.external and r.part is not None}
+    found |= {n for n in pkg.part_names() if n.lower().startswith("docprops/thumbnail.")}
+    return sorted(n for n in found if n is not None)
+
+
+def thumbnail_section(pkg: Package) -> Section | None:
+    """The preview picture of the first page or slide (docProps/thumbnail.*)."""
+    section = Section("office_thumbnail", "Thumbnail")
+    for name in thumbnail_parts(pkg):
+        section.add(name, name, f"{pkg.type_of(name) or 'image'}, "
+                    f"{pkg.archive.get(name).size} bytes", sensitive=True)
+    return section if section.fields else None
+
+
+def printer_settings_parts(pkg: Package) -> list[str]:
+    found = [pkg.entry_name(r.part) for r in pkg.all_relationships()
+             if r.type_name == "printerSettings" and not r.external and r.part is not None]
+    found += [n for n in pkg.part_names() if PRINTER_SETTINGS_HINT in (pkg.type_of(n) or "")]
+    out: list[str] = []
+    for n in found:
+        if n is not None and n not in out:
+            out.append(n)
+    return out
+
+
+def printer_name(devmode: bytes) -> str | None:
+    """The printer's name from a Windows DEVMODE structure (its first 32
+    UTF-16 characters)."""
+    if len(devmode) < 64:
+        return None
+    name = devmode[:64].decode("utf-16-le", errors="replace").split("\x00", 1)[0].strip()
+    return name or None
+
+
+def printer_section(pkg: Package) -> Section | None:
+    """Printer settings (printerSettings*.bin): the printer's name and
+    driver settings, saved with the document."""
+    section = Section("printer_settings", "Printer settings")
+    for name in printer_settings_parts(pkg):
+        data = pkg.read(name)
+        printer = printer_name(data)
+        value = f"{len(data)} bytes" + (f", printer {printer!r}" if printer else "")
+        section.add(name, name, value, sensitive=bool(printer))
+    return section if section.fields else None
+
+
+def macros_section(pkg: Package) -> Section | None:
+    """VBA macro projects (vbaProject.bin)."""
+    section = Section("macros", "Macros")
+    for name in pkg.vba_parts:
+        section.add(name, name, f"VBA project, {pkg.archive.get(name).size} bytes",
+                    sensitive=True)
+    return section if section.fields else None
+
+
+def unused_parts_section(pkg: Package) -> Section | None:
+    """Parts no relationship leads to: Office never shows them, so they can
+    only hide data (or be left over from editing)."""
+    section = Section("office_hidden_parts", "Unused parts (hidden data)")
+    parts = pkg.unreferenced()
+    for name in parts[:MAX_LISTED]:
+        section.add(name, name, f"{pkg.type_of(name) or 'unknown type'}, "
+                    f"{pkg.archive.get(name).size} bytes", sensitive=True)
+    _limited(section, len(parts))
+    return section if section.fields else None
