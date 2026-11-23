@@ -349,12 +349,34 @@ def remove_revision_ids(ed) -> None:
                     ed.editor(part).remove_attr(e, name)
 
 
+def remove_settings_paths(ed) -> None:
+    """Remove the attached template (w:attachedTemplate and its link, usually
+    a path into the user's own folder) and the document variables
+    (w:docVars) from settings.xml."""
+    pkg = ed.pkg
+    part = settings_part(pkg)
+    if part is None:
+        return
+    root = pkg.xml(part).root
+    for e in root.elements():
+        if e.is_(W_NS, "docVars"):
+            ed.editor(part).remove(e)
+        elif e.is_(W_NS, "attachedTemplate"):
+            ed.editor(part).remove(e)
+            rid = e.get("id", "http://schemas.openxmlformats.org/officeDocument/2006/"
+                              "relationships")
+            for r in pkg.rels(part):
+                if r.id == rid:
+                    ed.remove_relationship(r)
+
+
 def _strip_word(ed) -> None:
     from metaex.core.ooxml import strip_custom_xml
 
     strip_custom_xml(ed, keep=bound_custom_xml(ed.pkg))
     anonymize(ed)
     remove_revision_ids(ed)
+    remove_settings_paths(ed)
 
 
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,

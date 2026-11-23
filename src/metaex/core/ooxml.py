@@ -1212,5 +1212,48 @@ def strip_package(data: bytes | bytearray | memoryview, kind: str, format_strip)
     strip_properties(ed)
     for part in thumbnail_parts(pkg):
         ed.remove_part(part)
+    for part in printer_settings_parts(pkg):
+        remove_with_references(ed, part)
     format_strip(ed)
+    refuse_user_paths(ed)
     return ed.build()
+
+
+def remove_with_references(ed: PackageEditor, part: str) -> None:
+    """Remove a part and the r:id attributes that point to it from the XML of
+    the parts that link to it (e.g. <pageSetup r:id="rId1"/> in a sheet,
+    for printer settings). Only for parts the document works without."""
+    pkg = ed.pkg
+    name = pkg.entry_name(part)
+    if name is None:
+        return
+    for r in pkg.all_relationships():
+        if r.external or r.part is None or pkg.entry_name(r.part) != name or not r.source:
+            continue
+        if not r.source.lower().endswith(".xml") or not pkg.has(r.source):
+            continue
+        for e in pkg.xml(r.source).iter():
+            for attr, value in e.attrs:
+                if value == r.id and e.attr_uri(attr) == R_NS:
+                    ed.editor(r.source).remove_attr(e, attr)
+    ed.remove_part(name)
+
+
+def refuse_user_paths(ed: PackageEditor) -> None:
+    """Refuse to clean a document whose remaining links (hyperlinks, linked
+    images, objects and workbooks, mail merge sources) point to files in a
+    user's folder: the path reveals the user name, but removing the link
+    would change the document."""
+    from metaex.core.errors import CannotCleanError
+
+    found = []
+    for source in [""] + sorted(ed.reachable()):
+        for r in ed.live_rels(source):
+            if r.external and any(user_name(p) for p in local_paths(r.target)):
+                found.append(f"{r.target} ({REL_LABELS.get(r.type_name, r.type_name)} in "
+                             f"{r.source or 'the package'})")
+    if found:
+        listed = "; ".join(found[:5]) + (f" and {len(found) - 5} more" if len(found) > 5 else "")
+        raise CannotCleanError(f"the document links to files in a user's folder: {listed}. "
+                               "These paths reveal user names, but removing them would break "
+                               "the links; change or remove the links and try again")

@@ -189,11 +189,38 @@ def anonymize(ed) -> None:
                                  remove=("userId", "providerId"))
 
 
+MC_NS = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+
+
+def remove_workbook_history(ed) -> None:
+    """Remove from workbook.xml the folder the file was saved in
+    (x15ac:absPath, with the mc:AlternateContent around it when that holds
+    nothing else), the program and version that last saved it (fileVersion
+    appName, lastEdited, lowestEdited, rupBuild) and the co-authoring revision
+    pointer (xr:revisionPtr)."""
+    pkg = ed.pkg
+    main = pkg.main
+    editor = ed.editor(main)
+    for e in pkg.xml(main).root.iter():
+        if e.is_(X15AC_NS, "absPath"):
+            choice, wrapper = e.parent, e.parent.parent if e.parent is not None else None
+            alone = (choice is not None and choice.is_(MC_NS, "Choice") and wrapper is not None
+                     and wrapper.is_(MC_NS, "AlternateContent")
+                     and list(wrapper.elements()) == [choice] and list(choice.elements()) == [e])
+            editor.remove(wrapper if alone else e)
+        elif e.is_(S_NS, "fileVersion"):
+            for name in ("appName", "lastEdited", "lowestEdited", "rupBuild"):
+                editor.remove_attr(e, name)
+        elif e.is_(XR_NS, "revisionPtr"):
+            editor.remove(e)
+
+
 def _strip_xlsx(ed) -> None:
     from metaex.core.ooxml import strip_custom_xml
 
     strip_custom_xml(ed)
     anonymize(ed)
+    remove_workbook_history(ed)
 
 
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
