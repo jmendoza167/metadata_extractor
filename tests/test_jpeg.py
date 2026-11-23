@@ -2,7 +2,8 @@ import pytest
 
 from helpers.jpeg import (
     EOI, PHOTOSHOP_ID, SAMPLE_XMP, SOI, app, dht, extended_xmp_segments, icc_profile,
-    icc_segments, iim, make_jpeg, make_mpf_jpeg, photoshop_resource, segment, sos, xmp_segment,
+    icc_segments, iim, kitchen_sink_jpeg, make_jpeg, make_mpf_jpeg, photoshop_resource, segment,
+    sos, xmp_segment,
 )
 from metaex.core.errors import MalformedFileError
 from metaex.formats import jpeg
@@ -189,6 +190,19 @@ def test_mpf_extra_images_are_critical():
     assert any(w.startswith("CRITICAL: 2 extra image(s) hidden in the file (MPF)")
                for w in result["warnings"])
 
+
+
+@pytest.mark.parametrize("order", ["<", ">"])
+def test_kitchen_sink_mpf_offset_points_to_the_extra_image(order):
+    """Regression: the kitchen-sink MPF offset was computed before the other
+    segments were inserted, so it pointed into the middle of the main image."""
+    data = kitchen_sink_jpeg(order)
+    f = section_fields(jpeg.parse(data), "mpf")
+    assert f["Image 2"].note == "JPEG"
+    start = int(f["Image 2"].value.rsplit("at offset ", 1)[1])
+    extra = make_jpeg(width=64, height=48)
+    assert start >= walk_segments(data).end_of_image
+    assert data[start:start + len(extra)] == extra
 
 def test_jfif_density_and_thumbnail():
     jfif = b"JFIF\x00\x01\x02\x01\x00\x48\x00\x48\x02\x02" + bytes(12)

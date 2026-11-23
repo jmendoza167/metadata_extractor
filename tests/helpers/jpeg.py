@@ -116,29 +116,46 @@ def icc_segments(profile: bytes, chunk_size: int = 65519) -> list[bytes]:
             for i, c in enumerate(chunks)]
 
 
+MPF_HEADER_OFFSET = 2 + 4 + 4
+"""Where MPF offsets count from when the MPF APP2 directly follows SOI:
+SOI, APP2 marker + length, "MPF\\0"."""
+
+
+def mpf_segment(extra_images, offsets, order: str = "<") -> bytes:
+    """An APP2 MPF segment listing the primary image and the given
+    (type, image_bytes) extras at ``offsets`` (relative to the MPF header).
+    Its size doesn't depend on the offsets, so it can be built once with
+    placeholder offsets to find out where the extra images will be."""
+    from helpers.tiff import LONG, UNDEFINED, ifd_bytes, tiff_header
+
+    bo = "<" if order == "<" else ">"
+    entries = struct.pack(bo + "IIIHH", 0x20030000, 0, 0, 0, 0)
+    for (kind, image), offset in zip(extra_images, offsets, strict=True):
+        entries += struct.pack(bo + "IIIHH", kind, len(image), offset, 0, 0)
+    ifd = [(0xB000, UNDEFINED, b"0100"), (0xB001, LONG, 1 + len(extra_images)),
+           (0xB002, UNDEFINED, entries)]
+    return app(2, b"MPF\x00" + tiff_header(order) + ifd_bytes(ifd, 8, order))
+
+
+def with_mpf(primary: bytes, extra_images, order: str = "<") -> bytes:
+    """``primary`` (a complete JPEG) with an MPF segment inserted right after
+    SOI and the extra images appended after it, the offsets computed once
+    every segment is in place."""
+    placeholder = mpf_segment(extra_images, [0] * len(extra_images), order)
+    offsets, position = [], len(placeholder) + len(primary)
+    for _, image in extra_images:
+        offsets.append(position - MPF_HEADER_OFFSET)
+        position += len(image)
+    mpf = mpf_segment(extra_images, offsets, order)
+    assert len(mpf) == len(placeholder)
+    return (primary[:2] + mpf + primary[2:]
+            + b"".join(image for _, image in extra_images))
+
+
 def make_mpf_jpeg(extra_images, order: str = "<") -> bytes:
     """A JPEG whose APP2 MPF index lists the given (type, image_bytes) extras,
     which are appended after the primary image's EOI."""
-    from helpers.tiff import LONG, UNDEFINED, ifd_bytes, tiff_header
-
-    def build(offsets):
-        bo = "<" if order == "<" else ">"
-        entries = struct.pack(bo + "IIIHH", 0x20030000, 0, 0, 0, 0)
-        for (kind, image), offset in zip(extra_images, offsets):
-            entries += struct.pack(bo + "IIIHH", kind, len(image), offset, 0, 0)
-        ifd = [(0xB000, UNDEFINED, b"0100"), (0xB001, LONG, 1 + len(extra_images)),
-               (0xB002, UNDEFINED, entries)]
-        tiff = tiff_header(order) + ifd_bytes(ifd, 8, order)
-        return make_jpeg(app(2, b"MPF\x00" + tiff))
-
-    primary = build([0] * len(extra_images))
-    header_offset = 2 + 4 + 4  # SOI, APP2 marker + length, "MPF\0"
-    offsets, position = [], len(primary)
-    for _, image in extra_images:
-        offsets.append(position - header_offset)
-        position += len(image)
-    primary = build(offsets)
-    return primary + b"".join(image for _, image in extra_images)
+    return with_mpf(make_jpeg(), extra_images, order)
 
 
 SAMPLE_XMP = """<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
@@ -214,12 +231,12 @@ def kitchen_sink_jpeg(order: str = "<") -> bytes:
         + [segment(0xFE, b"a comment"), app(14, b"Adobe\x00\x64\x00\x00\x00\x00\x01"),
            app(12, b"Ducky\x00\x01")]
     )
-    # Insert the extra segments right after SOI, then add MPF images + trailing data.
+    # Insert the extra segments right after SOI, then the MPF segment before
+    # them (its offsets computed with everything in place), the MPF extra
+    # image after EOI and trailing data.
     body = photo[:2] + b"".join(extras) + photo[2:]
-    mpf = make_mpf_jpeg([(0x010001, make_jpeg(width=64, height=48))], order=order)
-    mpf_segment_end = 2 + 4 + int.from_bytes(mpf[4:6], "big") - 2
-    mpf_app2 = mpf[2:mpf_segment_end]
-    return body[:2] + mpf_app2 + body[2:] + make_jpeg() + b"trailing secret"
+    extra_image = make_jpeg(width=64, height=48)
+    return with_mpf(body, [(0x010001, extra_image)], order) + b"trailing secret"
 
 
 def make_jpeg(*segments: bytes, width: int = 8, height: int = 8,
