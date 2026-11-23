@@ -86,7 +86,7 @@ def png_samples() -> dict[str, bytes]:
         "png/clean.png": png.make_png(**size),
         "png/text_chunks.png": png.make_png(
             png.text("Author", "Jane Doe"),
-            png.text("Comment", "Contact: jane.doe@example.com"),
+            png.text("Comment", "Write to jane.doe@example.com for the plans"),
             png.ztxt("Description", "Floor plan of the flat, second draft"),
             png.itxt("Title", "Plan de l'appartement", language="fr",
                      translated="Floor plan", compress=True),

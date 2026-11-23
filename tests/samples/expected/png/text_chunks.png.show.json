@@ -50,7 +50,7 @@
         },
         "Comment": {
           "label": "Comment",
-          "value": "Contact: jane.doe@example.com",
+          "value": "Write to jane.doe@example.com for the plans",
           "sensitive": true,
           "note": "tEXt"
         },
@@ -85,13 +85,13 @@
         },
         "size_bytes": {
           "label": "Size (bytes)",
-          "value": 905,
+          "value": 919,
           "sensitive": false,
           "note": null
         },
         "size": {
           "label": "Size",
-          "value": "905 B",
+          "value": "919 B",
           "sensitive": false,
           "note": null
         }
@@ -102,19 +102,19 @@
       "fields": {
         "md5": {
           "label": "MD5",
-          "value": "f70cb3a5da20eca4718b8ace49748022",
+          "value": "59d1c08d53f5ef8582afb8f051191593",
           "sensitive": false,
           "note": null
         },
         "sha1": {
           "label": "SHA-1",
-          "value": "623581023526830c40ea417ee78cf79c4c39cabe",
+          "value": "ca743890e18044a277d1619ae73fa05f89523da3",
           "sensitive": false,
           "note": null
         },
         "sha256": {
           "label": "SHA-256",
-          "value": "37ae8a51f50b66f9d14dad54dca3b81a4644188273d67019cbd006d5de1388e6",
+          "value": "62007a5f0ee488e80742d7e069ea35b941366a732790a84d49a561fc5422fd02",
           "sensitive": false,
           "note": null
         }
