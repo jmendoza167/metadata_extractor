@@ -489,6 +489,7 @@ def mpf_sections(structure: JpegStructure, data: bytes, warnings: list[str]) -> 
         return [section]
     section.add("images", "Number of images", index.count)
     header_offset = index.header_offset
+    kept = _merged(kept_ranges(structure))
     extra = []
     for i, (kind, size, offset) in enumerate(index.images):
         if i == 0:
@@ -499,6 +500,11 @@ def mpf_sections(structure: JpegStructure, data: bytes, warnings: list[str]) -> 
             where, note = f"offset {start}", "outside the file"
         else:
             looks = "JPEG" if data[start : start + 2] == b"\xff\xd8" else "unrecognized data"
+            inside = _overlap(kept, start, start + size)
+            if inside == size:
+                looks += "; inside the main image data, which strip keeps"
+            elif inside:
+                looks += f"; {inside} of its bytes are main image data, which strip keeps"
             where, note = f"offset {start}", looks
         section.add(f"image_{i + 1}", f"Image {i + 1}", f"{kind}, {size} bytes at {where}",
                     sensitive=True, note=note)
@@ -608,20 +614,64 @@ def trailing_sections(structure: JpegStructure, data: bytes, warnings: list[str]
     return [section]
 
 
+def kept_ranges(structure: JpegStructure) -> list[tuple[int, int]]:
+    """(start, end) byte ranges strip() copies into the cleaned file: the
+    image segments (IMAGE_MARKERS) with their scan data, plus SOI and EOI.
+    Every other byte of the file is removed."""
+    ranges = [(0, 2)]
+    for seg in structure.segments:
+        if seg.marker in IMAGE_MARKERS:
+            end = seg.offset + 2 + seg.length
+            if seg.marker == SOS:
+                end += seg.scan_length
+            ranges.append((seg.offset, end))
+    if structure.end_of_image is not None:
+        ranges.append((structure.end_of_image - 2, structure.end_of_image))
+    return ranges
+
+
+def _merged(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    out: list[tuple[int, int]] = []
+    for start, end in sorted(r for r in ranges if r[1] > r[0]):
+        if out and start <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], end))
+        else:
+            out.append((start, end))
+    return out
+
+
+def _overlap(ranges: list[tuple[int, int]], start: int, end: int) -> int:
+    """How many bytes of [start, end) the (merged) ranges cover."""
+    return sum(max(0, min(end, e) - max(start, s)) for s, e in ranges)
+
+
+def _mpf_extra_ranges(structure: JpegStructure, data: bytes) -> list[tuple[int, int]]:
+    """Byte ranges of the MPF extra images that lie inside the file."""
+    index = mpf_index(structure, [])
+    if index is None:
+        return []
+    return [(index.header_offset + offset, index.header_offset + offset + size)
+            for kind, size, offset in index.images[1:]
+            if offset and index.header_offset + offset + size <= len(data)]
+
+
 def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
     """Byte sizes of report sections that are better summarized by size than by
-    their fields: data after EOI ("trailing") and MPF extra images ("mpf")."""
+    their fields: data after EOI ("trailing") and MPF extra images ("mpf").
+
+    MPF images count only with the bytes strip() really removes: an MPF
+    entry that points into the image data strip keeps (see kept_ranges)
+    doesn't count, and bytes listed by several entries count once."""
     data = bytes(data)
     structure = walk_segments(data)
     sizes: dict[str, int] = {}
     if structure.end_of_image is not None and len(data) > structure.end_of_image:
         sizes["trailing"] = len(data) - structure.end_of_image
-    index = mpf_index(structure, [])
-    if index is not None:
-        extra = sum(size for kind, size, offset in index.images[1:]
-                    if offset and index.header_offset + offset + size <= len(data))
-        if extra:
-            sizes["mpf"] = extra
+    kept = _merged(kept_ranges(structure))
+    extra = sum((end - start) - _overlap(kept, start, end)
+                for start, end in _merged(_mpf_extra_ranges(structure, data)))
+    if extra:
+        sizes["mpf"] = extra
     return sizes
 
 

@@ -8,7 +8,11 @@ import sys
 
 import pytest
 
-from helpers.jpeg import icc_profile, icc_segments, kitchen_sink_jpeg, make_jpeg
+from helpers.jpeg import (
+    MPF_HEADER_OFFSET, icc_profile, icc_segments, kitchen_sink_jpeg, make_jpeg, mpf_segment,
+    scan_range,
+)
+from helpers.jpeg_encoder import jpeg_file
 from metaex.core.errors import FileAccessError, MetaexError
 from metaex.core.verify import verify
 from metaex.core.writer import write_verified
@@ -314,6 +318,56 @@ def test_trailing_data_and_mpf_images_are_summarized_by_size(photo):
                                str(photo.with_name("other.jpg")), "--json").stdout)
     assert data_json["removed_sizes"] == {"Data after end of image": sizes["trailing"],
                                           "Extra images (MPF)": len(extra_image)}
+
+
+def mpf_into_image_data(extra_image: bytes | None, *, duplicate: bool = False) -> bytes:
+    """A real JPEG whose MPF index lists a 40-byte "image" inside the scan
+    data (which strip keeps), then optionally ``extra_image``, appended after
+    EOI, listed once or (``duplicate``) twice."""
+    primary = jpeg_file()
+    fake = bytes(40)
+    entries = [(0x010001, fake)]
+    if extra_image is not None:
+        entries += [(0x020002, extra_image)] * (2 if duplicate else 1)
+    size = len(mpf_segment(entries, [0] * len(entries)))
+    scan_start, _end = scan_range(primary)
+    offsets = [scan_start + size + 5 - MPF_HEADER_OFFSET]
+    offsets += [size + len(primary) - MPF_HEADER_OFFSET] * (len(entries) - 1)
+    return (primary[:2] + mpf_segment(entries, offsets) + primary[2:]
+            + (extra_image or b""))
+
+
+def mpf_field(data, label):
+    [section] = [s for s in jpeg.parse(data)["sections"] if s.key == "mpf"]
+    return next(f for f in section.fields if f.label == label)
+
+
+def test_mpf_entry_inside_the_image_data_is_kept_not_removed():
+    """Regression: removed_sizes() counted MPF entries wherever they pointed,
+    so bytes strip keeps (the image data) could be reported as removed."""
+    data = mpf_into_image_data(None)
+    start = int(mpf_field(data, "Image 2").value.rsplit("at offset ", 1)[1])
+    assert "inside the main image data, which strip keeps" in mpf_field(data, "Image 2").note
+    assert "mpf" not in jpeg.removed_sizes(data)
+    cleaned = jpeg.strip(data)
+    assert data[start:start + 40] in cleaned  # really kept
+
+
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_mpf_summary_counts_exactly_the_removed_image_bytes(tmp_path, duplicate):
+    extra = make_jpeg(width=64, height=48)
+    data = mpf_into_image_data(extra, duplicate=duplicate)
+    assert mpf_field(data, "Image 3").note == "JPEG"
+    sizes = jpeg.removed_sizes(data)
+    assert sizes["mpf"] == len(extra)  # not + 40, and listed twice counts once
+    cleaned = jpeg.strip(data)
+    assert extra not in cleaned  # really removed
+
+    path = tmp_path / "photo.jpg"
+    path.write_bytes(data)
+    result = run("strip", str(path), "--json")
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["removed_sizes"]["Extra images (MPF)"] == len(extra)
 
 
 def test_size_summary_uses_binary_units(tmp_path):
