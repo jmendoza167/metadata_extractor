@@ -234,8 +234,47 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
                          keep_orientation=keep_orientation, paranoid=paranoid)
 
 
+def names_in_comment_text(pkg: Package) -> list[str]:
+    """Names at the start of legacy comments: Excel begins each note with
+    the author's name in bold ("Jane Doe:"), as part of the comment text."""
+    found = []
+    for part in pkg.parts_of_type(COMMENTS_TYPE):
+        for c in pkg.xml(part).find_all(S_NS, "comment"):
+            text = c.child(S_NS, "text")
+            run = text.child(S_NS, "r") if text is not None else None
+            props = run.child(S_NS, "rPr") if run is not None else None
+            t = run.child(S_NS, "t") if run is not None else None
+            if props is not None and props.child(S_NS, "b") is not None and t is not None:
+                value = t.text().strip()
+                if value.endswith(":") and value[:-1] and value[:-1] not in found:
+                    found.append(value[:-1])
+    return found
+
+
 def kept_warnings(cleaned: bytes) -> list[str]:
     """What a cleaned workbook still contains that the user should know about."""
     from metaex.core.ooxml import kept_package_warnings, open_package
 
-    return kept_package_warnings(open_package(cleaned))
+    pkg = open_package(cleaned)
+    out = []
+    comments = comments_section(pkg)
+    if comments is not None:
+        count = sum(f.value for f in comments.fields if f.key.endswith("count"))
+        out.append(f'kept {count} comment(s) (their authors are now "Author"); use '
+                   "--remove-comments to remove them")
+    names = names_in_comment_text(pkg)
+    if names:
+        out.append(f"comment text starts with the name(s) {', '.join(repr(n) for n in names)} "
+                   "(Excel writes the author's name into each note); that text is part of the "
+                   "comment and was not changed")
+    hidden = hidden_section(pkg)
+    if hidden is not None:
+        sheets = ", ".join(f.value + (" (very hidden)" if f.label.startswith("Very") else "")
+                           for f in hidden.fields)
+        out.append(f"kept hidden sheet(s) {sheets}: they are part of the workbook")
+    data = external_data_section(pkg)
+    connections = [f for f in data.fields if f.key.startswith("connection.")] if data else []
+    if connections:
+        out.append(f"kept {len(connections)} data connection(s); connection strings can name "
+                   "servers, databases and user names")
+    return out + kept_package_warnings(pkg)

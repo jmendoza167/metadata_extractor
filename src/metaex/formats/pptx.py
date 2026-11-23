@@ -197,4 +197,20 @@ def kept_warnings(cleaned: bytes) -> list[str]:
     """What a cleaned presentation still contains that the user should know about."""
     from metaex.core.ooxml import kept_package_warnings, open_package
 
-    return kept_package_warnings(open_package(cleaned))
+    pkg = open_package(cleaned)
+    out = []
+    comments = comments_section(pkg)
+    if comments is not None:
+        out.append(f'kept {comments.get("count").value} comment(s) (their authors are now '
+                   '"Author"); use --remove-comments to remove them')
+    hidden = hidden_section(pkg)
+    if hidden is not None:
+        slides = [f.value for f in hidden.fields if f.key.startswith("hidden_slide.")]
+        if slides:
+            out.append(f"kept {len(slides)} hidden slide(s) ({', '.join(slides)}): they are "
+                       "part of the presentation")
+        notes = hidden.get("notes")
+        if notes is not None:
+            out.append(f"kept the speaker notes of {notes.value} slide(s); they are visible to "
+                       "anyone who opens the file")
+    return out + kept_package_warnings(pkg)

@@ -390,14 +390,40 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
                          keep_orientation=keep_orientation, paranoid=paranoid)
 
 
+TRACKED_CHANGES_ADVICE = ("Accept or reject all changes in Word (Review > Accept > Accept All "
+                          "Changes) or LibreOffice (Edit > Track Changes > Accept All), save, "
+                          "and run metaex again")
+
+
 def kept_warnings(cleaned: bytes) -> list[str]:
     """What a cleaned document still contains that the user should know about."""
-    from metaex.core.ooxml import open_package
-
-    from metaex.core.ooxml import kept_package_warnings
+    from metaex.core.ooxml import kept_package_warnings, open_package
 
     pkg = open_package(cleaned)
-    out = kept_package_warnings(pkg)
+    out = []
+    changes = tracked_changes_section(pkg)
+    if changes is not None:
+        deleted = changes.get("deleted_characters")
+        if deleted is not None:
+            out.append(f"CRITICAL: the document still contains tracked changes, and "
+                       f"{deleted.value} characters of DELETED TEXT are still stored in the file, "
+                       f"where anyone can read them. {TRACKED_CHANGES_ADVICE}.")
+        else:
+            out.append(f"the document still contains tracked changes (their authors are now "
+                       f'"Author"). {TRACKED_CHANGES_ADVICE} to remove them.')
+    comments = comments_section(pkg)
+    if comments is not None:
+        out.append(f'kept {comments.get("count").value} comment(s) (their authors are now '
+                   '"Author"); use --remove-comments to remove them')
+    runs, text = hidden_text(pkg)
+    if runs:
+        sample = " ".join(text.split())[:60]
+        out.append(f"kept {runs} run(s) of hidden text (e.g. {sample!r}): it is part of the "
+                   "document; Word shows it with Home > Show/Hide")
+    if glossary_parts(pkg):
+        out.append("kept the glossary document (building blocks and AutoText), which can hold "
+                   "text copied from other documents")
+    out += kept_package_warnings(pkg)
     bound = sorted(bound_custom_xml(pkg))
     if bound:
         out.append(f"kept {', '.join(bound)}: content controls show its data, so removing it "

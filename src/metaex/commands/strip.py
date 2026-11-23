@@ -16,7 +16,7 @@ from metaex.core.errors import (CannotCleanError, MalformedFileError, MetaexErro
 from metaex.core.generic import mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, format_size, load_file
 from metaex.core.registry import can_strip, format_module
-from metaex.core.report import format_value
+from metaex.core.report import CRITICAL_PREFIX, format_value
 from metaex.core.verify import Finding, VerifyResult, verify
 from metaex.core.writer import write_verified
 
@@ -244,6 +244,25 @@ _SECTION_GROUPS = {
     "editor": "Editor data",
     "local_paths": "Local file paths",
     "embedded_images": "Embedded images",
+    # Office documents
+    "office_core": "Document properties",
+    "office_app": "Application properties",
+    "office_custom": "Custom properties",
+    "office_labels": "Sensitivity labels",
+    "office_custom_xml": "Custom XML",
+    "docx_variables": "Document variables",
+    "office_comments": "Comment authors and dates",
+    "office_people": "People",
+    "tracked_changes": "Revision authors and dates",
+    "revision_ids": "Revision IDs",
+    "office_thumbnail": "Thumbnail",
+    "printer_settings": "Printer settings",
+    "xlsx_workbook": "Workbook history",
+    "office_hidden_parts": "Unused parts",
+    "zip_hidden": "ZIP container",
+    "zip_comment": "ZIP container",
+    "zip_extra": "ZIP container",
+    "zip_entries": "ZIP container",
 }
 _CAMERA = {"Make", "Model", "BodySerialNumber", "LensMake", "LensModel", "LensSerialNumber",
            "LensSpecification", "MakerNote", "CameraOwnerName", "UniqueCameraModel",
@@ -307,6 +326,11 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
     lines = [f"metaex strip: {outcome.source}",
              f"Wrote {outcome.output} ({format_size(outcome.output_size)}; "
              f"original {format_size(outcome.original_size)})", ""]
+    critical = [w for w in outcome.warnings if w.startswith(CRITICAL_PREFIX)]
+    for warning in critical:
+        lines.append("*** WARNING ***")
+        lines.append(warning[len(CRITICAL_PREFIX):])
+        lines.append("")
     lines.append("Removed:")
     if outcome.removed:
         width = max(len(g) for g in outcome.removed)
@@ -328,7 +352,8 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
     else:
         lines.append("  (nothing)")
     for warning in outcome.warnings:
-        lines.append(f"  Warning: {warning}")
+        if not warning.startswith(CRITICAL_PREFIX):
+            lines.append(f"  Warning: {warning}")
     lines.append("")
     v = outcome.verify
     if v is not None:

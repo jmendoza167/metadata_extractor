@@ -1242,16 +1242,39 @@ def uncleaned_media(pkg: Package) -> list[tuple[str, str]]:
 
 
 def kept_package_warnings(pkg: Package) -> list[str]:
-    """Warnings about what a cleaned package still contains (all formats)."""
+    """Warnings about what a cleaned package still contains (all formats):
+    macros, embedded objects, images metaex can't clean, external links."""
     out = []
+    if pkg.vba_parts:
+        out.append(f"the document contains VBA macros ({', '.join(pkg.vba_parts)}); metaex "
+                   "did not change them, and their code may contain names, paths or other "
+                   "identifying information")
+    objects = object_parts(pkg)
+    if objects:
+        out.append(f"kept {len(objects)} embedded object(s) ({_some(objects)}); metaex can't "
+                   "clean their contents, which may have their own metadata (such as the author "
+                   "of an embedded workbook)")
     media = uncleaned_media(pkg)
     if media:
         kinds = ", ".join(sorted({kind for _name, kind in media}))
-        listed = ", ".join(name for name, _kind in media[:5])
-        more = f" and {len(media) - 5} more" if len(media) > 5 else ""
         out.append(f"kept {len(media)} embedded image(s) or media file(s) metaex can't clean "
-                   f"({kinds}: {listed}{more}); they may contain their own metadata")
+                   f"({kinds}: {_some([n for n, _k in media])}); they may contain their own "
+                   "metadata")
+    links = [r for r in pkg.all_relationships() if r.external]
+    if links:
+        servers = sorted({s for r in links for s in (server_name(p) for p in local_paths(r.target))
+                          if s})
+        text = (f"kept {len(links)} external link(s) (e.g. {shorten(links[0].target, 80)}); "
+                "they are part of the document, and opening it may contact those addresses")
+        if servers:
+            text += f"; links point to the server(s) {', '.join(servers)}"
+        out.append(text)
     return out
+
+
+def _some(names: list[str], n: int = 5) -> str:
+    listed = ", ".join(names[:n])
+    return listed + (f" and {len(names) - n} more" if len(names) > n else "")
 
 
 def strip_package(data: bytes | bytearray | memoryview, kind: str, format_strip, *,
