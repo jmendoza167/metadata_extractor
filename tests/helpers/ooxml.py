@@ -282,18 +282,25 @@ SHAREPOINT_ITEM = (
     '<_dlc_DocId xmlns="aaaaaaaa-0000-0000-0000-000000000001">EXAMPLE-123-456</_dlc_DocId>'
     '</documentManagement></p:properties>')
 
-ITEM_PROPS = (f'{DECL}<ds:datastoreItem ds:itemID="{{AAAAAAAA-1111-2222-3333-444444444444}}" '
-              'xmlns:ds="http://schemas.openxmlformats.org/officeDocument/2006/customXml">'
-              '<ds:schemaRefs><ds:schemaRef ds:uri="http://schemas.microsoft.com/office/2006/'
-              'metadata/properties"/></ds:schemaRefs></ds:datastoreItem>')
+ITEM_ID = "{AAAAAAAA-1111-2222-3333-444444444444}"
+
+
+def item_props(item_id: str = ITEM_ID) -> str:
+    return (f'{DECL}<ds:datastoreItem ds:itemID="{item_id}" '
+            'xmlns:ds="http://schemas.openxmlformats.org/officeDocument/2006/customXml">'
+            '<ds:schemaRefs><ds:schemaRef ds:uri="http://schemas.microsoft.com/office/2006/'
+            'metadata/properties"/></ds:schemaRefs></ds:datastoreItem>')
+
+
 CUSTOM_XML_PROPS_TYPE = "application/vnd.openxmlformats-officedocument.customXmlProperties+xml"
 
 
-def add_custom_xml(pkg: Package, source: str, item: str = SHAREPOINT_ITEM, n: int = 1) -> str:
+def add_custom_xml(pkg: Package, source: str, item: str = SHAREPOINT_ITEM, n: int = 1,
+                   item_id: str = ITEM_ID) -> str:
     """customXml/item<n>.xml linked from ``source``, with its itemProps part."""
     name = f"customXml/item{n}.xml"
     pkg.add_linked(source, "customXml", name, item)
-    pkg.add_linked(name, "customXmlProps", f"customXml/itemProps{n}.xml", ITEM_PROPS,
+    pkg.add_linked(name, "customXmlProps", f"customXml/itemProps{n}.xml", item_props(item_id),
                    CUSTOM_XML_PROPS_TYPE)
     return name
 

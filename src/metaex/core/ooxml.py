@@ -24,7 +24,7 @@ from metaex.core.errors import MalformedFileError, UnsupportedFormatError
 from metaex.core.inflate import Budget
 from metaex.core.paths import local_paths, server_name, user_name
 from metaex.core.result import Section
-from metaex.core.xmldoc import XmlDocument, XmlElement, parse_xml
+from metaex.core.xmldoc import XmlDocument, XmlEditor, XmlElement, parse_xml
 from metaex.core.ziparchive import ZipArchive, ZipLimits, DEFAULT_LIMITS, open_archive
 
 CONTENT_TYPES = "[Content_Types].xml"
@@ -112,6 +112,8 @@ class ContentTypes:
     overrides: dict[str, str]
     """Lowercase part name (no leading "/") -> content type."""
     doc: XmlDocument = field(repr=False)
+    override_elements: dict[str, list[XmlElement]] = field(default_factory=dict, repr=False)
+    """Lowercase part name -> its <Override> elements (for removing them)."""
 
     def type_of(self, part: str) -> str | None:
         found = self.overrides.get(part.lower())
@@ -264,6 +266,7 @@ def _parse_content_types(archive: ZipArchive) -> ContentTypes:
         raise MalformedFileError(f"{CONTENT_TYPES} has the wrong root element "
                                  f"<{doc.root.name}>")
     defaults, overrides = {}, {}
+    elements: dict[str, list[XmlElement]] = {}
     for e in doc.root.elements():
         if e.is_(CT_NS, "Default"):
             ext, ctype = e.get("Extension"), e.get("ContentType")
@@ -276,8 +279,10 @@ def _parse_content_types(archive: ZipArchive) -> ContentTypes:
             if name is None or ctype is None:
                 raise MalformedFileError(f"{CONTENT_TYPES}: <Override> without PartName or "
                                          "ContentType")
-            overrides[urllib.parse.unquote(name.lstrip("/")).lower()] = ctype
-    return ContentTypes(defaults, overrides, doc)
+            key = urllib.parse.unquote(name.lstrip("/")).lower()
+            overrides[key] = ctype
+            elements.setdefault(key, []).append(e)
+    return ContentTypes(defaults, overrides, doc, elements)
 
 
 def _parse_rels(archive: ZipArchive, entry_name: str, source: str) -> list[Relationship]:
@@ -1012,3 +1017,169 @@ def parse_package(data: bytes | bytearray | memoryview, kind: str, format_builde
         warnings.append(f"this is a {pkg.description}")
     return {"warnings": warnings, "sections": sections, "structure": structure_section(pkg),
             "complete": complete, "package": pkg}
+
+
+# -- stripping ---------------------------------------------------------------------------------
+
+
+class PackageEditor:
+    """Changes to a package, written out by build().
+
+    Parts that are not changed are copied with their compressed bytes
+    unchanged. A part edited through editor() is re-written with only the
+    edited bytes changed. remove_part() also removes the part's own
+    relationships, every relationship pointing to it and its content type
+    override. build() keeps only what the package needs: the parts that
+    relationships still lead to (from the package's own relationships),
+    their relationship parts and [Content_Types].xml; everything else is
+    dropped, including parts that were unused to begin with.
+    """
+
+    def __init__(self, pkg: Package) -> None:
+        self.pkg = pkg
+        self.editors: dict[str, XmlEditor] = {}
+        self.replaced: dict[str, bytes] = {}
+        self.removed: set[str] = set()
+        self.removed_rels: set[tuple[str, str]] = set()
+
+    def editor(self, part: str) -> XmlEditor:
+        name = self.pkg.entry_name(part)
+        if name is None:
+            raise MalformedFileError(f"the package has no part {part!r}")
+        if name not in self.editors:
+            self.editors[name] = XmlEditor(self.pkg.xml(name))
+        return self.editors[name]
+
+    def replace(self, part: str, data: bytes) -> None:
+        name = self.pkg.entry_name(part)
+        if name is None:
+            raise MalformedFileError(f"the package has no part {part!r}")
+        self.replaced[name] = data
+
+    def remove_relationship(self, r: Relationship) -> None:
+        if (r.source, r.id) in self.removed_rels:
+            return
+        self.removed_rels.add((r.source, r.id))
+        self.editor(rels_name(r.source)).remove(r.element)
+
+    def remove_part(self, part: str) -> None:
+        """Remove a part with its relationships and content type override."""
+        name = self.pkg.entry_name(part)
+        if name is None or name in self.removed:
+            return
+        self.removed.add(name)
+        own_rels = self.pkg.entry_name(rels_name(name))
+        if own_rels is not None:
+            self.removed.add(own_rels)
+        for r in self.pkg.all_relationships():
+            if not r.external and r.part is not None and self.pkg.entry_name(r.part) == name:
+                self.remove_relationship(r)
+        for e in self.pkg.content_types.override_elements.get(name.lower(), []):
+            self.editor(CONTENT_TYPES).remove(e)
+
+    def live_rels(self, source: str) -> list[Relationship]:
+        return [r for r in self.pkg.rels(source) if (r.source, r.id) not in self.removed_rels]
+
+    def reachable(self) -> set[str]:
+        """Parts the remaining relationships lead to from the package."""
+        seen: set[str] = set()
+        todo = [""]
+        while todo:
+            source = todo.pop()
+            for r in self.live_rels(source):
+                if r.external or r.part is None:
+                    continue
+                name = self.pkg.entry_name(r.part)
+                if name is not None and name not in seen and name not in self.removed:
+                    seen.add(name)
+                    todo.append(name)
+        return seen
+
+    def build(self) -> bytes:
+        from metaex.core.zipwriter import copied, new, write_zip
+
+        pkg = self.pkg
+        ct_name = pkg.entry_name(CONTENT_TYPES)
+        reachable = self.reachable()
+        # Unused parts are dropped too (with their content type overrides).
+        for name in pkg.part_names():
+            if name == ct_name or source_of_rels(name) is not None or name in reachable:
+                continue
+            self.remove_part(name)
+        keep = reachable | {ct_name}
+        keep |= {n for n in (pkg.entry_name(rels_name(s)) for s in [""] + sorted(reachable))
+                 if n is not None and n not in self.removed}
+        entries = []
+        for entry in pkg.archive.entries:
+            name = entry.name
+            if entry.is_dir or name not in keep:
+                continue
+            if name in self.replaced:
+                entries.append(new(name, self.replaced[name], method=entry.method))
+            elif name in self.editors and self.editors[name].changed:
+                data = self.editors[name].result()
+                parse_xml(data, name)  # self-check: still well-formed, prefixes bound
+                entries.append(new(name, data, method=entry.method))
+            else:
+                entries.append(copied(pkg.archive, entry))
+        return write_zip(entries, first=(ct_name,))
+
+
+def strip_properties(ed: PackageEditor) -> None:
+    """Empty core.xml and app.xml (keeping the parts, their root elements and
+    namespace declarations); remove custom.xml and the sensitivity label
+    part (docMetadata/LabelInfo.xml)."""
+    pkg = ed.pkg
+    for part in (core_part(pkg), app_part(pkg)):
+        if part is None:
+            continue
+        root = pkg.xml(part).root
+        if root.children:
+            ed.editor(part).set_content(root, "")
+    for part in (custom_part(pkg), label_info_part(pkg)):
+        if part is not None:
+            ed.remove_part(part)
+
+
+def custom_xml_props_part(pkg: Package, item: str) -> str | None:
+    found = pkg.related(item, CUSTOM_XML_PROPS_REL)
+    return pkg.entry_name(found[0]) if found else None
+
+
+def custom_xml_item_id(pkg: Package, item: str) -> str | None:
+    """The data store item ID ({GUID}) of a custom XML part, from its
+    properties part; content controls refer to their data by it."""
+    props = custom_xml_props_part(pkg, item)
+    if props is None:
+        return None
+    return pkg.xml(props).root.get("itemID", DS_NS)
+
+
+def strip_custom_xml(ed: PackageEditor, keep: set[str] = frozenset()) -> None:
+    """Remove the custom XML parts, except those in ``keep`` (data that
+    content controls show: removing it would change the document)."""
+    for item in custom_xml_parts(ed.pkg):
+        if item in keep:
+            continue
+        props = custom_xml_props_part(ed.pkg, item)
+        ed.remove_part(item)
+        if props is not None:
+            ed.remove_part(props)
+
+
+def strip_package(data: bytes | bytearray | memoryview, kind: str, format_strip) -> bytes:
+    """A cleaned copy of an OOXML file of ``kind``: the package-level
+    clean-up plus ``format_strip(editor)`` for the format's own parts.
+
+    Raises MalformedFileError if the package is damaged or unsafe (also a
+    DOCTYPE in any XML part), UnsupportedFormatError for Strict Open XML.
+    """
+    pkg = open_package(data)
+    if pkg.kind != kind:
+        raise MalformedFileError(f"the file looks like a {KIND_NAMES[kind]}, but its main "
+                                 f"document is a {pkg.description}")
+    check_xml_parts(pkg)
+    ed = PackageEditor(pkg)
+    strip_properties(ed)
+    format_strip(ed)
+    return ed.build()

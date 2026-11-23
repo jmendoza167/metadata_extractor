@@ -246,6 +246,11 @@ def revision_ids_section(pkg: Package) -> Section | None:
     return section
 
 
+BUILDERS = [variables_section, comments_section, people_section, tracked_changes_section,
+            hidden_section, revision_ids_section]
+"""What this module reports, in order (between the package-level sections)."""
+
+
 # -- parse -------------------------------------------------------------------------------
 
 
@@ -255,8 +260,69 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     UnsupportedFormatError for Strict Open XML."""
     from metaex.core.ooxml import parse_package
 
-    parsed = parse_package(data, "docx",
-                           [variables_section, comments_section, people_section, tracked_changes_section,
-                 hidden_section, revision_ids_section])
+    parsed = parse_package(data, "docx", BUILDERS)
     parsed.pop("package")
     return parsed
+
+
+# -- strip -------------------------------------------------------------------------------
+
+STORE_CORE_PROPERTIES = "{6C3C8BC8-F283-45AE-878A-BAB7291924A1}"
+STORE_EXTENDED_PROPERTIES = "{6668398D-A668-4E3E-A5EB-62B293D839F1}"
+STORE_COVER_PAGE = "{55AF091B-3C7A-41E3-B477-F2FDAA23CFDA}"
+PROPERTY_STORES = {STORE_CORE_PROPERTIES, STORE_EXTENDED_PROPERTIES, STORE_COVER_PAGE}
+
+
+def data_bindings(pkg: Package) -> list[str]:
+    """The store item IDs (upper case) content controls take their text from."""
+    out = []
+    for part in story_parts(pkg):
+        for e in pkg.xml(part).iter():
+            if e.local == "dataBinding" and e.uri in (W_NS, W15_NS):
+                item = e.get("storeItemID", e.uri)
+                if item:
+                    out.append(item.upper())
+    return out
+
+
+def bound_custom_xml(pkg: Package) -> set[str]:
+    """Custom XML parts whose data content controls show."""
+    from metaex.core.ooxml import custom_xml_item_id, custom_xml_parts
+
+    ids = set(data_bindings(pkg))
+    return {item for item in custom_xml_parts(pkg)
+            if (custom_xml_item_id(pkg, item) or "").upper() in ids}
+
+
+def _strip_word(ed) -> None:
+    from metaex.core.ooxml import strip_custom_xml
+
+    strip_custom_xml(ed, keep=bound_custom_xml(ed.pkg))
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return a cleaned copy of a DOCX file (see core/ooxml.py for what the
+    package-level clean-up does). Raises MalformedFileError for damaged or
+    unsafe files and UnsupportedFormatError for Strict Open XML."""
+    from metaex.core.ooxml import strip_package
+
+    return strip_package(data, "docx", _strip_word)
+
+
+def kept_warnings(cleaned: bytes) -> list[str]:
+    """What a cleaned document still contains that the user should know about."""
+    from metaex.core.ooxml import open_package
+
+    pkg = open_package(cleaned)
+    out = []
+    bound = sorted(bound_custom_xml(pkg))
+    if bound:
+        out.append(f"kept {', '.join(bound)}: content controls show its data, so removing it "
+                   "would change the document; it may hold names or other details")
+    shown = sum(1 for item in data_bindings(pkg) if item in PROPERTY_STORES)
+    if shown:
+        out.append(f"{shown} content control(s) show document properties (such as the "
+                   "author's name or the company); the text they show is part of the "
+                   "document and was not changed")
+    return out

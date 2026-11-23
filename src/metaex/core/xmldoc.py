@@ -344,3 +344,142 @@ def parse_xml(data: bytes | bytearray | memoryview, what: str = "XML part") -> X
     if b.root is None:
         raise MalformedFileError(f"{what} has no root element")
     return XmlDocument(data, b.root, b.prolog, b.epilog, b.count, what)
+
+
+# -- minimal edits ---------------------------------------------------------------------------
+
+_TAG_NAME = re.compile(rb"<[^\s/>]+")
+_ATTRIBUTE = re.compile(rb"""[ \t\r\n]+([^\s=/>]+)[ \t\r\n]*=[ \t\r\n]*("[^"]*"|'[^']*')""")
+
+
+def escape_attr(value: str) -> str:
+    return (value.replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
+            .replace("\t", "&#9;").replace("\n", "&#10;").replace("\r", "&#13;"))
+
+
+def escape_text(value: str) -> str:
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+class XmlEditor:
+    """Edits to one parsed part, applied as byte splices on the original data.
+
+    Only the bytes an edit concerns change: a removed element disappears
+    with its contents; a changed attribute gets a new value (written in
+    double quotes) where the old one was; a removed attribute disappears
+    with the space before it. Everything else, including every namespace
+    declaration, prefix, quote style and whitespace, stays exactly as it
+    was. Edits inside an element that is removed are dropped.
+    """
+
+    def __init__(self, doc: XmlDocument) -> None:
+        self.doc = doc
+        self._removed: dict[int, object] = {}
+        self._attrs: dict[int, tuple[XmlElement, dict[str, str | None]]] = {}
+        self._content: dict[int, tuple[XmlElement, str]] = {}
+
+    @property
+    def changed(self) -> bool:
+        return bool(self._removed or self._attrs or self._content)
+
+    def remove(self, node: XmlElement | XmlComment | XmlPI) -> None:
+        if isinstance(node, XmlElement) and node is self.doc.root:
+            raise ValueError("the root element can't be removed")
+        self._removed[id(node)] = node
+
+    def is_removed(self, element: XmlElement) -> bool:
+        """True if the element or one of its ancestors is removed."""
+        e: XmlElement | None = element
+        while e is not None:
+            if id(e) in self._removed:
+                return True
+            e = e.parent
+        return False
+
+    def set_attr(self, element: XmlElement, name: str, value: str) -> None:
+        """Set attribute ``name`` (qualified, as written) to ``value``."""
+        self._attrs.setdefault(id(element), (element, {}))[1][name] = value
+
+    def remove_attr(self, element: XmlElement, name: str) -> None:
+        if any(n == name for n, _v in element.attrs):
+            self._attrs.setdefault(id(element), (element, {}))[1][name] = None
+
+    def set_content(self, element: XmlElement, text: str) -> None:
+        """Replace everything inside the element by ``text`` ("" empties it)."""
+        self._content[id(element)] = (element, text)
+
+    def _covered(self, node) -> bool:
+        """True if an element around ``node`` is removed or has its content
+        replaced (so edits to ``node`` don't matter)."""
+        if isinstance(node, XmlElement):
+            e = node.parent
+            while e is not None:
+                if id(e) in self._removed or id(e) in self._content:
+                    return True
+                e = e.parent
+            return False
+        for other in self._removed.values():
+            if isinstance(other, XmlElement) and other.start <= node.start and node.end <= other.end:
+                return True
+        return any(e.start_end <= node.start and node.end <= e.end
+                   for e, _text in self._content.values())
+
+    def _splices(self) -> list[tuple[int, int, int, bytes]]:
+        """(start, end, order, bytes): replace data[start:end] by bytes."""
+        data = self.doc.data
+        out: list[tuple[int, int, int, bytes]] = []
+        for node in self._removed.values():
+            if not self._covered(node):
+                out.append((node.start, node.end, 1, b""))
+
+        def gone(element: XmlElement) -> bool:
+            return id(element) in self._removed or self._covered(element)
+
+        for element, changes in self._attrs.values():
+            if gone(element):
+                continue
+            tag = data[element.start:element.start_end]
+            name_end = _TAG_NAME.match(tag).end()
+            spans = {m.group(1).decode("utf-8"): m for m in _ATTRIBUTE.finditer(tag, name_end)}
+            for name, value in changes.items():
+                m = spans.get(name)
+                if value is None:
+                    if m is not None:
+                        out.append((element.start + m.start(), element.start + m.end(), 1, b""))
+                elif m is not None:
+                    out.append((element.start + m.start(2), element.start + m.end(2), 1,
+                                f'"{escape_attr(value)}"'.encode("utf-8")))
+                else:
+                    at = element.start_end - (2 if element.empty else 1)
+                    out.append((at, at, 0, f' {name}="{escape_attr(value)}"'.encode("utf-8")))
+        for element, text in self._content.values():
+            if gone(element):
+                continue
+            body = escape_text(text).encode("utf-8")
+            if element.empty:
+                if text:
+                    at = element.start_end - 2
+                    out.append((at, element.start_end, 1,
+                                b">" + body + b"</" + element.name.encode("utf-8") + b">"))
+            else:
+                close = data.rfind(b"</", element.start_end, element.end)
+                out.append((element.start_end, close, 1, body))
+        out.sort(key=lambda s: (s[0], s[2], s[1]))
+        for (a_start, a_end, _o, _b), (b_start, _e, _o2, _b2) in zip(out, out[1:]):
+            if b_start < a_end:
+                raise ValueError(f"{self.doc.what}: overlapping edits at offset {b_start}")
+        return out
+
+    def result(self) -> bytes:
+        """The edited part (the original bytes if nothing was changed)."""
+        if not self.changed:
+            return self.doc.data
+        data = self.doc.data
+        out = bytearray()
+        pos = 0
+        for start, end, _order, replacement in self._splices():
+            out += data[pos:start]
+            out += replacement
+            pos = end
+        out += data[pos:]
+        return bytes(out)

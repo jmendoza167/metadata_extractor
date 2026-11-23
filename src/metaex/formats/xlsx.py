@@ -146,6 +146,11 @@ def external_data_section(pkg: Package) -> Section | None:
     return section if section.fields else None
 
 
+BUILDERS = [comments_section, people_section, hidden_section, workbook_section,
+            external_data_section]
+"""What this module reports, in order (between the package-level sections)."""
+
+
 # -- parse -------------------------------------------------------------------------------
 
 
@@ -155,8 +160,30 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     UnsupportedFormatError for Strict Open XML and binary workbooks."""
     from metaex.core.ooxml import parse_package
 
-    parsed = parse_package(data, "xlsx",
-                           [comments_section, people_section, hidden_section, workbook_section,
-                 external_data_section])
+    parsed = parse_package(data, "xlsx", BUILDERS)
     parsed.pop("package")
     return parsed
+
+
+# -- strip -------------------------------------------------------------------------------
+
+
+def _strip_xlsx(ed) -> None:
+    from metaex.core.ooxml import strip_custom_xml
+
+    strip_custom_xml(ed)
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return a cleaned copy of a XLSX file (see core/ooxml.py for what the
+    package-level clean-up does). Raises MalformedFileError for damaged or
+    unsafe files and UnsupportedFormatError for Strict Open XML."""
+    from metaex.core.ooxml import strip_package
+
+    return strip_package(data, "xlsx", _strip_xlsx)
+
+
+def kept_warnings(cleaned: bytes) -> list[str]:
+    """What a cleaned workbook still contains that the user should know about."""
+    return []
