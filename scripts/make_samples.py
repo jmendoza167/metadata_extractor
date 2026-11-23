@@ -37,7 +37,7 @@ MAX_TOTAL_SIZE = 1024 * 1024
 if str(ROOT / "tests") not in sys.path:
     sys.path.insert(0, str(ROOT / "tests"))
 
-from helpers import jpeg, png, tiff  # noqa: E402
+from helpers import gif, jpeg, png, svg, tiff, webp  # noqa: E402
 from helpers.jpeg_encoder import jpeg_file  # noqa: E402
 
 Builder = Callable[[], dict[str, bytes]]
@@ -100,6 +100,141 @@ def png_samples() -> dict[str, bytes]:
             png.time_chunk(2024, 5, 1, 12, 30, 0),
             png.itxt("XML:com.adobe.xmp", SAMPLE_XMP),
             frames=APNG_FRAMES, **size),
+    }
+
+
+@sample_set
+def gif_samples() -> dict[str, bytes]:
+    from helpers.jpeg import SAMPLE_XMP
+
+    frames = []
+    for i in range(3):
+        frames.append(gif.graphic_control(delay=20 + 10 * i, disposal=1))
+        frames.append(gif.image(12, 10, seed=i + 1,
+                                local_table=gif.palette(4, seed=60) if i == 1 else None))
+    return {
+        "gif/clean.gif": gif.make_gif(gif.image(12, 10), width=12, height=10),
+        "gif/animated_metadata.gif": gif.make_gif(
+            gif.comment("Made by Jane Doe (jane.doe@example.com) with Editor 2.0"),
+            gif.loop(0),
+            gif.xmp_extension(SAMPLE_XMP),
+            *frames,
+            gif.application(b"ImageMagick", b"gamma=0.45455"),
+            gif.comment("Second draft, 2024-05-01"),
+            width=12, height=10),
+    }
+
+
+@sample_set
+def webp_samples() -> dict[str, bytes]:
+    from helpers.jpeg import SAMPLE_XMP, icc_profile
+
+    camera_exif = png.kitchen_sink_tiff()
+    return {
+        # the 1x1 lossy image is Google's WebP feature-detection test image
+        "webp/lossy_metadata.webp": webp.extended(
+            webp.iccp(icc_profile()), webp.chunk("VP8 ", webp.VP8_1X1),
+            webp.exif_chunk(camera_exif), webp.xmp_chunk(SAMPLE_XMP)),
+        "webp/lossless.webp": webp.lossless(16, 12, green2=60),
+        "webp/animated_metadata.webp": webp.animated(
+            webp.exif_chunk(camera_exif), webp.xmp_chunk(SAMPLE_XMP)),
+    }
+
+
+EDITOR_SVG = f"""<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="148mm"
+   viewBox="0 0 210 148"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25)"
+   sodipodi:docname="floor plan.svg"
+   inkscape:export-filename="C:\\Users\\jane.doe\\Pictures\\floor plan.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="{svg.INKSCAPE_NS}"
+   xmlns:sodipodi="{svg.SODIPODI_NS}"
+   xmlns="{svg.SVG_NS}"
+   xmlns:svg="{svg.SVG_NS}"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title
+     id="title1">Floor plan</title>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     inkscape:zoom="0.7"
+     inkscape:window-width="1920"
+     inkscape:window-height="1016"
+     inkscape:current-layer="layer1" />
+  <metadata
+     id="metadata1">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:title>Floor plan</dc:title>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Jane Doe &lt;jane.doe@example.com&gt;</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:date>2024-05-01</dc:date>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <!-- ask the landlord about the stairs -->
+    <rect
+       style="fill:#d0e0f0;stroke:#000000;stroke-width:1"
+       id="rect1"
+       width="120"
+       height="80"
+       x="20"
+       y="30" />
+    <path
+       sodipodi:nodetypes="cc"
+       d="M 80,30 V 110"
+       style="stroke:#000000;stroke-width:1"
+       id="path1" />
+    <text
+       xml:space="preserve"
+       x="30"
+       y="50"
+       id="text1"><tspan
+         sodipodi:role="line"
+         id="tspan1">Kitchen &amp; dining</tspan></text>
+  </g>
+</svg>
+"""
+
+SVG11_DOCTYPE = ('<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
+                 '"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n')
+
+DRAWING = ('\n  <rect x="10" y="10" width="60" height="40" fill="#3070b0"/>'
+           '\n  <circle cx="70" cy="50" r="20" fill="#e0a020"/>\n')
+
+
+@sample_set
+def svg_samples() -> dict[str, bytes]:
+    declaration = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    photo = svg.data_uri(jpeg.sample_photo(), "image/jpeg")
+    return {
+        "svg/clean.svg": svg.simple_svg(DRAWING, prolog=declaration),
+        "svg/editor.svg": EDITOR_SVG.encode("utf-8"),
+        "svg/doctype_svg11.svg": svg.simple_svg(
+            "\n  <title>Logo</title>" + DRAWING, prolog=declaration + SVG11_DOCTYPE),
+        "svg/embedded_jpeg.svg": svg.simple_svg(
+            f'\n  <image x="0" y="0" width="48" height="32" href="{photo}"/>\n',
+            prolog=declaration),
     }
 
 
