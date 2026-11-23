@@ -240,3 +240,73 @@ def with_properties(pkg: Package, core: str | None = None, app: str | None = Non
     pkg.add_linked("", "extended-properties", "docProps/app.xml",
                    app_xml() if app is None else app, APP_TYPE)
     return pkg
+
+
+# -- custom properties, labels, custom XML, settings ---------------------------------------
+
+CUSTOM_NS = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
+LABEL_GUID = "11111111-2222-3333-4444-555555555555"
+TENANT_GUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+JANE_CUSTOM = {
+    "ProjectCode": "FLAT-42",
+    "ContentTypeId": "0x0101000AAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    f"MSIP_Label_{LABEL_GUID}_Enabled": "true",
+    f"MSIP_Label_{LABEL_GUID}_SetDate": "2024-05-01T10:00:00Z",
+    f"MSIP_Label_{LABEL_GUID}_Name": "Confidential",
+    f"MSIP_Label_{LABEL_GUID}_SiteId": TENANT_GUID,
+}
+
+
+def custom_xml(props: dict[str, str] | None = None) -> str:
+    props = JANE_CUSTOM if props is None else props
+    items = "".join(
+        f'<property fmtid="{{D5CDD505-2E9C-101B-9397-08002B2CF9AE}}" pid="{i}" '
+        f'name="{escape(name)}"><vt:lpwstr>{escape(value)}</vt:lpwstr></property>'
+        for i, (name, value) in enumerate(props.items(), 2))
+    return f'{DECL}<Properties xmlns="{CUSTOM_NS}" xmlns:vt="{VT_NS}">{items}</Properties>'
+
+
+def label_info_xml() -> str:
+    return (f'{DECL}<clbl:labelList xmlns:clbl="http://schemas.microsoft.com/office/2020/mipLabelMetadata">'
+            f'<clbl:label id="{{{LABEL_GUID}}}" enabled="1" method="Standard" siteId="{{{TENANT_GUID}}}" '
+            'removed="0"/></clbl:labelList>')
+
+
+SHAREPOINT_ITEM = (
+    f'{DECL}<p:properties xmlns:p="http://schemas.microsoft.com/office/2006/metadata/properties" '
+    'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+    'xmlns:pc="http://schemas.microsoft.com/office/infopath/2007/PartnerControls">'
+    '<documentManagement><SharedWithUsers xmlns="aaaaaaaa-0000-0000-0000-000000000001">'
+    '<UserInfo><DisplayName>Jane Doe</DisplayName><AccountId>12</AccountId>'
+    '<AccountType/></UserInfo></SharedWithUsers>'
+    '<_dlc_DocId xmlns="aaaaaaaa-0000-0000-0000-000000000001">EXAMPLE-123-456</_dlc_DocId>'
+    '</documentManagement></p:properties>')
+
+ITEM_PROPS = (f'{DECL}<ds:datastoreItem ds:itemID="{{AAAAAAAA-1111-2222-3333-444444444444}}" '
+              'xmlns:ds="http://schemas.openxmlformats.org/officeDocument/2006/customXml">'
+              '<ds:schemaRefs><ds:schemaRef ds:uri="http://schemas.microsoft.com/office/2006/'
+              'metadata/properties"/></ds:schemaRefs></ds:datastoreItem>')
+CUSTOM_XML_PROPS_TYPE = "application/vnd.openxmlformats-officedocument.customXmlProperties+xml"
+
+
+def add_custom_xml(pkg: Package, source: str, item: str = SHAREPOINT_ITEM, n: int = 1) -> str:
+    """customXml/item<n>.xml linked from ``source``, with its itemProps part."""
+    name = f"customXml/item{n}.xml"
+    pkg.add_linked(source, "customXml", name, item)
+    pkg.add_linked(name, "customXmlProps", f"customXml/itemProps{n}.xml", ITEM_PROPS,
+                   CUSTOM_XML_PROPS_TYPE)
+    return name
+
+
+SETTINGS_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"
+
+
+def settings_xml(inner: str = "", extra_ns: str = "") -> str:
+    return (f'{DECL}<w:settings xmlns:w="{W_NS}" xmlns:r="{R_NS}"{extra_ns}>'
+            f'<w:zoom w:percent="100"/>{inner}</w:settings>')
+
+
+def doc_vars(**pairs: str) -> str:
+    items = "".join(f'<w:docVar w:name="{escape(k)}" w:val={quoteattr(v)}/>'
+                    for k, v in pairs.items())
+    return f"<w:docVars>{items}</w:docVars>"

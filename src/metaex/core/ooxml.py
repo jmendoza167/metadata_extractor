@@ -474,3 +474,106 @@ def app_section(pkg: Package) -> Section | None:
         section.add(key, label, value, sensitive=e.local in (
             "Company", "Manager", "Template", "HyperlinkBase", "HLinks", "TitlesOfParts"))
     return section if section.fields else None
+
+
+# -- custom properties, sensitivity labels, custom XML ----------------------------------
+
+CUSTOM_NS = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
+CUSTOM_TYPE = "application/vnd.openxmlformats-officedocument.custom-properties+xml"
+LABEL_INFO_TYPE = "application/vnd.ms-office.classificationlabels+xml"
+LABEL_INFO_REL = "http://schemas.microsoft.com/office/2020/02/relationships/classificationlabels"
+CUSTOM_XML_REL = REL + "customXml"
+CUSTOM_XML_PROPS_REL = REL + "customXmlProps"
+DS_NS = "http://schemas.openxmlformats.org/officeDocument/2006/customXml"
+SENSITIVITY_PREFIX = "MSIP_Label_"
+MAX_LISTED = 200
+
+
+def custom_part(pkg: Package) -> str | None:
+    return _part_by_rel_or_type(pkg, (CUSTOM_PROPERTIES,), CUSTOM_TYPE, "docProps/custom.xml")
+
+
+def label_info_part(pkg: Package) -> str | None:
+    """docMetadata/LabelInfo.xml: where newer Office versions keep sensitivity labels."""
+    return _part_by_rel_or_type(pkg, (LABEL_INFO_REL,), LABEL_INFO_TYPE,
+                                "docMetadata/LabelInfo.xml")
+
+
+def _limited(section: Section, total: int) -> None:
+    if total > MAX_LISTED:
+        section.add("more", "More", f"{total - MAX_LISTED} more not listed")
+
+
+def custom_sections(pkg: Package) -> list[Section]:
+    """Custom properties (docProps/custom.xml), with Microsoft Purview
+    sensitivity labels (MSIP_Label_*, docMetadata/LabelInfo.xml) in a
+    section of their own."""
+    custom = Section("office_custom", "Custom properties")
+    labels = Section("office_labels", "Sensitivity labels")
+    part = custom_part(pkg)
+    if part is not None:
+        props = [e for e in pkg.xml(part).root.elements() if e.local == "property"]
+        for e in props:
+            name = e.get("name") or "(no name)"
+            value_element = next(e.elements(), None)
+            value = shorten(value_element.text()) if value_element is not None else ""
+            target = labels if name.startswith(SENSITIVITY_PREFIX) else custom
+            if len(target.fields) < MAX_LISTED:
+                target.add(f"property.{name}", name, value, sensitive=True)
+        _limited(custom, sum(1 for e in props
+                             if not (e.get("name") or "").startswith(SENSITIVITY_PREFIX)))
+    info = label_info_part(pkg)
+    if info is not None:
+        for n, e in enumerate((x for x in pkg.xml(info).root.iter() if x.local == "label"), 1):
+            details = ", ".join(f"{k.split(':', 1)[-1]}={v}" for k, v in e.attrs
+                                if not k.startswith("xmlns"))
+            labels.add(f"label_info.{n}", f"Label {n} ({info})", details, sensitive=True)
+            if n >= MAX_LISTED:
+                break
+    return [s for s in (custom, labels) if s.fields]
+
+
+def custom_xml_parts(pkg: Package) -> list[str]:
+    """The data store items (customXml/item1.xml, ...), not their property parts."""
+    linked = {pkg.entry_name(r.part) for r in pkg.all_relationships()
+              if r.type == CUSTOM_XML_REL and not r.external and r.part is not None}
+    found = {n for n in pkg.part_names()
+             if n.lower().startswith("customxml/") and source_of_rels(n) is None
+             and not posixpath.basename(n).lower().startswith("itemprops")}
+    return sorted((linked | found) - {None})
+
+
+def leaf_values(element: XmlElement, limit: int) -> list[tuple[str, str]]:
+    """(path, text) of the elements under ``element`` that hold text."""
+    out: list[tuple[str, str]] = []
+    stack: list[tuple[XmlElement, str]] = [(element, element.local)]
+    while stack and len(out) < limit:
+        e, path = stack.pop()
+        children = list(e.elements())
+        text = " ".join(e.own_text().split())
+        if text:
+            out.append((path, shorten(text)))
+        stack.extend((c, f"{path}/{c.local}") for c in reversed(children))
+    return out
+
+
+def custom_xml_section(pkg: Package) -> Section | None:
+    """Custom XML data store items: SharePoint document properties (who it
+    is shared with, document IDs), bibliography sources, data bound to
+    content controls, and data added by other programs."""
+    section = Section("office_custom_xml", "Custom XML data")
+    total = 0
+    for part in custom_xml_parts(pkg):
+        root = pkg.xml(part).root
+        values = leaf_values(root, MAX_LISTED)
+        total += len(values) or 1
+        if not values:
+            if len(section.fields) < MAX_LISTED:
+                section.add(f"{part}:", f"{part}", f"<{root.name}> ({root.uri or 'no namespace'})",
+                            sensitive=True)
+            continue
+        for path, text in values:
+            if len(section.fields) < MAX_LISTED:
+                section.add(f"{part}:{path}", f"{part}: {path}", text, sensitive=True)
+    _limited(section, total)
+    return section if section.fields else None
