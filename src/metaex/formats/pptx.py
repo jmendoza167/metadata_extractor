@@ -145,10 +145,41 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
 # -- strip -------------------------------------------------------------------------------
 
 
+def anonymize(ed) -> None:
+    """Every comment author becomes "Author" without initials, and comments
+    lose their dates. Where PowerPoint requires a value (legacy author
+    initials; modern authors' user ID and provider; modern comment dates)
+    it is set to an empty or neutral one: initials "", user ID "Author",
+    provider "None" (what PowerPoint writes for a local account), date
+    2000-01-01T00:00:00."""
+    from metaex.core.ooxml import PLACEHOLDER_DATE, anonymize_attributes
+
+    pkg = ed.pkg
+    for part in pkg.parts_of_type(COMMENT_AUTHORS_TYPE):
+        for a in pkg.xml(part).find_all(P_NS, "cmAuthor"):
+            anonymize_attributes(ed, part, a, names=("name",), blank=("initials",))
+    for part in pkg.parts_of_type(COMMENTS_TYPE):
+        for c in pkg.xml(part).find_all(P_NS, "cm"):
+            anonymize_attributes(ed, part, c, dates=("dt",))
+    for part in pkg.parts_of_type(AUTHORS_TYPE):
+        for a in pkg.xml(part).find_all(P188_NS, "author"):
+            anonymize_attributes(ed, part, a, names=("name", "userId"), remove=("initials",))
+            if a.get("providerId") not in (None, "None"):
+                ed.editor(part).set_attr(a, a.attr_name("providerId"), "None")
+    for part in pkg.parts_of_type(MODERN_COMMENTS_TYPE):
+        for c in pkg.xml(part).root.iter():
+            if c.uri == P188_NS and c.local in ("cm", "reply"):
+                for name in ("startDate", "dueDate"):
+                    anonymize_attributes(ed, part, c, dates=(name,))
+                if c.get("created") not in (None, PLACEHOLDER_DATE):
+                    ed.editor(part).set_attr(c, c.attr_name("created"), PLACEHOLDER_DATE)
+
+
 def _strip_pptx(ed) -> None:
     from metaex.core.ooxml import strip_custom_xml
 
     strip_custom_xml(ed)
+    anonymize(ed)
 
 
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,

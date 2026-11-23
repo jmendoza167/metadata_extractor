@@ -168,10 +168,32 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
 # -- strip -------------------------------------------------------------------------------
 
 
+def anonymize(ed) -> None:
+    """Every comment author becomes "Author" (legacy notes); threaded comments
+    lose their dates; every person becomes "Author" without the account
+    (user ID, provider) they were signed in with. The person IDs stay:
+    threaded comments refer to them."""
+    from metaex.core.ooxml import ANONYMOUS, anonymize_attributes
+
+    pkg = ed.pkg
+    for part in pkg.parts_of_type(COMMENTS_TYPE):
+        for author in pkg.xml(part).find_all(S_NS, "author"):
+            if author.text() != ANONYMOUS:
+                ed.editor(part).set_content(author, ANONYMOUS)
+    for part in pkg.parts_of_type(THREADED_TYPE):
+        for c in pkg.xml(part).find_all(TC_NS, "threadedComment"):
+            anonymize_attributes(ed, part, c, dates=("dT",))
+    for part in pkg.parts_of_type(PERSON_TYPE):
+        for person in pkg.xml(part).find_all(TC_NS, "person"):
+            anonymize_attributes(ed, part, person, names=("displayName",),
+                                 remove=("userId", "providerId"))
+
+
 def _strip_xlsx(ed) -> None:
     from metaex.core.ooxml import strip_custom_xml
 
     strip_custom_xml(ed)
+    anonymize(ed)
 
 
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,

@@ -294,10 +294,47 @@ def bound_custom_xml(pkg: Package) -> set[str]:
             if (custom_xml_item_id(pkg, item) or "").upper() in ids}
 
 
+def revision_parts(pkg: Package) -> list[str]:
+    """Parts in which Word stores tracked changes (stories, styles, numbering)."""
+    return rsid_parts(pkg)
+
+
+def anonymize(ed) -> None:
+    """Every comment and revision author becomes "Author"; comment initials
+    and the dates of comments and revisions are removed; people.xml keeps a
+    single person, "Author", without the account it was signed in with."""
+    from metaex.core.ooxml import anonymize_attributes
+
+    pkg = ed.pkg
+    for part in pkg.parts_of_type(COMMENTS_TYPE):
+        for c in pkg.xml(part).find_all(W_NS, "comment"):
+            anonymize_attributes(ed, part, c, names=("author",), dates=("date",),
+                                 remove=("initials",), uri=W_NS)
+    for part in revision_parts(pkg):
+        for e in pkg.xml(part).iter():
+            if e.uri == W_NS and e.local in REVISIONS:
+                anonymize_attributes(ed, part, e, names=("author",), dates=("date",), uri=W_NS)
+    for part in pkg.parts_of_type(COMMENTS_EXTENSIBLE_TYPE):
+        for e in pkg.xml(part).iter():
+            if e.local == "commentExtensible" and e.uri == W16CEX_NS:
+                anonymize_attributes(ed, part, e, dates=("dateUtc",), uri=W16CEX_NS)
+    for part in pkg.parts_of_type(PEOPLE_TYPE):
+        people = pkg.xml(part).find_all(W15_NS, "person")
+        editor = ed.editor(part)
+        for n, person in enumerate(people):
+            if n > 0:
+                editor.remove(person)  # they would all be "Author": one is enough
+                continue
+            anonymize_attributes(ed, part, person, names=("author",), uri=W15_NS)
+            for child in person.elements():
+                editor.remove(child)  # presenceInfo: user ID and account provider
+
+
 def _strip_word(ed) -> None:
     from metaex.core.ooxml import strip_custom_xml
 
     strip_custom_xml(ed, keep=bound_custom_xml(ed.pkg))
+    anonymize(ed)
 
 
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,

@@ -1167,6 +1167,35 @@ def strip_custom_xml(ed: PackageEditor, keep: set[str] = frozenset()) -> None:
             ed.remove_part(props)
 
 
+ANONYMOUS = "Author"
+"""What every comment and revision author's name becomes."""
+PLACEHOLDER_DATE = "2000-01-01T00:00:00.000"
+"""Written where the file format requires a date (PowerPoint modern comments);
+optional dates are removed instead."""
+
+
+def anonymize_attributes(ed: PackageEditor, part: str, element: XmlElement,
+                         names: tuple[str, ...] = (), dates: tuple[str, ...] = (),
+                         remove: tuple[str, ...] = (), blank: tuple[str, ...] = (),
+                         uri: str | None = None) -> None:
+    """On ``element`` (attributes by local name, in namespace ``uri``):
+    ``names`` become "Author", ``dates`` and ``remove`` are removed, and
+    ``blank`` become empty (for required attributes such as initials)."""
+    editor = ed.editor(part)
+    for local in names:
+        qname = element.attr_name(local, uri)
+        if qname is not None and element.get(local, uri) != ANONYMOUS:
+            editor.set_attr(element, qname, ANONYMOUS)
+    for local in dates + remove:
+        qname = element.attr_name(local, uri)
+        if qname is not None:
+            editor.remove_attr(element, qname)
+    for local in blank:
+        qname = element.attr_name(local, uri)
+        if qname is not None and element.get(local, uri) != "":
+            editor.set_attr(element, qname, "")
+
+
 def strip_package(data: bytes | bytearray | memoryview, kind: str, format_strip) -> bytes:
     """A cleaned copy of an OOXML file of ``kind``: the package-level
     clean-up plus ``format_strip(editor)`` for the format's own parts.
