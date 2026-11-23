@@ -13,9 +13,13 @@ from helpers.samples import SAMPLES_DIR
 PROBLEMS = {
     "bad_crc.png": "tEXt chunk at offset 644 has a bad CRC",
     "broken_subblock.gif": "a sub-block needs 255 bytes, 46 available",
+    "encrypted_entry.docx": "'word/document.xml' is encrypted (password-protected)",
     "entity.svg": "ENTITY declaration (possible XML entity attack)",
+    "path_traversal.docx": "goes up a folder (\"..\"; path traversal)",
+    "truncated.docx": "the file may be truncated",
     "truncated.jpg": "missing end-of-image (EOI) marker",
     "wrong_riff_size.webp": "RIFF size says the file has 134 bytes, but it has 34",
+    "zip_bomb.docx": "more than the compression ratio limit (possible zip bomb)",
 }
 
 

@@ -1,0 +1,679 @@
+{
+  "path": "docx/kitchen_sink.docx",
+  "summary": {
+    "critical": 19,
+    "high": 45,
+    "medium": 12,
+    "low": 34
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "Document properties",
+      "label": "Author",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "critical",
+      "section": "Document properties",
+      "label": "Last modified by",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "critical",
+      "section": "Application properties",
+      "label": "Template",
+      "value": "C:\\Users\\jane.doe\\AppData\\Roaming\\Microsoft\\Templates\\Normal.dotm"
+    },
+    {
+      "level": "critical",
+      "section": "People",
+      "label": "Person 1: user ID",
+      "value": "S::jane.doe@example.com::aaaaaaaa-1111-2222-3333-444444444444"
+    },
+    {
+      "level": "critical",
+      "section": "Tracked changes",
+      "label": "Deleted text still in the file (characters)",
+      "value": "4"
+    },
+    {
+      "level": "critical",
+      "section": "Tracked changes",
+      "label": "Deleted text",
+      "value": "1200"
+    },
+    {
+      "level": "critical",
+      "section": "Local file paths",
+      "label": "Attached template (word/settings.xml)",
+      "value": "file:///C:\\Users\\jane.doe\\Documents\\Custom Office Templates\\Letter.dotm"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Last printed",
+      "value": "2024-05-02T08:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Created",
+      "value": "2024-05-01T10:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Modified",
+      "value": "2024-05-02T09:30:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Application",
+      "value": "Microsoft Office Word"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Manager",
+      "value": "John Example"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Company",
+      "value": "Example Corp"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Hyperlink base",
+      "value": "https://intranet.example.com/docs/"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Application version",
+      "value": "16.0000"
+    },
+    {
+      "level": "high",
+      "section": "Custom properties",
+      "label": "ProjectCode",
+      "value": "FLAT-42"
+    },
+    {
+      "level": "high",
+      "section": "Custom properties",
+      "label": "ContentTypeId",
+      "value": "0x0101000AAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "level": "high",
+      "section": "Sensitivity labels",
+      "label": "MSIP_Label_11111111-2222-3333-4444-555555555555_Enabled",
+      "value": "true"
+    },
+    {
+      "level": "high",
+      "section": "Sensitivity labels",
+      "label": "MSIP_Label_11111111-2222-3333-4444-555555555555_SetDate",
+      "value": "2024-05-01T10:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Sensitivity labels",
+      "label": "MSIP_Label_11111111-2222-3333-4444-555555555555_Name",
+      "value": "Confidential"
+    },
+    {
+      "level": "high",
+      "section": "Sensitivity labels",
+      "label": "MSIP_Label_11111111-2222-3333-4444-555555555555_SiteId",
+      "value": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    },
+    {
+      "level": "high",
+      "section": "Custom XML data",
+      "label": "customXml/item1.xml: properties/documentManagement/SharedWithUsers/UserInfo/DisplayName",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Custom XML data",
+      "label": "customXml/item1.xml: properties/documentManagement/SharedWithUsers/UserInfo/AccountId",
+      "value": "12"
+    },
+    {
+      "level": "high",
+      "section": "Custom XML data",
+      "label": "customXml/item1.xml: properties/documentManagement/_dlc_DocId",
+      "value": "EXAMPLE-123-456"
+    },
+    {
+      "level": "high",
+      "section": "Document variables",
+      "label": "Client",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Document variables",
+      "label": "CaseNo",
+      "value": "2024-17"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment authors",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment author initials",
+      "value": "JD"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment dates",
+      "value": "2024-05-01T10:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment dates (UTC)",
+      "value": "2024-05-01T08:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "People",
+      "label": "Person 1",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "People",
+      "label": "Person 2",
+      "value": "John Example"
+    },
+    {
+      "level": "high",
+      "section": "Tracked changes",
+      "label": "Revision authors",
+      "value": "Jane Doe, John Example"
+    },
+    {
+      "level": "high",
+      "section": "Tracked changes",
+      "label": "Revision dates",
+      "value": "2024-05-01T10:15:00Z to 2024-05-02T09:00:00Z (3 dates)"
+    },
+    {
+      "level": "high",
+      "section": "Hidden content",
+      "label": "Hidden text (runs)",
+      "value": "1"
+    },
+    {
+      "level": "high",
+      "section": "Hidden content",
+      "label": "Hidden text",
+      "value": "Secret note to self"
+    },
+    {
+      "level": "high",
+      "section": "Hidden content",
+      "label": "Glossary document (building blocks)",
+      "value": "word/glossary/document.xml, 1 paragraphs: Old letterhead of Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "External links",
+      "label": "Hyperlink (word/document.xml)",
+      "value": "https://example.com/flat"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "medium",
+      "section": "Document properties",
+      "label": "Revision number",
+      "value": "7"
+    },
+    {
+      "level": "medium",
+      "section": "Application properties",
+      "label": "Total editing time (minutes)",
+      "value": "42"
+    },
+    {
+      "level": "medium",
+      "section": "People",
+      "label": "Person 1: account provider",
+      "value": "AD"
+    },
+    {
+      "level": "medium",
+      "section": "Revision IDs (rsids)",
+      "label": "Editing sessions listed in settings.xml",
+      "value": "3"
+    },
+    {
+      "level": "medium",
+      "section": "Revision IDs (rsids)",
+      "label": "Revision ID attributes",
+      "value": "7"
+    },
+    {
+      "level": "medium",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "medium",
+      "section": "Thumbnail",
+      "label": "docProps/thumbnail.jpeg",
+      "value": "image/jpeg, 2920 bytes"
+    },
+    {
+      "level": "medium",
+      "section": "Printer settings",
+      "label": "word/printerSettings/printerSettings1.bin",
+      "value": "220 bytes, printer 'HP LaserJet Example'"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Title",
+      "value": "Floor plan notes"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Subject",
+      "value": "Flat"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Keywords",
+      "value": "plan; flat"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Comments (description)",
+      "value": "Second draft for the landlord"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Category",
+      "value": "Private"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Status",
+      "value": "Draft"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Identifier",
+      "value": "DOC-0001"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Language",
+      "value": "en-US"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Version",
+      "value": "1.0"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Pages",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Words",
+      "value": "120"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Characters",
+      "value": "700"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Document security",
+      "value": "0"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Lines",
+      "value": "5"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Paragraphs",
+      "value": "2"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Scale or crop thumbnail",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Links up to date",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Characters (with spaces)",
+      "value": "819"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Shared document",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Hyperlinks changed",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Part types (heading pairs)",
+      "value": "Title, 1"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Titles of parts",
+      "value": "Floor plan"
+    },
+    {
+      "level": "low",
+      "section": "Comments",
+      "label": "Comments",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Tracked changes",
+      "label": "Insertions",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Tracked changes",
+      "label": "Deletions",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Tracked changes",
+      "label": "Formatting changes",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Embedded images",
+      "label": "word/media/image1.jpeg",
+      "value": "JPEG, 2920 bytes"
+    },
+    {
+      "level": "low",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "word/media/image1.jpeg (JPEG): EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "word/media/image1.jpeg (JPEG): Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "word/media/image1.jpeg (JPEG): Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    },
+    {
+      "level": "low",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "word/media/image1.jpeg (JPEG): XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: the document has tracked changes, and 4 characters of deleted text are still stored in the file",
+    "CRITICAL: 1 file path(s) reveal a user name",
+    "CRITICAL: word/media/image1.jpeg (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: word/media/image1.jpeg (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "word/media/image1.jpeg (JPEG): embedded thumbnail may show the original, uncropped image"
+  ],
+  "can_strip": true
+}

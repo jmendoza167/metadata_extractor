@@ -311,7 +311,7 @@ def _detect_zip(data: bytes | bytearray | memoryview) -> FileType:
     except MalformedFileError:
         count = None
     if count is None:
-        return _with_warning(ZIP, "ZIP directory could not be read; contents not examined")
+        return _without_directory(data)
     if count > ZIP_MAX_ENTRIES:
         return _with_warning(
             ZIP, f"ZIP has {count} entries (limit {ZIP_MAX_ENTRIES}); contents not examined"
@@ -321,8 +321,20 @@ def _detect_zip(data: bytes | bytearray | memoryview) -> FileType:
             names = set(zf.namelist())
             mimetype = _zip_mimetype(zf)
     except _ZIP_ERRORS:
-        return _with_warning(ZIP, "ZIP directory could not be read; contents not examined")
+        return _without_directory(data)
 
+    return _classify_zip_names(names, mimetype)
+
+
+def _without_directory(data: bytes | bytearray | memoryview) -> FileType:
+    """A ZIP whose directory can't be read (e.g. a truncated download): the
+    entries at the start still say what the archive was meant to be."""
+    found = _classify_zip_names(*_local_entries(data))
+    warning = "ZIP directory could not be read (the file may be truncated)"
+    return _with_warning(found, warning if found is not ZIP else f"{warning}; contents not examined")
+
+
+def _classify_zip_names(names: set[str], mimetype: str | None) -> FileType:
     if mimetype in _ZIP_MIMETYPES:
         return _ZIP_MIMETYPES[mimetype]
     if "[Content_Types].xml" in names:
@@ -334,6 +346,39 @@ def _detect_zip(data: bytes | bytearray | memoryview) -> FileType:
         if len(found) == 1:
             return found.pop()
     return ZIP
+
+
+ZIP_LOCAL_SCAN_ENTRIES = 1000
+
+
+def _local_entries(data: bytes | bytearray | memoryview) -> tuple[set[str], str | None]:
+    """Names of the entries found by walking local headers from the start
+    (at most ZIP_LOCAL_SCAN_ENTRIES), and the ODF mimetype if the first
+    entry is a stored "mimetype". Stops at anything unexpected."""
+    names: set[str] = set()
+    mimetype = None
+    r = ByteReader(data, "little")
+    try:
+        for _ in range(ZIP_LOCAL_SCAN_ENTRIES):
+            if r.remaining < 30 or r.peek(4) != b"PK\x03\x04":
+                break
+            r.skip(6)
+            flags, method = r.u16(), r.u16()
+            r.skip(8)
+            size = r.u32()
+            r.skip(4)
+            name_len, extra_len = r.u16(), r.u16()
+            name = r.read(name_len).decode("utf-8", errors="replace")
+            r.skip(extra_len)
+            if name == "mimetype" and not names and method == 0 and size <= ZIP_MIMETYPE_MAX_SIZE:
+                mimetype = r.peek(size).decode("ascii", errors="replace").strip()
+            names.add(name)
+            if flags & 0x0008:
+                break  # sizes follow the data: the next header can't be found safely
+            r.skip(size)
+    except MalformedFileError:
+        pass
+    return names, mimetype
 
 
 def _zip_entry_count(data: bytes | bytearray | memoryview) -> int | None:

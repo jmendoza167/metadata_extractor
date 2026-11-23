@@ -7,9 +7,10 @@ Usage (from anywhere inside the repository):
 
 Every sample is built in code with the test helpers (tests/helpers), never
 with Pillow, and holds made-up metadata only. The output is the same bytes
-on every run and every machine: fixed values, no clock, no randomness, and
-PNG data in stored deflate blocks (zlib's compressed output differs between
-zlib builds).
+on every run and every machine: fixed values, no clock, no randomness,
+PNG data in stored deflate blocks, Office files with STORED ZIP entries
+(zlib's compressed output differs between zlib builds), and a hand-written
+deflate stream for the zip bomb.
 
 The generator owns everything in tests/samples/ except SAMPLES.md,
 expected/ (the snapshots, written by the tests) and real/ (files from real
@@ -37,7 +38,8 @@ MAX_TOTAL_SIZE = 1024 * 1024
 if str(ROOT / "tests") not in sys.path:
     sys.path.insert(0, str(ROOT / "tests"))
 
-from helpers import gif, jpeg, png, svg, tiff, webp  # noqa: E402
+from helpers import gif, jpeg, ooxml, png, svg, tiff, webp, zip  # noqa: E402
+from helpers.deflate import repeat_deflate  # noqa: E402
 from helpers.jpeg_encoder import jpeg_file  # noqa: E402
 
 Builder = Callable[[], dict[str, bytes]]
@@ -265,6 +267,56 @@ def malformed_samples() -> dict[str, bytes]:
                                  b'<!DOCTYPE svg [<!ENTITY author "Jane Doe">]>\n'
                                  b'<svg xmlns="http://www.w3.org/2000/svg" width="10" '
                                  b'height="10"><title>&author;</title></svg>\n'),
+        **malformed_office(),
+    }
+
+
+@sample_set
+def office_samples() -> dict[str, bytes]:
+    """Every ZIP entry is STORED with the 1980-01-01 time, so the bytes are the
+    same on every machine (no zlib involved)."""
+    return {
+        "docx/clean.docx": ooxml.docx(ooxml.paragraph("Hello")).build(),
+        "docx/kitchen_sink.docx": ooxml.kitchen_sink_docx(),
+        "docx/macro.docm": ooxml.macro_docm(),
+        "xlsx/clean.xlsx": ooxml.xlsx().build(),
+        "xlsx/kitchen_sink.xlsx": ooxml.kitchen_sink_xlsx(),
+        "pptx/clean.pptx": ooxml.pptx().build(),
+        "pptx/kitchen_sink.pptx": ooxml.kitchen_sink_pptx(),
+    }
+
+
+BOMB_MATCHES = 8200
+"""word/document.xml of malformed/zip_bomb.docx: 2,065 bytes that expand to
+about 2 MiB of spaces (a ratio of about 1000, over the limit of 200)."""
+
+
+def malformed_office() -> dict[str, bytes]:
+    files = ooxml.docx().files()
+    raw, expanded = repeat_deflate(0x20, BOMB_MATCHES)
+
+    def entries(**changes) -> list[zip.Entry]:
+        out = []
+        for name, data in files.items():
+            entry = changes.get(name, zip.Entry(name, data))
+            out.append(entry)
+        return out + changes.get("extra", [])
+
+    kitchen = ooxml.kitchen_sink_docx()
+    return {
+        # word/document.xml expands to over 200 times its size (tiny when expanded)
+        "malformed/zip_bomb.docx": zip.build_zip(entries(**{
+            "word/document.xml": zip.Entry("word/document.xml", expanded, method=zip.DEFLATED,
+                                           compressed=raw)})),
+        # an entry named ../evil.txt: extracting it would write outside the folder
+        "malformed/path_traversal.docx": zip.build_zip(entries(extra=[
+            zip.Entry("word/../../evil.txt", b"written outside the folder\n")])),
+        # word/document.xml is marked as encrypted (password-protected entry)
+        "malformed/encrypted_entry.docx": zip.build_zip(entries(**{
+            "word/document.xml": zip.Entry("word/document.xml", files["word/document.xml"],
+                                           flags=zip.FLAG_ENCRYPTED)})),
+        # docx/kitchen_sink.docx cut in half, like an interrupted download
+        "malformed/truncated.docx": kitchen[: len(kitchen) // 2],
     }
 
 

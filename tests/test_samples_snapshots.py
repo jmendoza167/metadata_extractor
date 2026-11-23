@@ -140,16 +140,22 @@ def run_json(command: str, copy: Path) -> dict:
 # -- the set of samples -------------------------------------------------------------------
 
 
+GENERATED = [
+    "docx/clean.docx", "docx/kitchen_sink.docx", "docx/macro.docm",
+    "gif/animated_metadata.gif", "gif/clean.gif",
+    "jpeg/clean.jpg", "jpeg/gps_camera.jpg", "jpeg/kitchen_sink.jpg",
+    "jpeg/orientation_6.jpg",
+    "png/apng_metadata.png", "png/clean.png", "png/exif_time.png", "png/text_chunks.png",
+    "pptx/clean.pptx", "pptx/kitchen_sink.pptx",
+    "svg/clean.svg", "svg/doctype_svg11.svg", "svg/editor.svg", "svg/embedded_jpeg.svg",
+    "webp/animated_metadata.webp", "webp/lossless.webp", "webp/lossy_metadata.webp",
+    "xlsx/clean.xlsx", "xlsx/kitchen_sink.xlsx",
+]
+
+
 def test_the_valid_samples():
-    assert SAMPLES[:17] == [
-        "gif/animated_metadata.gif", "gif/clean.gif",
-        "jpeg/clean.jpg", "jpeg/gps_camera.jpg", "jpeg/kitchen_sink.jpg",
-        "jpeg/orientation_6.jpg",
-        "png/apng_metadata.png", "png/clean.png", "png/exif_time.png", "png/text_chunks.png",
-        "svg/clean.svg", "svg/doctype_svg11.svg", "svg/editor.svg", "svg/embedded_jpeg.svg",
-        "webp/animated_metadata.webp", "webp/lossless.webp", "webp/lossy_metadata.webp",
-    ]
-    assert SAMPLES[17:] == real_samples()
+    assert SAMPLES[:len(GENERATED)] == GENERATED
+    assert SAMPLES[len(GENERATED):] == real_samples()
 
 
 def test_real_samples_are_collected(tmp_path, monkeypatch):

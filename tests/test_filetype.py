@@ -254,13 +254,28 @@ def test_id3_with_size_past_end_of_data_is_still_mp3():
     assert detect(b"ID3\x03\x00\x00\x7f\x7f\x7f\x7f") == ft.MP3
 
 
-@pytest.mark.parametrize("cut", [4, 30, 60, -10, -22])
+@pytest.mark.parametrize("cut", [4, 30, 60])
 def test_truncated_zip_is_plain_zip_with_warning(cut):
     data = make_zip({"[Content_Types].xml": OOXML_CT, "word/document.xml": "<w/>"})
     result = detect(data[:cut])
     assert result.key == "zip"
     assert result.warnings
     assert "not examined" in result.warnings[0]
+
+
+@pytest.mark.parametrize("cut", [-10, -22])
+def test_truncated_office_file_is_still_recognized(cut):
+    """Its entries are still there: it is a damaged DOCX (and the DOCX parser
+    then says what is wrong), not an unknown ZIP."""
+    data = make_zip({"[Content_Types].xml": OOXML_CT, "word/document.xml": "<w/>"})
+    result = detect(data[:cut])
+    assert result.key == "docx"
+    assert result.warnings == ("ZIP directory could not be read (the file may be truncated)",)
+
+
+def test_truncated_opendocument_file_is_still_recognized():
+    data = make_zip({"mimetype": "application/vnd.oasis.opendocument.text", "content.xml": "<c/>"})
+    assert detect(data[:-22]).key == "odt"
 
 
 def test_zip_with_too_many_entries_is_not_examined(monkeypatch):
@@ -271,13 +286,17 @@ def test_zip_with_too_many_entries_is_not_examined(monkeypatch):
     assert "2 entries" in result.warnings[0]
 
 
-def test_corrupt_central_directory_is_plain_zip():
+def test_corrupt_central_directory_keeps_the_type_found_in_the_entries():
     data = bytearray(make_zip({"[Content_Types].xml": OOXML_CT, "word/document.xml": "<w/>"}))
     cd = data.find(b"PK\x01\x02")
     data[cd : cd + 4] = b"XXXX"
     result = detect(bytes(data))
-    assert result.key == "zip"
+    assert result.key == "docx"
     assert result.warnings
+    second = data.find(b"PK\x03\x04", 4)
+    data[second : second + 4] = b"XXXX"  # word/document.xml can't be found: plain ZIP
+    result = detect(bytes(data))
+    assert result.key == "zip" and "not examined" in result.warnings[0]
 
 
 @pytest.mark.parametrize(

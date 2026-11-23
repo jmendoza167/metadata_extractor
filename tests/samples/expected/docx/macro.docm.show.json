@@ -1,0 +1,331 @@
+{
+  "subject": "docx/macro.docm",
+  "warnings": [
+    "the document contains VBA macros; their code can hold names, paths and other identifying information",
+    "this is a Word macro-enabled document (.docm)"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "DOCX",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".docx",
+            ".docm",
+            ".dotx",
+            ".dotm"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "office_core": {
+      "title": "Document properties",
+      "fields": {
+        "title": {
+          "label": "Title",
+          "value": "Floor plan notes",
+          "sensitive": true,
+          "note": null
+        },
+        "subject": {
+          "label": "Subject",
+          "value": "Flat",
+          "sensitive": true,
+          "note": null
+        },
+        "creator": {
+          "label": "Author",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "keywords": {
+          "label": "Keywords",
+          "value": "plan; flat",
+          "sensitive": true,
+          "note": null
+        },
+        "description": {
+          "label": "Comments (description)",
+          "value": "Second draft for the landlord",
+          "sensitive": true,
+          "note": null
+        },
+        "lastModifiedBy": {
+          "label": "Last modified by",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "revision": {
+          "label": "Revision number",
+          "value": "7",
+          "sensitive": true,
+          "note": null
+        },
+        "lastPrinted": {
+          "label": "Last printed",
+          "value": "2024-05-02T08:00:00Z",
+          "sensitive": true,
+          "note": null
+        },
+        "created": {
+          "label": "Created",
+          "value": "2024-05-01T10:00:00Z",
+          "sensitive": true,
+          "note": null
+        },
+        "modified": {
+          "label": "Modified",
+          "value": "2024-05-02T09:30:00Z",
+          "sensitive": true,
+          "note": null
+        },
+        "category": {
+          "label": "Category",
+          "value": "Private",
+          "sensitive": true,
+          "note": null
+        },
+        "contentStatus": {
+          "label": "Status",
+          "value": "Draft",
+          "sensitive": true,
+          "note": null
+        },
+        "identifier": {
+          "label": "Identifier",
+          "value": "DOC-0001",
+          "sensitive": true,
+          "note": null
+        },
+        "language": {
+          "label": "Language",
+          "value": "en-US",
+          "sensitive": true,
+          "note": null
+        },
+        "version": {
+          "label": "Version",
+          "value": "1.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "office_app": {
+      "title": "Application properties",
+      "fields": {
+        "Template": {
+          "label": "Template",
+          "value": "C:\\Users\\jane.doe\\AppData\\Roaming\\Microsoft\\Templates\\Normal.dotm",
+          "sensitive": true,
+          "note": null
+        },
+        "TotalTime": {
+          "label": "Total editing time (minutes)",
+          "value": "42",
+          "sensitive": false,
+          "note": null
+        },
+        "Pages": {
+          "label": "Pages",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "Words": {
+          "label": "Words",
+          "value": "120",
+          "sensitive": false,
+          "note": null
+        },
+        "Characters": {
+          "label": "Characters",
+          "value": "700",
+          "sensitive": false,
+          "note": null
+        },
+        "Application": {
+          "label": "Application",
+          "value": "Microsoft Office Word",
+          "sensitive": false,
+          "note": null
+        },
+        "DocSecurity": {
+          "label": "Document security",
+          "value": "0",
+          "sensitive": false,
+          "note": null
+        },
+        "Lines": {
+          "label": "Lines",
+          "value": "5",
+          "sensitive": false,
+          "note": null
+        },
+        "Paragraphs": {
+          "label": "Paragraphs",
+          "value": "2",
+          "sensitive": false,
+          "note": null
+        },
+        "ScaleCrop": {
+          "label": "Scale or crop thumbnail",
+          "value": "false",
+          "sensitive": false,
+          "note": null
+        },
+        "Manager": {
+          "label": "Manager",
+          "value": "John Example",
+          "sensitive": true,
+          "note": null
+        },
+        "Company": {
+          "label": "Company",
+          "value": "Example Corp",
+          "sensitive": true,
+          "note": null
+        },
+        "LinksUpToDate": {
+          "label": "Links up to date",
+          "value": "false",
+          "sensitive": false,
+          "note": null
+        },
+        "CharactersWithSpaces": {
+          "label": "Characters (with spaces)",
+          "value": "819",
+          "sensitive": false,
+          "note": null
+        },
+        "SharedDoc": {
+          "label": "Shared document",
+          "value": "false",
+          "sensitive": false,
+          "note": null
+        },
+        "HyperlinkBase": {
+          "label": "Hyperlink base",
+          "value": "https://intranet.example.com/docs/",
+          "sensitive": true,
+          "note": null
+        },
+        "HyperlinksChanged": {
+          "label": "Hyperlinks changed",
+          "value": "false",
+          "sensitive": false,
+          "note": null
+        },
+        "AppVersion": {
+          "label": "Application version",
+          "value": "16.0000",
+          "sensitive": false,
+          "note": null
+        },
+        "HeadingPairs": {
+          "label": "Part types (heading pairs)",
+          "value": [
+            "Title",
+            "1"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "TitlesOfParts": {
+          "label": "Titles of parts",
+          "value": [
+            "Floor plan"
+          ],
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "macros": {
+      "title": "Macros",
+      "fields": {
+        "word/vbaProject.bin": {
+          "label": "word/vbaProject.bin",
+          "value": "VBA project, 44 bytes",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "docx/macro.docm",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 4979,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "4.9 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "d8614cafef231a5fd286d571627ae128",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "a355f5d36ccd1cff61c9fcf3de094f62ab2c4667",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "18bf68d8e83e1af0d93cfcb0c8ad16391a7b5bf21db7831507bcf7a7a806d554",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,232 @@
+{
+  "path": "docx/macro.docm",
+  "summary": {
+    "critical": 3,
+    "high": 9,
+    "medium": 2,
+    "low": 22
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "Document properties",
+      "label": "Author",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "critical",
+      "section": "Document properties",
+      "label": "Last modified by",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "critical",
+      "section": "Application properties",
+      "label": "Template",
+      "value": "C:\\Users\\jane.doe\\AppData\\Roaming\\Microsoft\\Templates\\Normal.dotm"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Last printed",
+      "value": "2024-05-02T08:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Created",
+      "value": "2024-05-01T10:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Modified",
+      "value": "2024-05-02T09:30:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Application",
+      "value": "Microsoft Office Word"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Manager",
+      "value": "John Example"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Company",
+      "value": "Example Corp"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Hyperlink base",
+      "value": "https://intranet.example.com/docs/"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Application version",
+      "value": "16.0000"
+    },
+    {
+      "level": "high",
+      "section": "Macros",
+      "label": "word/vbaProject.bin",
+      "value": "VBA project, 44 bytes"
+    },
+    {
+      "level": "medium",
+      "section": "Document properties",
+      "label": "Revision number",
+      "value": "7"
+    },
+    {
+      "level": "medium",
+      "section": "Application properties",
+      "label": "Total editing time (minutes)",
+      "value": "42"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Title",
+      "value": "Floor plan notes"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Subject",
+      "value": "Flat"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Keywords",
+      "value": "plan; flat"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Comments (description)",
+      "value": "Second draft for the landlord"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Category",
+      "value": "Private"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Status",
+      "value": "Draft"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Identifier",
+      "value": "DOC-0001"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Language",
+      "value": "en-US"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Version",
+      "value": "1.0"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Pages",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Words",
+      "value": "120"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Characters",
+      "value": "700"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Document security",
+      "value": "0"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Lines",
+      "value": "5"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Paragraphs",
+      "value": "2"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Scale or crop thumbnail",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Links up to date",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Characters (with spaces)",
+      "value": "819"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Shared document",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Hyperlinks changed",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Part types (heading pairs)",
+      "value": "Title, 1"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Titles of parts",
+      "value": "Floor plan"
+    }
+  ],
+  "warnings": [
+    "the document contains VBA macros; their code can hold names, paths and other identifying information",
+    "this is a Word macro-enabled document (.docm)"
+  ],
+  "can_strip": true
+}

@@ -612,3 +612,91 @@ def add_hidden_slide_and_notes(pkg: Package) -> Package:
     pkg.add_linked("ppt/slides/slide1.xml", "notesSlide", "ppt/notesSlides/notesSlide1.xml",
                    notes_slide(), NOTES_TYPE)
     return pkg
+
+
+# -- kitchen sinks: every kind of Office metadata metaex reads ------------------------------------
+# All values are made up: Jane Doe, jane.doe@example.com, C:\Users\jane.doe\...
+
+
+def add_custom(pkg: Package, source: str) -> Package:
+    """Custom properties with a sensitivity label, and SharePoint custom XML."""
+    pkg.add_linked("", "custom-properties", "docProps/custom.xml", custom_xml(), CUSTOM_TYPE)
+    add_custom_xml(pkg, source)
+    return pkg
+
+
+def add_printer(pkg: Package, source: str, folder: str, kind: str) -> str:
+    return pkg.add_linked(source, "printerSettings",
+                          f"{folder}/printerSettings/printerSettings1.bin", devmode(),
+                          PRINTER_TYPE.replace("spreadsheetml", kind))
+
+
+def kitchen_sink_docx() -> bytes:
+    """Properties, custom properties and XML, comments with people, tracked
+    changes with deleted text, revision IDs, document variables, an
+    attached template in the user's folder, links, hidden text, a glossary,
+    printer settings, a thumbnail and a photo with GPS."""
+    from helpers import jpeg
+
+    main = "word/document.xml"
+    body = (COMMENTED_BODY + TRACKED_BODY + HIDDEN_TEXT_BODY
+            + paragraph("See the plan at the link below."))
+    pkg = with_properties(add_word_comments(docx(body, extra_ns=WORD_NAMESPACES)))
+    add_custom(pkg, main)
+    pkg.add_linked(main, "settings", "word/settings.xml", settings_xml(
+        '<w:attachedTemplate r:id="rId1"/>' + RSIDS
+        + doc_vars(Client="Jane Doe", CaseNo="2024-17")), SETTINGS_TYPE)
+    pkg.link("word/settings.xml", "attachedTemplate", TEMPLATE_PATH, external=True)
+    pkg.link(main, "hyperlink", "https://example.com/flat", external=True)
+    add_glossary(pkg)
+    add_printer(pkg, main, "word", "wordprocessingml")
+    add_thumbnail(pkg, jpeg.sample_photo())
+    add_media(pkg, main, "word/media/image1.jpeg", jpeg.sample_photo(), "jpeg", "image/jpeg")
+    return pkg.build()
+
+
+def macro_docm() -> bytes:
+    """A macro-enabled document with document properties and a placeholder
+    vbaProject.bin (not a real VBA project)."""
+    pkg = with_properties(docx(paragraph("Press the button."), main_type=WORD_MACRO))
+    pkg.add_linked("word/document.xml", MS_REL + "vbaProject", "word/vbaProject.bin",
+                   b"placeholder: this is not a real VBA project\n", VBA)
+    return pkg.build()
+
+
+def kitchen_sink_xlsx() -> bytes:
+    """Properties, custom properties and XML, notes and threaded comments with
+    persons, hidden sheets, the saved-in folder and version history, a
+    linked workbook and a data connection, printer settings, a thumbnail
+    and a photo with GPS."""
+    from helpers import jpeg
+
+    pkg = with_properties(add_excel_comments(kitchen_sink_xlsx_workbook(xlsx())))
+    add_custom(pkg, "xl/workbook.xml")
+    add_external_data(pkg)
+    sheet = "xl/worksheets/sheet1.xml"
+    rid = add_printer(pkg, sheet, "xl", "spreadsheetml")
+    pkg.parts[sheet] = worksheet().replace(
+        "</sheetData>", f'</sheetData><pageSetup paperSize="9" r:id="{rid}"/>').replace(
+        f'<worksheet xmlns="{S_NS}">', f'<worksheet xmlns="{S_NS}" xmlns:r="{R_NS}">'
+    ).encode("utf-8")
+    add_thumbnail(pkg, jpeg.sample_photo())
+    add_media(pkg, "xl/workbook.xml", "xl/media/image1.jpeg", jpeg.sample_photo(), "jpeg",
+              "image/jpeg")
+    return pkg.build()
+
+
+def kitchen_sink_pptx() -> bytes:
+    """Properties, custom properties and XML, legacy and modern comments with
+    their authors, a hidden slide, speaker notes, printer settings, a
+    thumbnail and a photo with GPS."""
+    from helpers import jpeg
+
+    main = "ppt/presentation.xml"
+    pkg = with_properties(add_ppt_comments(add_hidden_slide_and_notes(pptx())))
+    add_custom(pkg, main)
+    add_printer(pkg, main, "ppt", "presentationml")
+    add_thumbnail(pkg, jpeg.sample_photo())
+    add_media(pkg, "ppt/slides/slide1.xml", "ppt/media/image1.jpeg", jpeg.sample_photo(), "jpeg",
+              "image/jpeg")
+    return pkg.build()

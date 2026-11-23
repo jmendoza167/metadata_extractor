@@ -262,3 +262,22 @@ def test_pillow_decodes_png_samples_to_the_expected_pixels(path):
     frames = decode_frames(path, mode="RGB")
     assert [f.size for f in frames] == [(width, height)] * len(expected)
     assert [f.pixels for f in frames] == [rgb_pixels(raw, width) for raw in expected]
+
+
+# -- the hand-written stream of malformed/zip_bomb.docx ----------------------------------------
+
+
+@pytest.mark.parametrize("byte, matches", [(0x20, 0), (0x20, 7), (0x00, 100), (0xFF, 3)])
+def test_repeat_deflate_expands_to_what_it_says(byte, matches):
+    from helpers.deflate import repeat_deflate
+
+    raw, expanded = repeat_deflate(byte, matches)
+    assert zlib.decompress(raw, -15) == expanded == bytes([byte]) * (1 + 258 * matches)
+
+
+def test_repeat_deflate_is_a_zip_bomb_for_metaex():
+    from helpers.deflate import repeat_deflate
+
+    raw, expanded = repeat_deflate(0x20, make_samples.BOMB_MATCHES)
+    assert len(raw) == 2065 and len(expanded) > 1024 * 1024
+    assert len(expanded) / len(raw) > 200  # over metaex's compression ratio limit

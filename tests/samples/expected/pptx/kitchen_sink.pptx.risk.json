@@ -1,0 +1,605 @@
+{
+  "path": "pptx/kitchen_sink.pptx",
+  "summary": {
+    "critical": 16,
+    "high": 38,
+    "medium": 13,
+    "low": 31
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "Document properties",
+      "label": "Author",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "critical",
+      "section": "Document properties",
+      "label": "Last modified by",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "critical",
+      "section": "Application properties",
+      "label": "Template",
+      "value": "C:\\Users\\jane.doe\\AppData\\Roaming\\Microsoft\\Templates\\Normal.dotm"
+    },
+    {
+      "level": "critical",
+      "section": "People",
+      "label": "Person 2: user ID",
+      "value": "jane.doe@example.com"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Last printed",
+      "value": "2024-05-02T08:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Created",
+      "value": "2024-05-01T10:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Document properties",
+      "label": "Modified",
+      "value": "2024-05-02T09:30:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Application",
+      "value": "Microsoft Office Word"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Manager",
+      "value": "John Example"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Company",
+      "value": "Example Corp"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Hyperlink base",
+      "value": "https://intranet.example.com/docs/"
+    },
+    {
+      "level": "high",
+      "section": "Application properties",
+      "label": "Application version",
+      "value": "16.0000"
+    },
+    {
+      "level": "high",
+      "section": "Custom properties",
+      "label": "ProjectCode",
+      "value": "FLAT-42"
+    },
+    {
+      "level": "high",
+      "section": "Custom properties",
+      "label": "ContentTypeId",
+      "value": "0x0101000AAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "level": "high",
+      "section": "Sensitivity labels",
+      "label": "MSIP_Label_11111111-2222-3333-4444-555555555555_Enabled",
+      "value": "true"
+    },
+    {
+      "level": "high",
+      "section": "Sensitivity labels",
+      "label": "MSIP_Label_11111111-2222-3333-4444-555555555555_SetDate",
+      "value": "2024-05-01T10:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "Sensitivity labels",
+      "label": "MSIP_Label_11111111-2222-3333-4444-555555555555_Name",
+      "value": "Confidential"
+    },
+    {
+      "level": "high",
+      "section": "Sensitivity labels",
+      "label": "MSIP_Label_11111111-2222-3333-4444-555555555555_SiteId",
+      "value": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    },
+    {
+      "level": "high",
+      "section": "Custom XML data",
+      "label": "customXml/item1.xml: properties/documentManagement/SharedWithUsers/UserInfo/DisplayName",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Custom XML data",
+      "label": "customXml/item1.xml: properties/documentManagement/SharedWithUsers/UserInfo/AccountId",
+      "value": "12"
+    },
+    {
+      "level": "high",
+      "section": "Custom XML data",
+      "label": "customXml/item1.xml: properties/documentManagement/_dlc_DocId",
+      "value": "EXAMPLE-123-456"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment authors",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment author initials",
+      "value": "JD"
+    },
+    {
+      "level": "high",
+      "section": "Comments",
+      "label": "Comment dates",
+      "value": "2024-05-01T10:00:00.000 to 2024-05-02T11:00:00.000 (2 dates)"
+    },
+    {
+      "level": "high",
+      "section": "People",
+      "label": "Person 1",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "People",
+      "label": "Person 1: initials",
+      "value": "JD"
+    },
+    {
+      "level": "high",
+      "section": "People",
+      "label": "Person 2",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "People",
+      "label": "Person 2: initials",
+      "value": "JD"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "medium",
+      "section": "Document properties",
+      "label": "Revision number",
+      "value": "7"
+    },
+    {
+      "level": "medium",
+      "section": "Application properties",
+      "label": "Total editing time (minutes)",
+      "value": "42"
+    },
+    {
+      "level": "medium",
+      "section": "People",
+      "label": "Person 2: account provider",
+      "value": "AD"
+    },
+    {
+      "level": "medium",
+      "section": "Hidden content",
+      "label": "Hidden slide",
+      "value": "slide 2 (ppt/slides/slide2.xml)"
+    },
+    {
+      "level": "medium",
+      "section": "Hidden content",
+      "label": "Slides with speaker notes",
+      "value": "1"
+    },
+    {
+      "level": "medium",
+      "section": "Hidden content",
+      "label": "Speaker notes",
+      "value": "Mention the deadline: 2024-06-01"
+    },
+    {
+      "level": "medium",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "medium",
+      "section": "Thumbnail",
+      "label": "docProps/thumbnail.jpeg",
+      "value": "image/jpeg, 2920 bytes"
+    },
+    {
+      "level": "medium",
+      "section": "Printer settings",
+      "label": "ppt/printerSettings/printerSettings1.bin",
+      "value": "220 bytes, printer 'HP LaserJet Example'"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Title",
+      "value": "Floor plan notes"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Subject",
+      "value": "Flat"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Keywords",
+      "value": "plan; flat"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Comments (description)",
+      "value": "Second draft for the landlord"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Category",
+      "value": "Private"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Status",
+      "value": "Draft"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Identifier",
+      "value": "DOC-0001"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Language",
+      "value": "en-US"
+    },
+    {
+      "level": "low",
+      "section": "Document properties",
+      "label": "Version",
+      "value": "1.0"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Pages",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Words",
+      "value": "120"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Characters",
+      "value": "700"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Document security",
+      "value": "0"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Lines",
+      "value": "5"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Paragraphs",
+      "value": "2"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Scale or crop thumbnail",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Links up to date",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Characters (with spaces)",
+      "value": "819"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Shared document",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Hyperlinks changed",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Part types (heading pairs)",
+      "value": "Title, 1"
+    },
+    {
+      "level": "low",
+      "section": "Application properties",
+      "label": "Titles of parts",
+      "value": "Floor plan"
+    },
+    {
+      "level": "low",
+      "section": "Comments",
+      "label": "Comments",
+      "value": "2"
+    },
+    {
+      "level": "low",
+      "section": "Embedded images",
+      "label": "ppt/media/image1.jpeg",
+      "value": "JPEG, 2920 bytes"
+    },
+    {
+      "level": "low",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "ppt/media/image1.jpeg (JPEG): EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "ppt/media/image1.jpeg (JPEG): Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "ppt/media/image1.jpeg (JPEG): Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    },
+    {
+      "level": "low",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "ppt/media/image1.jpeg (JPEG): XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: ppt/media/image1.jpeg (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: ppt/media/image1.jpeg (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "ppt/media/image1.jpeg (JPEG): embedded thumbnail may show the original, uncropped image"
+  ],
+  "can_strip": true
+}
