@@ -272,6 +272,12 @@ _SECTION_GROUPS = {
     "zip_comment": "ZIP container",
     "zip_extra": "ZIP container",
     "zip_entries": "ZIP container",
+    # OpenDocument
+    "odf_meta": "Document properties",
+    "odf_user_defined": "Custom properties",
+    "odf_settings": "Application settings",
+    "odf_configurations": "User interface settings",
+    "odf_signatures": "Digital signatures",
 }
 _CAMERA = {"Make", "Model", "BodySerialNumber", "LensMake", "LensModel", "LensSerialNumber",
            "LensSpecification", "MakerNote", "CameraOwnerName", "UniqueCameraModel",

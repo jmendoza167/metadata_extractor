@@ -233,8 +233,7 @@ def meta_sections(pkg: OdfPackage) -> list[Section]:
 
 # -- settings.xml -------------------------------------------------------------------------------
 
-PRINTER_ITEMS = ("PrinterName", "PrinterSetup", "PrinterPaperFromSetup", "PrintFaxName",
-                 "PrinterIndependentLayout")
+PRINTER_ITEMS = ("PrinterName", "PrinterSetup", "PrinterPaperFromSetup", "PrintFaxName")
 DATA_SOURCE_ITEMS = ("CurrentDatabaseDataSource", "CurrentDatabaseCommand",
                      "CurrentDatabaseCommandType", "EmbeddedDatabaseName")
 RSID_ITEMS = ("Rsid", "RsidRoot")
@@ -276,7 +275,7 @@ def settings_sections(pkg: OdfPackage) -> list[Section]:
         if name == "PrinterSetup":
             printer.add(name, "Printer setup", printer_setup_text(value), sensitive=True)
         elif name in PRINTER_ITEMS:
-            printer.add(name, name, shorten(value), sensitive=name != "PrinterIndependentLayout")
+            printer.add(name, name, shorten(value), sensitive=True)
         elif name in DATA_SOURCE_ITEMS:
             data.add(name, name, shorten(value), sensitive=True)
         else:
@@ -508,6 +507,19 @@ def embedded_section(pkg: OdfPackage) -> Section | None:
     return section if section.fields else None
 
 
+def signature_names(pkg: OdfPackage) -> list[str]:
+    """Files in META-INF/ other than the manifest: digital signatures (they
+    name the signer) and data added by other programs."""
+    return [n for n in pkg.names() if n.startswith("META-INF/") and n != MANIFEST]
+
+
+def signatures_section(pkg: OdfPackage) -> Section | None:
+    section = Section("odf_signatures", "Digital signatures and other META-INF files")
+    for name in signature_names(pkg)[:MAX_LISTED]:
+        section.add(name, name, f"{pkg.archive.get(name).size} bytes", sensitive=True)
+    return section if section.fields else None
+
+
 def unlisted_names(pkg: OdfPackage) -> list[str]:
     """Files the manifest doesn't list (other than mimetype and the
     manifest itself): no OpenDocument program uses them."""
@@ -609,7 +621,8 @@ def parse_package(data: bytes | bytearray | memoryview, kind: str) -> dict:
     builders = [meta_sections, settings_sections, comments_section, tracked_changes_section,
                 hidden_section, link_sections, embedded_section,
                 lambda p: embedded_image_sections(p, image_warnings),
-                thumbnail_section, macros_section, config_section, unlisted_section,
+                thumbnail_section, macros_section, config_section, signatures_section,
+                unlisted_section,
                 lambda p: report_sections(p.archive), check_xml_files]
     sections, complete = _collect(builders, pkg, warnings)
     sections = _merge(sections)
@@ -618,3 +631,237 @@ def parse_package(data: bytes | bytearray | memoryview, kind: str) -> dict:
         warnings.append(f"this is a {pkg.description.lower()}")
     return {"warnings": warnings, "sections": sections, "structure": structure_section(pkg),
             "complete": complete, "package": pkg}
+
+
+# -- stripping ---------------------------------------------------------------------------------
+
+STRIPPED_SETTINGS = PRINTER_ITEMS + RSID_ITEMS
+PLACEHOLDER_DATE = "2000-01-01T00:00:00"
+"""Written where OpenDocument requires a date (a tracked change's dc:date);
+optional dates (comments) are removed instead."""
+
+
+class OdfEditor:
+    """Changes to an OpenDocument package, written out by build(): files not
+    changed are copied with their compressed bytes unchanged, edited XML is
+    written with only the edited bytes changed, and removed files leave the
+    manifest too. build() writes "mimetype" first and stored, and drops
+    every file the manifest doesn't list (and META-INF files other than the
+    manifest)."""
+
+    def __init__(self, pkg: OdfPackage) -> None:
+        self.pkg = pkg
+        self.editors: dict[str, object] = {}
+        self.replaced: dict[str, bytes] = {}
+        self.removed: set[str] = set()
+
+    def editor(self, name: str):
+        from metaex.core.xmldoc import XmlEditor
+
+        if name not in self.editors:
+            self.editors[name] = XmlEditor(self.pkg.xml(name))
+        return self.editors[name]
+
+    def remove_file(self, name: str) -> None:
+        self.removed.add(name)
+        element = self.pkg.entry_elements.get(name)
+        if element is not None:
+            self.editor(MANIFEST).remove(element)
+
+    def remove_folder(self, folder: str) -> None:
+        """Remove every file under ``folder`` and the folder's manifest entries."""
+        for name in self.pkg.names():
+            if name.startswith(folder):
+                self.remove_file(name)
+        for path, element in self.pkg.entry_elements.items():
+            if path.startswith(folder) and path.endswith("/"):
+                self.editor(MANIFEST).remove(element)
+
+    def build(self) -> bytes:
+        from metaex.core.ziparchive import STORED
+        from metaex.core.zipwriter import copied, new, write_zip
+
+        pkg = self.pkg
+        listed = {p for p in pkg.entries if not p.endswith("/")}
+        for name in pkg.names():
+            unlisted = name not in listed and name not in (MIMETYPE, MANIFEST)
+            if unlisted and name not in self.removed:
+                self.remove_file(name)
+        entries = [new(MIMETYPE, pkg.mimetype.encode("ascii"), method=STORED)]
+        for entry in pkg.archive.entries:
+            name = entry.name
+            if entry.is_dir or name == MIMETYPE or name in self.removed:
+                continue
+            if name in self.replaced:
+                entries.append(new(name, self.replaced[name], method=entry.method))
+            elif name in self.editors and self.editors[name].changed:
+                data = self.editors[name].result()
+                parse_xml(data, name)  # self-check: still well-formed, prefixes bound
+                entries.append(new(name, data, method=entry.method))
+            else:
+                entries.append(copied(pkg.archive, entry))
+        return write_zip(entries, first=(MIMETYPE,))
+
+
+def strip_meta(ed: OdfEditor) -> None:
+    """Empty <office:meta> in meta.xml (and in embedded objects' meta.xml)."""
+    for name in ed.pkg.meta_names():
+        office_meta = ed.pkg.xml(name).root.child(OFFICE_NS, "meta")
+        if office_meta is not None and office_meta.children:
+            ed.editor(name).set_content(office_meta, "")
+
+
+def strip_settings(ed: OdfEditor) -> None:
+    """Remove the printer (name and driver setup) and the rsids from settings.xml."""
+    for name, element in settings_items(ed.pkg):
+        if name in STRIPPED_SETTINGS:
+            ed.editor("settings.xml").remove(element)
+
+
+def anonymize(ed: OdfEditor, remove_comments: bool) -> None:
+    """Comment authors become "Author" (or the comments are removed), their
+    dates and initials go; tracked change authors become "Author" with the
+    placeholder date; LibreOffice's revision IDs (officeooo:rsid) go."""
+    from metaex.core.ooxml import ANONYMOUS
+
+    pkg = ed.pkg
+    for part in pkg.content_names():
+        for e in pkg.xml(part).iter():
+            if e.local in ("annotation", "annotation-end") and e.uri in ANNOTATION_NAMESPACES:
+                if remove_comments:
+                    ed.editor(part).remove(e)
+                    continue
+                for child in e.elements():
+                    if child.is_(DC_NS, "creator") and child.text() != ANONYMOUS:
+                        ed.editor(part).set_content(child, ANONYMOUS)
+                    elif child.is_(DC_NS, "date") or (child.local == "creator-initials"
+                                                      and child.uri in (META_NS, LOEXT_NS)):
+                        ed.editor(part).remove(child)
+            elif e.is_(OFFICE_NS, "change-info"):
+                for child in e.elements():
+                    if child.is_(DC_NS, "creator") and child.text() != ANONYMOUS:
+                        ed.editor(part).set_content(child, ANONYMOUS)
+                    elif child.is_(DC_NS, "date") and child.text() != PLACEHOLDER_DATE:
+                        ed.editor(part).set_content(child, PLACEHOLDER_DATE)
+            for name, _value in e.attrs:
+                if is_rsid_attribute(e, name):
+                    ed.editor(part).remove_attr(e, name)
+
+
+def strip_pictures(ed: OdfEditor, keep_orientation: bool, paranoid: bool) -> None:
+    """Clean every JPEG, PNG, GIF, WebP and SVG picture with its own format's
+    stripper, checked like a cleaned image file."""
+    from metaex.core import filetype
+    from metaex.core.errors import CannotCleanError, MetaexError
+    from metaex.core.ooxml import IMAGE_KEYS
+    from metaex.core.registry import format_module
+    from metaex.core.verify import verify
+
+    for name in picture_names(ed.pkg):
+        data = ed.pkg.read(name)
+        detected = filetype.detect(data)
+        if detected.key not in IMAGE_KEYS:
+            continue
+        try:
+            cleaned = format_module(detected).strip(data, keep_orientation=keep_orientation,
+                                                    paranoid=paranoid)
+            result = verify(cleaned, data)
+        except MetaexError as exc:
+            raise CannotCleanError(f"the picture {name} ({detected.name}) can't be stripped: "
+                                   f"{exc}") from None
+        if not result.clean or result.image_data_match is not True:
+            raise CannotCleanError(f"the picture {name} ({detected.name}) could not be "
+                                   "verified after stripping")
+        if cleaned != data:
+            ed.replaced[name] = cleaned
+
+
+def refuse_user_paths(pkg: OdfPackage) -> None:
+    """Refuse a document whose links point into a user's folder (removing
+    them would change the document)."""
+    from metaex.core.errors import CannotCleanError
+    from metaex.core.paths import local_paths, user_name
+
+    found = [f"{href} (<{e.name}> in {part})" for part, e, href in links(pkg)
+             if any(user_name(p) for p in local_paths(href))]
+    if found:
+        listed = "; ".join(found[:5]) + (f" and {len(found) - 5} more" if len(found) > 5 else "")
+        raise CannotCleanError(f"the document links to files in a user's folder: {listed}. "
+                               "These paths reveal user names, but removing them would break "
+                               "the links; change or remove the links and try again")
+
+
+def strip_package(data: bytes | bytearray | memoryview, kind: str, *,
+                  keep_orientation: bool = True, paranoid: bool = False,
+                  remove_comments: bool = False) -> bytes:
+    """A cleaned copy of an OpenDocument file of ``kind``. Raises
+    MalformedFileError for damaged or unsafe files, UnsupportedFormatError
+    for encrypted ones and CannotCleanError for links into a user's folder."""
+    pkg = open_odf(data)
+    if pkg.kind != kind:
+        raise MalformedFileError(f"the file looks like a {KIND_NAMES[kind]}, but it is a "
+                                 f"{KIND_NAMES[pkg.kind]}")
+    check_xml_files(pkg)
+    refuse_user_paths(pkg)
+    ed = OdfEditor(pkg)
+    strip_meta(ed)
+    strip_settings(ed)
+    for folder in (THUMBNAIL_FOLDER, CONFIG_FOLDER):
+        ed.remove_folder(folder)
+    for name in signature_names(pkg):
+        ed.remove_file(name)
+    anonymize(ed, remove_comments)
+    strip_pictures(ed, keep_orientation, paranoid)
+    return ed.build()
+
+
+def kept_warnings(pkg: OdfPackage) -> list[str]:
+    """What a cleaned document still contains that the user should know about."""
+    out = []
+    changes = tracked_changes_section(pkg)
+    if changes is not None:
+        advice = ("Accept or reject all changes in LibreOffice (Edit > Track Changes > "
+                  "Accept All), save, and run metaex again")
+        deleted = changes.get("deleted_characters")
+        if deleted is not None:
+            out.append(f"CRITICAL: the document still contains tracked changes, and "
+                       f"{deleted.value} characters of DELETED TEXT are still stored in the "
+                       f"file, where anyone can read them. {advice}.")
+        else:
+            out.append(f'the document still contains tracked changes (their authors are now '
+                       f'"Author"). {advice} to remove them.')
+    comments = comments_section(pkg)
+    if comments is not None:
+        out.append(f'kept {comments.get("count").value} comment(s) (their authors are now '
+                   '"Author"); use --remove-comments to remove them')
+    hidden = hidden_section(pkg)
+    if hidden is not None:
+        labels = sorted({f.label for f in hidden.fields})
+        out.append(f"kept hidden content ({', '.join(labels).lower()}): it is part of the "
+                   "document")
+    macros = macro_names(pkg)
+    if macros:
+        out.append(f"the document contains macros ({', '.join(macros[:3])}"
+                   f"{' and more' if len(macros) > 3 else ''}); metaex did not change them, "
+                   "and their code may contain names, paths or other identifying information")
+    objects = object_folders(pkg)
+    if objects:
+        out.append(f"kept {len(objects)} embedded object(s) ({', '.join(objects[:5])}); their "
+                   "metadata was removed, but their contents are part of the document")
+    found = links(pkg)
+    if found:
+        out.append(f"kept {len(found)} external link(s) (e.g. {shorten(found[0][2], 80)}); they "
+                   "are part of the document, and opening it may contact those addresses")
+    data_sources = [name for name, _e in settings_items(pkg) if name in DATA_SOURCE_ITEMS]
+    if data_sources:
+        out.append("kept the mail merge data source settings (" + ", ".join(data_sources)
+                   + "); they name a database registered in LibreOffice")
+    from metaex.core import filetype
+    from metaex.core.ooxml import IMAGE_KEYS
+
+    other = [n for n in picture_names(pkg)
+             if filetype.detect(pkg.read(n)).key not in IMAGE_KEYS]
+    if other:
+        out.append(f"kept {len(other)} picture(s) metaex can't clean ({', '.join(other[:5])}); "
+                   "they may contain their own metadata")
+    return out

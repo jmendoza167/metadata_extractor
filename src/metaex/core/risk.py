@@ -136,6 +136,7 @@ OFFICE_SECTIONS = {
     "office_hidden_parts": CRITICAL, "embedded_images": LOW,
     "zip_hidden": CRITICAL, "zip_comment": HIGH, "zip_extra": HIGH, "zip_entries": LOW,
     "odf_meta": LOW, "odf_user_defined": HIGH, "odf_settings": LOW,
+    "odf_signatures": HIGH, "odf_configurations": LOW,
 }
 OFFICE_FIELDS = {
     # (section key, field key or its last part after "." or ":") -> level

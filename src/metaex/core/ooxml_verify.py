@@ -19,6 +19,8 @@ cleaned:
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from metaex.core import ooxml
 from metaex.core.errors import MalformedFileError, UnsupportedFormatError
@@ -78,8 +80,11 @@ def kept_by_design(section_key: str, field: Field) -> bool:
             return True
         if last == "authors":
             return field.value == [ANONYMOUS]
-        if section_key == "office_comments" and last == "dates":
-            return field.value in (PLACEHOLDER_DATE, f"{PLACEHOLDER_DATE} ({_times(field)} times)")
+        if last == "dates":
+            # the placeholder written where a date is required (PowerPoint
+            # comments, OpenDocument tracked changes), once or many times
+            value = str(field.value)
+            return value.startswith(PLACEHOLDER_DATE[:19]) and " to " not in value
         # deleted text is content: strip keeps it, with a loud warning
         return last in ("deleted_characters", "deleted_text")
     if section_key == "office_people":
@@ -90,11 +95,6 @@ def kept_by_design(section_key: str, field: Field) -> bool:
         allowed = IMAGE_KEPT[section_key]
         return allowed is None or key in allowed
     return False
-
-
-def _times(field: Field) -> str:
-    text = str(field.value)
-    return text.rsplit("(", 1)[-1].split(" ", 1)[0] if "(" in text else "1"
 
 
 # -- canonical form of XML parts -------------------------------------------------------------
@@ -160,12 +160,39 @@ def _before(element: XmlElement):
             yield c
 
 
-def canonical(data: bytes, what: str) -> bytes:
+def _ignored_text(element: XmlElement) -> bool:
+    return (element.uri, element.local) in IGNORED_TEXT
+
+
+def _droppable_when_empty(element: XmlElement, kept_children: int) -> bool:
+    """A run left with nothing but its properties (it only held a comment
+    mark), or a compatibility wrapper left empty."""
+    if element.is_(W, "r"):
+        return kept_children <= 1 and all(
+            not isinstance(c, XmlElement) or c.is_(W, "rPr") or _dropped(c)
+            for c in element.children) and not element.own_text().strip()
+    return element.uri == MC and element.local in ("AlternateContent", "Choice")         and kept_children == 0
+
+
+@dataclass(frozen=True)
+class Rules:
+    """What a canonical form leaves out (what strip may change)."""
+    dropped: Callable[[XmlElement], bool]
+    dropped_attribute: Callable[[XmlElement, str], bool]
+    ignored_text: Callable[[XmlElement], bool]
+    droppable_when_empty: Callable[[XmlElement, int], bool]
+
+
+OOXML_RULES = Rules(_dropped, _dropped_attribute, _ignored_text, _droppable_when_empty)
+
+
+def canonical(data: bytes, what: str, rules: Rules = OOXML_RULES) -> bytes:
     """A form of an XML part that is the same for an original and its cleaned
     copy: elements and attributes by namespace URI (not prefix), attributes
     sorted, namespace declarations left out, and without what strip may
-    change (see DROPPED_*). Whitespace between elements is left out; text
-    is kept exactly."""
+    change (``rules``). Text on both sides of a left-out element is joined,
+    as it is once the element is removed. Whitespace between elements is
+    left out; other text is kept exactly."""
     doc = parse_xml(data, what)
     out: list[str] = []
 
@@ -173,40 +200,36 @@ def canonical(data: bytes, what: str) -> bytes:
         """Write the element; False if it turned out empty and droppable."""
         attrs = sorted((element.attr_uri(n) or "", n.split(":", 1)[-1], v)
                        for n, v in element.attrs
-                       if not n.startswith("xmlns") and not _dropped_attribute(element, n))
+                       if not n.startswith("xmlns") and not rules.dropped_attribute(element, n))
         start = len(out)
         out.append("<" + repr((element.uri or "", element.local, attrs)))
         kept_children = 0
         text = ""
         has_elements = any(isinstance(c, XmlElement) for c in element.children)
+        ignore_text = rules.ignored_text(element)
+
+        def flush() -> None:
+            nonlocal text
+            if text and not (has_elements and text.isspace()) and not ignore_text:
+                out.append("T" + repr(text))
+            text = ""
+
         for child in element.children:
             if isinstance(child, XmlText):
                 text += child.value
-                continue
-            if text:
-                if not (has_elements and text.isspace()):
-                    out.append("T" + repr(text))
-                text = ""
-            if isinstance(child, XmlElement):
-                if _dropped(child):
-                    continue
+            elif isinstance(child, XmlElement):
+                if rules.dropped(child):
+                    continue  # the text around it joins up, as in the cleaned copy
+                flush()
                 if emit(child):
                     kept_children += 1
             elif isinstance(child, (XmlComment, XmlPI)):
+                flush()
                 out.append("C" + repr(child.value if isinstance(child, XmlComment)
                                       else (child.target, child.data)))
-        if text and not (has_elements and text.isspace()):
-            if (element.uri, element.local) not in IGNORED_TEXT:
-                out.append("T" + repr(text))
+        flush()
         out.append(">")
-        # A run left with nothing but its properties (it only held a comment
-        # mark), or a compatibility wrapper left empty, is dropped.
-        empty_run = element.is_(W, "r") and kept_children <= 1 and all(
-            not isinstance(c, XmlElement) or c.is_(W, "rPr") or _dropped(c)
-            for c in element.children) and not element.own_text().strip()
-        empty_wrapper = element.uri == MC and element.local in ("AlternateContent", "Choice") \
-            and kept_children == 0
-        if empty_run or empty_wrapper:
+        if rules.droppable_when_empty(element, kept_children):
             del out[start:]
             return False
         return True
