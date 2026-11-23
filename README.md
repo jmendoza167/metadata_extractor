@@ -139,6 +139,10 @@ other formats follow in [PNG example](#png-example),
 [GIF example](#gif-example), [WebP example](#webp-example) and
 [SVG example](#svg-example).
 
+To try metaex without using your own files, run it on the sample files in
+[tests/samples/](tests/samples/SAMPLES.md) (all their metadata is fake), e.g.
+`metaex risk tests/samples/jpeg/gps_camera.jpg`.
+
 ### risk
 
 ```
