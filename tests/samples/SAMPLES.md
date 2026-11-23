@@ -6,6 +6,8 @@ Small files to try metaex on, for example:
 metaex risk tests/samples/jpeg/gps_camera.jpg
 metaex show tests/samples/svg/editor.svg
 metaex strip tests/samples/jpeg/kitchen_sink.jpg -o kitchen_sink_stripped.jpg
+metaex risk tests/samples/docx/kitchen_sink.docx
+metaex strip tests/samples/odt/kitchen_sink.odt -o notes_stripped.odt --remove-comments
 ```
 
 **All metadata in these files is fake.** The person is always "Jane Doe"
