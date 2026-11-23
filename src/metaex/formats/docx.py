@@ -232,17 +232,21 @@ def revision_ids_section(pkg: Package) -> Section | None:
     if part is not None:
         session_ids = sum(1 for rsids in pkg.xml(part).find_all(W_NS, "rsids")
                           for e in rsids.elements() if e.uri == W_NS)
-    attributes = 0
+    attributes = elements = 0
     for name in rsid_parts(pkg):
         for e in pkg.xml(name).iter():
             attributes += sum(1 for a, _v in e.attrs if is_rsid_attribute(e, a))
-    if not session_ids and not attributes:
+            if e.is_(W_NS, "rsid") and not (e.parent is not None and e.parent.is_(W_NS, "rsids")):
+                elements += 1
+    if not session_ids and not attributes and not elements:
         return None
     section = Section("revision_ids", "Revision IDs (rsids)")
     if session_ids:
         section.add("rsids", "Editing sessions listed in settings.xml", session_ids)
     if attributes:
         section.add("rsid_attributes", "Revision ID attributes", attributes)
+    if elements:
+        section.add("rsid_elements", "Revision IDs of styles", elements)
     return section
 
 
@@ -330,11 +334,27 @@ def anonymize(ed) -> None:
                 editor.remove(child)  # presenceInfo: user ID and account provider
 
 
+def remove_revision_ids(ed) -> None:
+    """Remove every rsid attribute (w:rsidR, w:rsidRPr, w:rsidDel, ...), the
+    w:rsid elements of styles and the list of editing sessions (w:rsids)
+    in settings.xml."""
+    pkg = ed.pkg
+    for part in rsid_parts(pkg):
+        for e in pkg.xml(part).iter():
+            if e.uri == W_NS and e.local in ("rsids", "rsid"):
+                ed.editor(part).remove(e)
+                continue
+            for name, _value in e.attrs:
+                if is_rsid_attribute(e, name):
+                    ed.editor(part).remove_attr(e, name)
+
+
 def _strip_word(ed) -> None:
     from metaex.core.ooxml import strip_custom_xml
 
     strip_custom_xml(ed, keep=bound_custom_xml(ed.pkg))
     anonymize(ed)
+    remove_revision_ids(ed)
 
 
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,

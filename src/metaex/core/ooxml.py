@@ -1210,5 +1210,7 @@ def strip_package(data: bytes | bytearray | memoryview, kind: str, format_strip)
     check_xml_parts(pkg)
     ed = PackageEditor(pkg)
     strip_properties(ed)
+    for part in thumbnail_parts(pkg):
+        ed.remove_part(part)
     format_strip(ed)
     return ed.build()
