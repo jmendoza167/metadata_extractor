@@ -91,8 +91,12 @@ paths** in any attribute (`C:\Users\<name>\...`, `/home/<name>/...`,
 which are decoded and read with their own format's parser, so a JPEG's GPS
 inside an SVG is found too. It also warns about `<script>` elements, event
 handler attributes and external `http(s)` references (opening the SVG can
-contact that server). SVG files with a DOCTYPE or ENTITY declaration, and
-files that are not UTF-8, are refused before parsing.
+contact that server). The standard SVG 1.0 and 1.1 DOCTYPE line found in
+older files is accepted: metaex never downloads the DTD it points to, lists
+the line as low-risk information and removes it when stripping (it doesn't
+change the drawing). Any other DOCTYPE, ENTITY declarations, entities that
+only a DTD defines (such as `&nbsp;`) and files that are not UTF-8 are
+refused before parsing.
 
 ### Planned (not implemented yet)
 
@@ -242,9 +246,10 @@ How it works, and what is guaranteed:
     namespace prefixes stay exactly as written (the default SVG namespace,
     `xlink:`; never `ns0:`), but formatting inside tags can change
     (quoting, `<a></a>` written as `<a/>`, the indentation of removed
-    elements). Dropped: `<metadata>`, comments, processing instructions
-    (the XML declaration stays), every element and attribute in an editor
-    namespace (`sodipodi:namedview`, `inkscape:*`, Illustrator `i:*`, ...)
+    elements). Dropped: the standard DOCTYPE line, `<metadata>`, comments,
+    processing instructions (the XML declaration stays), every element and
+    attribute in an editor namespace (`sodipodi:namedview`, `inkscape:*`,
+    Illustrator `i:*`, ...)
     and the declarations of namespaces no longer used. Embedded images
     (data: URIs) are stripped with their own format's rules and written
     back as base64.
@@ -678,9 +683,14 @@ Specific to SVG:
 - Processing instructions are removed, including `<?xml-stylesheet?>`: a
   drawing that takes its styles from an external stylesheet will look
   different. Copy the CSS into a `<style>` element first.
-- Files with a DOCTYPE (common in older SVGs, e.g. the SVG 1.1 DTD line)
-  or ENTITY declarations are refused, and so is any encoding other than
-  UTF-8. Embedded SVGs are read at most 3 levels deep.
+- Only the official W3C SVG 1.0 and SVG 1.1 DOCTYPE lines are accepted
+  (quotes and spacing may differ). Every other DOCTYPE is refused: SVG
+  Tiny or Basic, a different or `https://` address, a DOCTYPE with extra
+  declarations in `[...]`, more than one DOCTYPE. So are ENTITY
+  declarations, named entities other than `&amp;` `&lt;` `&gt;` `&quot;`
+  `&apos;` (for example `&nbsp;` or `&copy;`; write the character itself
+  or `&#160;` instead) and any encoding other than UTF-8. Embedded SVGs
+  are read at most 3 levels deep.
 - data: URIs inside CSS (`url(data:...)`, often fonts) are not examined;
   `show` warns about them and `strip` refuses such files.
 - Only the editor namespaces metaex knows are recognized (Inkscape,

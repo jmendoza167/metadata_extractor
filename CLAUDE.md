@@ -6,8 +6,10 @@ Guidance for working on **metaex** in this repository.
 
 metaex is a command-line tool that **shows** and **removes** metadata from
 files (photos, documents, audio, archives) for privacy. It is written in
-Python and uses **only the standard library at runtime**. pytest is the only
-dev dependency.
+Python and uses **only the standard library at runtime**. The only dev
+dependencies are pytest and Pillow; Pillow is an independent decoder for
+the tests' pixel checks and metaex itself must never import it (a test
+enforces this).
 
 It is used for real privacy work and published as a public repo, so
 **correctness and honesty matter more than features**. Never claim a file is
@@ -111,6 +113,14 @@ pytest
   Windows, Linux and macOS.
 - Parser tests should include malformed/truncated/oversized inputs, not just
   happy paths.
+
+## Documentation
+
+- **README.md is for users only**: what metaex does, how to install and
+  use it, examples and limitations. Write it in user-facing language.
+- **Development setup belongs here, in CLAUDE.md, never in the README**:
+  the venv, dev dependencies, running the tests, gitleaks and the git
+  hooks (`scripts/install_hooks.py`).
 
 ## Git workflow and commit rules
 
