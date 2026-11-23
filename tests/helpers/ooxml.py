@@ -584,7 +584,10 @@ def add_external_data(pkg: Package) -> Package:
     pkg.add_linked("xl/workbook.xml", "externalLink", "xl/externalLinks/externalLink1.xml", link,
                    "application/vnd.openxmlformats-officedocument.spreadsheetml.externalLink+xml")
     pkg.link("xl/externalLinks/externalLink1.xml", "externalLinkPath", SERVER_PATH, external=True)
-    connections = (f'{DECL}<connections xmlns="{S_NS}"><connection id="1" name="Payroll" type="1">'
+    # CT_Connection: id and refreshedVersion are required (Excel rejects the
+    # part without refreshedVersion); type 1 = ODBC, which uses <dbPr>.
+    connections = (f'{DECL}<connections xmlns="{S_NS}"><connection id="1" keepAlive="1" '
+                   'name="Payroll" type="1" refreshedVersion="6" background="1" saveData="1">'
                    '<dbPr connection="DSN=Payroll;UID=jane.doe;Server=db01.example.com" '
                    'command="SELECT * FROM salaries"/></connection></connections>')
     pkg.add_linked("xl/workbook.xml", "connections", "xl/connections.xml", connections,
