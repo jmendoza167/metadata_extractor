@@ -1,14 +1,43 @@
-"""Build small, real PNG files for tests (pixel data compressed with zlib)."""
+"""Build small, real PNG files for tests (pixel data compressed with zlib).
+
+Inside ``with stored_deflate():`` every helper here writes its zlib data as
+stored blocks instead (helpers.deflate), so the files are byte-identical
+on every machine; the committed sample files are built that way.
+"""
 
 from __future__ import annotations
 
+import contextlib
 import struct
 import zlib
+from collections.abc import Iterator
+
+from helpers.deflate import stored_zlib
 
 SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 GRAY, RGB, PALETTE, GRAY_ALPHA, RGBA = 0, 2, 3, 4, 6
 _CHANNELS = {GRAY: 1, RGB: 3, PALETTE: 1, GRAY_ALPHA: 2, RGBA: 4}
+
+
+_stored = False
+
+
+@contextlib.contextmanager
+def stored_deflate() -> Iterator[None]:
+    """Within this block, the helpers compress with stored deflate blocks."""
+    global _stored
+    previous, _stored = _stored, True
+    try:
+        yield
+    finally:
+        _stored = previous
+
+
+def deflate(data: bytes, level: int = -1) -> bytes:
+    """zlib data for ``data``: zlib.compress(), or stored blocks inside
+    stored_deflate()."""
+    return stored_zlib(data) if _stored else zlib.compress(data, level)
 
 
 def chunk(chunk_type: bytes | str, data: bytes = b"", crc: int | None = None) -> bytes:
@@ -62,7 +91,7 @@ def expected_raw_size(width: int, height: int, depth: int, color: int, interlace
 
 def idat_chunks(raw: bytes, parts: int = 1) -> list[bytes]:
     """The zlib-compressed image data split over ``parts`` IDAT chunks."""
-    compressed = zlib.compress(raw, 9)
+    compressed = deflate(raw, 9)
     size = -(-len(compressed) // parts)
     return [chunk("IDAT", compressed[i : i + size]) for i in range(0, len(compressed), size)]
 
@@ -89,7 +118,7 @@ def text(keyword: str, value: str) -> bytes:
 
 
 def ztxt(keyword: str, value: str, method: int = 0, compressed: bytes | None = None) -> bytes:
-    body = compressed if compressed is not None else zlib.compress(value.encode("latin-1"))
+    body = compressed if compressed is not None else deflate(value.encode("latin-1"))
     return chunk("zTXt", keyword.encode("latin-1") + b"\x00" + bytes([method]) + body)
 
 
@@ -99,7 +128,7 @@ def itxt(keyword: str, value: str, language: str = "", translated: str = "",
     if compressed is not None:
         body, compress = compressed, True
     elif compress:
-        body = zlib.compress(body)
+        body = deflate(body)
     return chunk("iTXt", keyword.encode("latin-1") + b"\x00" + bytes([int(compress), 0])
                  + language.encode("ascii") + b"\x00" + translated.encode("utf-8") + b"\x00"
                  + body)
@@ -118,7 +147,7 @@ def zlib_bomb(size: int) -> bytes:
 
 
 def iccp(profile: bytes, name: str = "ICC profile", compressed: bytes | None = None) -> bytes:
-    body = compressed if compressed is not None else zlib.compress(profile)
+    body = compressed if compressed is not None else deflate(profile)
     return chunk("iCCP", name.encode("latin-1") + b"\x00\x00" + body)
 
 
@@ -143,7 +172,7 @@ def fctl(sequence: int, width: int = 4, height: int = 4) -> bytes:
 
 
 def fdat(sequence: int, raw: bytes) -> bytes:
-    return chunk("fdAT", struct.pack(">I", sequence) + zlib.compress(raw))
+    return chunk("fdAT", struct.pack(">I", sequence) + deflate(raw))
 
 
 # -- image variants ----------------------------------------------------------------
