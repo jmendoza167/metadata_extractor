@@ -79,6 +79,17 @@ def test_transpose_applies_exif_orientation():
     assert decode_frames(data, transpose=True)[0].size == (2, 3)
 
 
+def test_mode_converts_palette_indices_to_colors():
+    data = png.palette_png(width=2, height=1)
+    [indexed] = decode_frames(data)
+    [rgba] = decode_frames(data, mode="RGBA")
+    assert indexed.mode == "P" and rgba.mode == "RGBA"
+    palette = [(0, 0, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255)]
+    alpha = [0, 128, 255, 255]
+    expected = b"".join(bytes(palette[i]) + bytes([alpha[i]]) for i in indexed.pixels)
+    assert rgba.pixels == expected
+
+
 def test_reads_from_a_path(tmp_path):
     path = tmp_path / "a.png"
     path.write_bytes(png.make_png())

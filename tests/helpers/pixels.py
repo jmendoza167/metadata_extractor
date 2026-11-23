@@ -42,13 +42,16 @@ def open_image(source: bytes | bytearray | str | os.PathLike[str]) -> Image.Imag
 
 
 def decode_frames(source: bytes | bytearray | str | os.PathLike[str], *,
-                  transpose: bool = False) -> list[Frame]:
+                  transpose: bool = False, mode: str | None = None) -> list[Frame]:
     """Every frame of the image, fully decoded by Pillow, as it is displayed.
 
     Animated GIF, APNG and animated WebP give one Frame per animation frame
     (composited onto the canvas, as Pillow shows them); still images give one.
     With ``transpose``, each frame is first turned the way its EXIF
     Orientation says (ImageOps.exif_transpose), i.e. as a viewer shows it.
+    With ``mode`` (e.g. "RGBA"), each frame is converted to that mode: for
+    palette images the raw bytes are only indices, so this is what makes
+    the palette and its transparency part of the pixels.
     Raises whatever Pillow raises for an image it can't decode.
     """
     image = open_image(source)
@@ -59,6 +62,8 @@ def decode_frames(source: bytes | bytearray | str | os.PathLike[str], *,
             raise ValueError(f"more than {MAX_FRAMES} frames")
         frame.load()
         shown = ImageOps.exif_transpose(frame) if transpose else frame
+        if mode is not None:
+            shown = shown.convert(mode)
         duration = frame.info.get("duration") if animated else None
         frames.append(Frame(shown.mode, shown.size, shown.tobytes(),
                             None if duration is None else int(duration)))
