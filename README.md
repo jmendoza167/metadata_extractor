@@ -697,15 +697,6 @@ Specific to SVG:
   Sodipodi, Adobe, Sketch, Affinity, Visio, Krita); data a program writes
   without its own namespace (for example `data-*` attributes) is kept.
 
-## Development
-
-```
-python -m venv .venv
-# Windows: .venv\Scripts\activate    Linux/macOS: source .venv/bin/activate
-pip install -e ".[dev]"
-pytest
-```
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
