@@ -43,7 +43,7 @@ DEFAULT_CONTENT = {
     "ods": ('<table:table table:name="Sheet1"><table:table-row><table:table-cell '
             'office:value-type="string"><text:p>Hello</text:p></table:table-cell>'
             "</table:table-row></table:table>"),
-    "odp": ('<draw:page draw:name="page1"><draw:frame><draw:text-box><text:p>Hello</text:p>'
+    "odp": ('<draw:page draw:name="page1" draw:master-page-name="Default"><draw:frame><draw:text-box><text:p>Hello</text:p>'
             "</draw:text-box></draw:frame></draw:page>"),
 }
 
@@ -55,9 +55,18 @@ def content_xml(kind: str, body: str = "", styles: str = "") -> str:
             "</office:document-content>")
 
 
-def styles_xml(inner: str = "") -> str:
+MASTER_PAGES = (
+    '<office:automatic-styles><style:page-layout style:name="PM1">'
+    '<style:page-layout-properties fo:page-width="28cm" fo:page-height="15.75cm" '
+    'style:print-orientation="landscape"/></style:page-layout></office:automatic-styles>'
+    '<office:master-styles><style:master-page style:name="Default" '
+    'style:page-layout-name="PM1"/></office:master-styles>')
+"""A presentation's pages must name a master page (draw:master-page-name)."""
+
+
+def styles_xml(inner: str = "", masters: str = "") -> str:
     return (f'{DECL}<office:document-styles {DECLS} office:version="1.3">'
-            f"<office:styles>{inner}</office:styles></office:document-styles>")
+            f"<office:styles>{inner}</office:styles>{masters}</office:document-styles>")
 
 
 JANE_META = (
@@ -127,7 +136,8 @@ class Document:
         self.kind = kind
         self.files: dict[str, tuple[bytes, str]] = {}
         self.add("content.xml", content_xml(kind, body, automatic_styles), "text/xml")
-        self.add("styles.xml", styles_xml(), "text/xml")
+        self.add("styles.xml", styles_xml(masters=MASTER_PAGES if kind == "odp" else ""),
+                 "text/xml")
         self.unlisted: dict[str, bytes] = {}
 
     def add(self, name: str, data: bytes | str, media_type: str) -> Document:
@@ -203,11 +213,11 @@ ODS_STYLES = ('<style:style style:name="ta1" style:family="table"><style:table-p
               "</style:style>")
 
 ODP_BODY = (
-    '<draw:page draw:name="page1" draw:style-name="dp1"><draw:frame><draw:text-box>'
+    '<draw:page draw:name="page1" draw:style-name="dp1" draw:master-page-name="Default"><draw:frame><draw:text-box>'
     "<text:p>Floor plan</text:p></draw:text-box></draw:frame>" + ANNOTATION
     + "<presentation:notes><draw:frame><draw:text-box><text:p>Mention the deadline: "
     "2024-06-01</text:p></draw:text-box></draw:frame></presentation:notes></draw:page>"
-    '<draw:page draw:name="page2" draw:style-name="dp2"><draw:frame><draw:text-box>'
+    '<draw:page draw:name="page2" draw:style-name="dp2" draw:master-page-name="Default"><draw:frame><draw:text-box>'
     "<text:p>Draft numbers</text:p></draw:text-box></draw:frame></draw:page>")
 ODP_STYLES = ('<style:style style:name="dp1" style:family="drawing-page">'
               '<style:drawing-page-properties presentation:visibility="visible"/></style:style>'

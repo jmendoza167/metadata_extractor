@@ -51,13 +51,13 @@
         },
         "size_bytes": {
           "label": "Size (bytes)",
-          "value": 3050,
+          "value": 3417,
           "sensitive": false,
           "note": null
         },
         "size": {
           "label": "Size",
-          "value": "3.0 KiB",
+          "value": "3.3 KiB",
           "sensitive": false,
           "note": null
         }
@@ -68,19 +68,19 @@
       "fields": {
         "md5": {
           "label": "MD5",
-          "value": "27ebe890b1895ae26135efaeb541e6f7",
+          "value": "0d1f8534d91c7ef8b078d7e9eeeb7e3e",
           "sensitive": false,
           "note": null
         },
         "sha1": {
           "label": "SHA-1",
-          "value": "cb6e2230431b35762b5819d81c6040a0f888084b",
+          "value": "bb15f8176ffccf295122e633e090b5da5b284a42",
           "sensitive": false,
           "note": null
         },
         "sha256": {
           "label": "SHA-256",
-          "value": "00584d334114a494aad865c8ba020492894e1b2a79afeeff81b09119f3625d81",
+          "value": "51b26ef345222b0c29e0531d1477c50839c89dd38f44c9a80ce7174b61770ded",
           "sensitive": false,
           "note": null
         }
