@@ -134,9 +134,11 @@ def test_detects_other_formats(data, expected):
 
 
 def test_in_scope_formats_are_marked_supported():
-    for t in (ft.DOCX, ft.XLSX, ft.PPTX, ft.ODT, ft.MP3, ft.WAV, ft.FLAC, ft.ZIP, ft.TAR):
+    for t in (ft.DOCX, ft.XLSX, ft.PPTX, ft.ODT, ft.ODS, ft.ODP, ft.MP3, ft.WAV, ft.FLAC,
+              ft.ZIP, ft.TAR):
         assert t.supported is True, t.key
-    for t in (ft.PDF, ft.OLE2, ft.DOC, ft.XLS, ft.PPT, ft.ENCRYPTED_OFFICE, ft.ODS, ft.ODP, ft.EPUB, ft.OGG, ft.MP4, ft.MOV,
+    for t in (ft.PDF, ft.OLE2, ft.DOC, ft.XLS, ft.PPT, ft.ENCRYPTED_OFFICE, ft.EPUB, ft.OGG,
+              ft.MP4, ft.MOV,
               ft.M4A, ft.GZIP, ft.SEVEN_ZIP, ft.RAR, ft.UNKNOWN):
         assert t.supported is False, t.key
 

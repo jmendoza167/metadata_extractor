@@ -78,8 +78,8 @@ PPTX = _t(
     ".pptx .pptm .potx .potm .ppsx .ppsm", True,
 )
 ODT = _t("odt", "ODT", "application/vnd.oasis.opendocument.text", ".odt .ott", True)
-ODS = _t("ods", "ODS", "application/vnd.oasis.opendocument.spreadsheet", ".ods .ots", False)
-ODP = _t("odp", "ODP", "application/vnd.oasis.opendocument.presentation", ".odp .otp", False)
+ODS = _t("ods", "ODS", "application/vnd.oasis.opendocument.spreadsheet", ".ods .ots", True)
+ODP = _t("odp", "ODP", "application/vnd.oasis.opendocument.presentation", ".odp .otp", True)
 EPUB = _t("epub", "EPUB", "application/epub+zip", ".epub", False)
 OLE2 = _t(
     "ole2", "Legacy Office (OLE2)", "application/x-ole-storage",
