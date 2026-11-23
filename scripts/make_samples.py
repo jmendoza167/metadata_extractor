@@ -238,6 +238,36 @@ def svg_samples() -> dict[str, bytes]:
     }
 
 
+@sample_set
+def malformed_samples() -> dict[str, bytes]:
+    """Damaged files: metaex must refuse to strip them, and write nothing."""
+    photo = jpeg.sample_photo()
+    scan_start, _ = jpeg.scan_range(photo)
+    comment = gif.comment("Jane Doe")
+    good_gif = gif.make_gif(comment, gif.image(8, 8), width=8, height=8)
+    at = good_gif.index(comment) + 2  # the comment's first sub-block size byte
+    lossless = webp.lossless(8, 8)
+    riff_size = int.from_bytes(lossless[4:8], "little")
+    return {
+        # cut off in the middle of the image data, like an interrupted download
+        "malformed/truncated.jpg": photo[: scan_start + 40],
+        # the tEXt chunk's CRC doesn't match its contents
+        "malformed/bad_crc.png": png.make_png(
+            png.chunk("tEXt", b"Author\x00Jane Doe", crc=0x12345678),
+            width=PNG_WIDTH, height=PNG_HEIGHT),
+        # the comment's sub-block says 255 bytes, more than the rest of the file
+        "malformed/broken_subblock.gif": good_gif[:at] + b"\xff" + good_gif[at + 1:],
+        # the RIFF header says the file is 100 bytes longer than it is
+        "malformed/wrong_riff_size.webp": (lossless[:4] + (riff_size + 100).to_bytes(4, "little")
+                                           + lossless[8:]),
+        # an XML entity declaration (refused: entities enable XML attacks)
+        "malformed/entity.svg": (b'<?xml version="1.0" encoding="UTF-8"?>\n'
+                                 b'<!DOCTYPE svg [<!ENTITY author "Jane Doe">]>\n'
+                                 b'<svg xmlns="http://www.w3.org/2000/svg" width="10" '
+                                 b'height="10"><title>&author;</title></svg>\n'),
+    }
+
+
 # -- building ---------------------------------------------------------------------------
 
 
@@ -347,3 +377,4 @@ def main(argv: Sequence[str] | None = None, root: Path = SAMPLES_DIR) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

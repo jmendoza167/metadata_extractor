@@ -118,6 +118,19 @@ def test_scan_range_covers_the_entropy_coded_data():
     assert data[start - 14:start - 12] == b"\xff\xda"  # SOS with 3 components: 12-byte length
 
 
+def test_scan_range_skips_the_scan_of_an_exif_thumbnail():
+    """sample_photo()'s EXIF thumbnail is a JPEG with its own SOS, inside
+    APP1, before the main image's SOS."""
+    data = sample_photo()
+    assert data[2:4] == b"\xff\xe1"
+    app1_end = 4 + int.from_bytes(data[4:6], "big")
+    assert 2 < data.index(b"\xff\xda") < app1_end  # the first SOS is the thumbnail's
+    start, end = scan_range(data)
+    assert start > app1_end
+    assert end == len(data) - 2  # the main image's EOI ends the file
+    assert data[start - 14:start - 12] == b"\xff\xda"
+
+
 @pytest.mark.parametrize("bad", [dict(width=0, height=1, rgb=b""),
                                  dict(width=2, height=2, rgb=b"\x00" * 11)])
 def test_encoder_rejects_bad_input(bad):

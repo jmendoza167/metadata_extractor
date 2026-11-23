@@ -231,11 +231,22 @@ def sample_photo_rotated(order: str = "<") -> bytes:
 
 
 def scan_range(data: bytes) -> tuple[int, int]:
-    """(start, end) of the entropy-coded data of the first scan (the files
-    built here have one scan and no restart markers)."""
-    sos = data.index(b"\xff\xda")
-    start = sos + 2 + int.from_bytes(data[sos + 2:sos + 4], "big")
-    return start, data.index(EOI, start)
+    """(start, end) of the entropy-coded data of the main image's scan (the
+    files built here have one scan and no restart markers). The segments
+    are walked from SOI, so the SOS of an EXIF thumbnail (inside APP1) is
+    never taken for the main image's."""
+    pos = 2
+    while pos + 4 <= len(data):
+        if data[pos] != 0xFF:
+            break
+        length = int.from_bytes(data[pos + 2:pos + 4], "big")
+        if length < 2:
+            break
+        if data[pos + 1] == 0xDA:
+            start = pos + 2 + length
+            return start, data.index(EOI, start)
+        pos += 2 + length
+    raise ValueError("no SOS segment found")
 
 
 def corrupt_scan(data: bytes, where: float = 0.5) -> bytes:
