@@ -1,0 +1,3 @@
+# Sample files must keep their exact bytes: never convert line endings
+# (SVGs included), so the generator check and snapshots stay valid.
+tests/samples/** -text
