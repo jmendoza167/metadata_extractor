@@ -563,7 +563,8 @@ def tag_sections(tags: list[id3.Tag], warnings: list[str],
         sections.append(id3.tag_section(tag, "id3v2", title, warnings, pictures))
     if end_tags is not None:
         sections += end_tag_sections(end_tags, warnings, pictures)
-    sections += picture_sections(pictures, warnings, "audio_pictures", "Embedded pictures")
+    sections += picture_sections(pictures, warnings, "audio_pictures",
+                                 "Embedded pictures and objects")
     hidden = id3.padding_section(tags, warnings)
     if hidden is not None:
         sections.append(hidden)
@@ -663,3 +664,60 @@ def junk_sections(walk: FrameWalk, data: bytes, warnings: list[str]) -> list[Sec
         warnings.append(f"{padding_total} bytes of zero padding in the audio stream")
         out.append(padding)
     return out
+
+
+def structure_section(found: Layout, walk: FrameWalk | None) -> Section:
+    """Where everything is: tags, frames and junk, in file order."""
+    section = Section("structure", "MP3 structure")
+    parts: list[tuple[int, str, str]] = []
+    for kind, start, end in found.tag_ranges():
+        parts.append((start, f"{kind} tag", f"offset {start}, {end - start} bytes"))
+    if walk is not None:
+        for start, end in walk.runs:
+            parts.append((start, "Audio frames", f"offset {start}, {end - start} bytes"))
+        for start, end in walk.junk:
+            parts.append((start, "Not audio", f"offset {start}, {end - start} bytes"))
+    for n, (_start, label, value) in enumerate(sorted(parts)):
+        section.add(f"part_{n}", label, value)
+    return section
+
+
+def parse(data: bytes | bytearray | memoryview) -> dict:
+    """Parse an MP3 file: the tags around the audio and the audio frames.
+
+    Raises MalformedFileError if an ID3v2 tag at the start is broken (then
+    the audio can't be found), and UnsupportedFormatError for free-format
+    MPEG audio and AAC. Other problems become warnings, with ``complete``
+    False.
+    """
+    data = bytes(data)
+    warnings: list[str] = []
+    complete = True
+    budget = Budget(id3.DECOMPRESS_LIMIT)
+    leading, start = leading_tags(data, budget)
+    try:
+        end_tags = find_end_tags(data, start, budget)
+    except MalformedFileError as exc:
+        warnings.append(f"malformed tag at the end of the file: {exc}; the end of the file "
+                        "was examined as audio")
+        end_tags = EndTags(len(data))
+        complete = False
+    found = Layout(leading, start, end_tags)
+    walk = None
+    try:
+        walk = walk_frames(data, found.audio_start, found.audio_end)
+    except MalformedFileError as exc:
+        warnings.append(f"malformed MP3: {exc}")
+        complete = False
+    sections: list[Section] = []
+    if walk is not None:
+        sections.append(audio_section(walk))
+        if walk.info is not None:
+            sections.append(info_section(walk.info))
+    sections += tag_sections(found.id3v2, warnings, found.end_tags)
+    if walk is not None:
+        sections += junk_sections(walk, data, warnings)
+    if any(t.error is not None for t in found.id3v2):
+        complete = False
+    return {"warnings": warnings, "sections": sections,
+            "structure": structure_section(found, walk), "complete": complete}

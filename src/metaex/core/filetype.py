@@ -446,30 +446,58 @@ def _detect_id3(head: bytes) -> FileType | None:
     return MP3
 
 
-_MPEG1_L3_KBPS = (0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320)
-_MPEG2_L3_KBPS = (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160)
+_MPEG_KBPS = {
+    # (MPEG-1?, layer bits) -> bitrates for indexes 0-14 (3 = Layer I, 2 = II, 1 = III)
+    (True, 3): (0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448),
+    (True, 2): (0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384),
+    (True, 1): (0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320),
+    (False, 3): (0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256),
+    (False, 2): (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160),
+    (False, 1): (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160),
+}
 # Version bits: 3 = MPEG-1, 2 = MPEG-2, 0 = MPEG-2.5 (1 is reserved).
 _MPEG_SAMPLE_RATES = {3: (44100, 48000, 32000), 2: (22050, 24000, 16000), 0: (11025, 12000, 8000)}
 
 
 def _mpeg_frame_length(data: bytes, pos: int) -> int | None:
-    """Length of a valid MPEG audio Layer III frame starting at pos, else None."""
+    """Length of a valid MPEG audio frame (Layer I, II or III) starting at
+    pos, else None. Free-format frames (bitrate index 0) don't count."""
     if pos < 0 or pos + 4 > len(data):
         return None
     b0, b1, b2 = data[pos], data[pos + 1], data[pos + 2]
-    if b0 != 0xFF or b1 & 0xE0 != 0xE0:
+    if b0 != 0xFF or b1 & 0xE0 != 0xE0 or data[pos + 3] & 3 == 2:
         return None
     version = (b1 >> 3) & 0x3
     layer = (b1 >> 1) & 0x3
     bitrate_index = b2 >> 4
     rate_index = (b2 >> 2) & 0x3
-    if version == 1 or layer != 1 or bitrate_index in (0, 15) or rate_index == 3:
+    if version == 1 or layer == 0 or bitrate_index in (0, 15) or rate_index == 3:
         return None
-    table = _MPEG1_L3_KBPS if version == 3 else _MPEG2_L3_KBPS
-    bitrate = table[bitrate_index] * 1000
+    bitrate = _MPEG_KBPS[(version == 3, layer)][bitrate_index] * 1000
     sample_rate = _MPEG_SAMPLE_RATES[version][rate_index]
-    samples_factor = 144 if version == 3 else 72
-    return samples_factor * bitrate // sample_rate + ((b2 >> 1) & 0x1)
+    padding = (b2 >> 1) & 0x1
+    if layer == 3:
+        return (12 * bitrate // sample_rate + padding) * 4
+    samples = 1152 if layer == 2 or version == 3 else 576
+    return samples // 8 * bitrate // sample_rate + padding
+
+
+def _is_free_format_mpeg(head: bytes) -> bool:
+    """A free-format frame header (bitrate index 0: the frame length is not in
+    the header) at 0, and the same header again later in ``head``. metaex
+    recognizes such files only to refuse them clearly."""
+    if len(head) < 8 or head[0] != 0xFF or head[1] & 0xE0 != 0xE0 or head[3] & 3 == 2:
+        return False
+    b1, b2 = head[1], head[2]
+    if (b1 >> 3) & 3 == 1 or (b1 >> 1) & 3 == 0 or b2 >> 4 != 0 or (b2 >> 2) & 3 == 3:
+        return False
+    pattern = bytes([0xFF, b1])
+    pos = head.find(pattern, 4)
+    while pos >= 0 and pos + 3 <= len(head):
+        if head[pos + 2] & 0xFD == b2 & 0xFD:  # the padding bit may differ
+            return True
+        pos = head.find(pattern, pos + 1)
+    return False
 
 
 def _is_mpeg_audio(head: bytes) -> bool:
@@ -478,6 +506,8 @@ def _is_mpeg_audio(head: bytes) -> bool:
     One header alone is too easy to hit by accident (0xFFFB... is common in
     random data), so a second consistent frame is required.
     """
+    if _is_free_format_mpeg(head):
+        return True
     first = _mpeg_frame_length(head, 0)
     if first is None:
         return False
