@@ -535,6 +535,138 @@ def inner_warnings(found: list[InnerFile]) -> list[str]:
     if not left:
         return []
     listed = some([f"{f.path} ({f.kind})" for f in left])
+    if deep_session() is not None:
+        how = "--deep could not clean them (see the warning about copied files)"
+    else:
+        how = "they were NOT cleaned; use --deep to clean the files inside the archive too"
     return [f"CRITICAL: {len(left)} file(s) inside the archive still contain metadata: "
-            f"{listed}. They were NOT cleaned; use --deep to clean the files inside the "
-            "archive too"]
+            f"{listed}; {how}"]
+
+
+# -- cleaning files inside (--deep) --------------------------------------------------------------
+
+
+@dataclass
+class DeepSession:
+    cleaned: list[tuple[str, str]] = field(default_factory=list)
+    """(path, type) of the files inside that were cleaned."""
+    copied: list[tuple[str, str]] = field(default_factory=list)
+    """(path, reason) of the files inside copied unchanged."""
+
+
+_DEEP: ContextVar[DeepSession | None] = ContextVar("metaex_deep_session", default=None)
+
+
+def deep_session() -> DeepSession | None:
+    return _DEEP.get()
+
+
+@contextmanager
+def deep_cleaning() -> Iterator[DeepSession]:
+    """Collect what --deep did to the files inside (for strip's summary)."""
+    session = DeepSession()
+    token = _DEEP.set(session)
+    try:
+        yield session
+    finally:
+        _DEEP.reset(token)
+
+
+def _why_not(detected, module) -> str:
+    from metaex.core import filetype
+
+    if detected.key == filetype.UNKNOWN.key:
+        return "type not recognized"
+    reason = filetype.refusal(detected)
+    if reason is not None:
+        return reason
+    return f"metaex can't clean {detected.name} files"
+
+
+def clean_inner(path: str, data: bytes, *, keep_orientation: bool = True,
+                paranoid: bool = False) -> bytes:
+    """A file inside an archive, cleaned with its own format's stripper and
+    verified against the original (no metadata left, same image, audio or
+    contents), for --deep. Files metaex can't clean (unsupported, damaged,
+    nested too deep, or not verified) are returned unchanged and listed in
+    the deep session; nothing is dropped silently."""
+    from metaex.core import filetype
+    from metaex.core.errors import MetaexError
+    from metaex.core.registry import can_strip, format_module
+    from metaex.core.verify import verify
+
+    session = deep_session()
+    state = scan_state()
+    shown = f"{state.prefix}{path}"
+
+    def copied(reason: str) -> bytes:
+        if session is not None:
+            session.copied.append((shown, reason))
+        return data
+
+    if not data:
+        return data
+    detected = filetype.detect(data)
+    module = format_module(detected)
+    if detected.key in ARCHIVE_KEYS and state.depth + 1 > MAX_NESTING:
+        return copied(f"archives are cleaned only {MAX_NESTING} levels deep")
+    if not can_strip(module):
+        return copied(_why_not(detected, module))
+    if state.counter.left <= 0:
+        return copied(f"more than {MAX_INNER_FILES} files inside")
+    state.counter.left -= 1
+    options = {"keep_orientation": keep_orientation, "paranoid": paranoid}
+    if getattr(module, "CAN_DEEP", False):
+        options["deep"] = True
+    try:
+        with inside(path), own_budget():
+            cleaned = module.strip(data, **options)
+            with scan_inner(False):
+                result = verify(cleaned, data)
+    except MetaexError as exc:
+        return copied(str(exc))
+    if not result.clean or result.image_data_match is not True:
+        reasons = result.problems + [str(f) for f in result.leftovers]
+        return copied("the cleaned copy could not be verified (" + "; ".join(reasons[:2]) + ")")
+    if cleaned != data and session is not None:
+        session.cleaned.append((shown, detected.name))
+    return cleaned
+
+
+def compare_inner(pairs: list[tuple[str, bytes, bytes]]) -> tuple[list[str], list[str]]:
+    """Each file of a cleaned archive against the original's: it must be the
+    same bytes, or a cleaned copy that verifies against the original file
+    (what --deep writes). Returns (problems, paths of verified cleaned copies)."""
+    from metaex.core.errors import MetaexError
+    from metaex.core.verify import verify
+
+    problems: list[str] = []
+    verified: list[str] = []
+    for path, mine, theirs in pairs:
+        if mine == theirs:
+            continue
+        try:
+            with inside(path), scan_inner(False):
+                result = verify(mine, theirs)
+        except MetaexError as exc:
+            problems.append(f"{path} differs from the original and is not a cleaned copy of "
+                            f"it ({exc})")
+            continue
+        if not result.clean or result.image_data_match is not True:
+            reasons = result.problems + [str(f) for f in result.leftovers]
+            if result.image_data_match is False:
+                reasons.insert(0, f"{result.image_label.lower()} differs")
+            problems.append(f"{path} differs from the original and is not a verified cleaned "
+                            f"copy of it ({'; '.join(reasons[:2]) or 'not compared'})")
+            continue
+        verified.append(path)
+    return problems, verified
+
+
+def deep_warnings(session: DeepSession) -> list[str]:
+    """For strip's summary: the files --deep copied unchanged, with why."""
+    if not session.copied:
+        return []
+    listed = some([f"{path} ({reason})" for path, reason in session.copied])
+    return [f"--deep copied {len(session.copied)} file(s) inside unchanged, because metaex "
+            f"can't clean them: {listed}"]

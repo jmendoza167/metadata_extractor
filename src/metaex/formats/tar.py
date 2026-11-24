@@ -26,9 +26,10 @@ import hashlib
 from metaex.core import appledouble, tarwriter
 from metaex.core import tar as tarcore
 from metaex.core.archive import (DEVICE, DIR, FIFO, FILE, HARDLINK, NEUTRAL_TIME, SYMLINK,
-                                 Member, contents_section, inner_warnings, junk_reason,
-                                 junk_warnings, link_problem, member_sections, neutral_mode,
-                                 scan_files, scan_inner, scan_state, some, user_folder_warnings)
+                                 Member, clean_inner, compare_inner, contents_section,
+                                 inner_warnings, junk_reason, junk_warnings, link_problem,
+                                 member_sections, neutral_mode, root_scan, scan_files,
+                                 scan_inner, scan_state, some, user_folder_warnings)
 from metaex.core.errors import CannotCleanError, MalformedFileError, MetaexError
 from metaex.core.inflate import Budget, shared_budget, sharing
 from metaex.core.ziparchive import DEFAULT_LIMITS
@@ -234,13 +235,15 @@ def check_strippable(kept: list[tuple[tarcore.TarEntry, Member]]) -> None:
         seen.add(tarcore.normalized(entry.name))
 
 
-def out_member(archive: tarcore.TarArchive, entry: tarcore.TarEntry, m: Member
-               ) -> tarwriter.OutMember:
+def out_member(archive: tarcore.TarArchive, entry: tarcore.TarEntry, m: Member,
+               data: bytes | None = None) -> tarwriter.OutMember:
+    """The cleaned header of an entry, with its data (or ``data`` instead)."""
     name = entry.raw_name
     if m.kind == DIR and not name.endswith(b"/"):
         name += b"/"
     typeflag = _OUT_TYPES.get(m.kind, entry.typeflag)
-    data = archive.read(entry) if m.kind == FILE else b""
+    if data is None:
+        data = archive.read(entry) if m.kind == FILE else b""
     link = entry.raw_linkname if m.kind in (SYMLINK, HARDLINK) else b""
     return tarwriter.OutMember(name, typeflag, neutral_mode(m), data, link,
                                entry.header.devmajor, entry.header.devminor)
@@ -258,23 +261,52 @@ def contents_digest(archive: tarcore.TarArchive, entries: list[tarcore.TarEntry]
     return h.hexdigest()
 
 
-def strip_archive(archive: tarcore.TarArchive) -> bytes:
+def layout(archive: tarcore.TarArchive, entries: list[tarcore.TarEntry]
+           ) -> list[tuple[str, str, bytes]]:
+    """(name, kind, link target) of each entry: what must not change."""
+    return [(tarcore.normalized(e.name), kind_of(e),
+             e.raw_linkname if kind_of(e) in (SYMLINK, HARDLINK) else b"") for e in entries]
+
+
+def strip_archive(archive: tarcore.TarArchive, *, deep: bool = False,
+                  keep_orientation: bool = True, paranoid: bool = False) -> bytes:
+    """The cleaned copy of an opened archive (see strip())."""
     kept = kept_entries(archive)
     check_strippable(kept)
+    out = []
+    changed: set[int] = set()
+    with sharing(shared_budget() or Budget(DEFAULT_LIMITS.max_total_size)), root_scan():
+        for e, m in kept:
+            data = None
+            if deep and m.kind == FILE and e.size:
+                original = archive.read(e)
+                data = clean_inner(m.name, original, keep_orientation=keep_orientation,
+                                   paranoid=paranoid)
+                if data != original:
+                    changed.add(len(out))
+            out.append(out_member(archive, e, m, data))
     try:
-        cleaned = tarwriter.write_tar([out_member(archive, e, m) for e, m in kept])
+        cleaned = tarwriter.write_tar(out)
     except ValueError as exc:
         raise MalformedFileError(f"the cleaned TAR archive can't be written: {exc}") from None
+    # Self-check: the same entries with the same contents (files cleaned by
+    # --deep were verified one by one).
     result = tarcore.open_tar(cleaned)
-    if contents_digest(result, result.entries) != contents_digest(archive,
-                                                                   [e for e, _m in kept]):
+    same = layout(result, result.entries) == layout(archive, [e for e, _m in kept]) and all(
+        n in changed or result.read(new) == archive.read(old)
+        for n, (new, (old, _m)) in enumerate(zip(result.entries, kept)))
+    if not same:
         raise MalformedFileError("internal check failed: the archive's contents changed while "
                                  "stripping")
     return cleaned
 
 
+CAN_DEEP = True
+"""strip(deep=True) also cleans the files inside."""
+
+
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
-          paranoid: bool = False) -> bytes:
+          paranoid: bool = False, deep: bool = False) -> bytes:
     """Return a cleaned copy of a TAR archive (whitelist).
 
     Kept, in order: every file, folder, link, device and fifo entry, with
@@ -287,15 +319,20 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     GNU volume labels and long-name headers, every unused header byte,
     data in padding and after the end, earlier copies of files replaced by
     a later entry, and operating system junk (AppleDouble "._" files,
-    __MACOSX/, .DS_Store, Thumbs.db, desktop.ini). ``keep_orientation``
-    and ``paranoid`` apply to files inside, which are not cleaned here.
+    __MACOSX/, .DS_Store, Thumbs.db, desktop.ini).
+
+    The files inside are not changed, unless ``deep``: then each one metaex
+    can clean is cleaned with its own format's stripper (with
+    ``keep_orientation`` and ``paranoid``) and verified; the others are
+    copied as they are (see core/archive.py clean_inner()).
 
     Raises MalformedFileError for damaged or unsafe archives,
     UnsupportedFormatError for sparse files and unknown entry types, and
     CannotCleanError for links to absolute paths, outside the archive or
     into a user folder.
     """
-    return strip_archive(tarcore.open_tar(data))
+    return strip_archive(tarcore.open_tar(data), deep=deep, keep_orientation=keep_orientation,
+                         paranoid=paranoid)
 
 
 def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
@@ -395,7 +432,20 @@ def verify_archive(archive: tarcore.TarArchive, original: tarcore.TarArchive | N
         out["problems"].append("the entries differ from the original's (operating system "
                                f"files aside): missing {some(missing) or 'none'}, added "
                                f"{some(added) or 'none'}")
-    out["image_data_match"] = out["image_sha256"] == out["original_image_sha256"]
+        out["image_data_match"] = False
+        return out
+    if layout(archive, archive.entries) != layout(original, kept):
+        out["problems"].append("entry types or link targets differ from the original's")
+    # Every file is the original's, or (--deep) a cleaned copy verified against it.
+    with sharing(shared_budget() or Budget(DEFAULT_LIMITS.max_total_size)):
+        problems, verified = compare_inner(
+            [(e.name, archive.read(e), original.read(oe))
+             for e, oe in zip(archive.entries, kept)])
+    out["problems"] += problems
+    out["image_data_match"] = not out["problems"]
+    if verified:
+        out["image_label"] = (f"{IMAGE_LABEL} ({len(verified)} file(s) inside cleaned and "
+                              "verified)")
     return out
 
 

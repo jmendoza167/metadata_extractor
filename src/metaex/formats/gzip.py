@@ -20,12 +20,17 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     return compress.parse(data, KIND)
 
 
+CAN_DEEP = True
+"""strip(deep=True) also cleans the file or the files of the TAR inside."""
+
+
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
-          paranoid: bool = False) -> bytes:
-    """A cleaned copy (see compress.rewrap()): a compressed TAR is cleaned as a
-    TAR; a single file inside is copied as it is. ``keep_orientation`` and
-    ``paranoid`` apply to files inside, which are not cleaned here."""
-    return compress.strip(data, KIND)
+          paranoid: bool = False, deep: bool = False) -> bytes:
+    """A cleaned copy (see compress.strip()): a compressed TAR is cleaned as a
+    TAR; a single file inside is copied as it is, or cleaned with ``deep``
+    (``keep_orientation`` and ``paranoid`` apply to the files inside)."""
+    return compress.strip(data, KIND, deep=deep, keep_orientation=keep_orientation,
+                          paranoid=paranoid)
 
 
 def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:

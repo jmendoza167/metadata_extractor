@@ -6,12 +6,13 @@ import os
 import secrets
 import stat
 import sys
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from typing import Any
 
 from metaex.core import filetype as ft
 from metaex.core import icc
-from metaex.core.archive import scan_inner
+from metaex.core.archive import DeepSession, deep_cleaning, deep_warnings, scan_inner, some
 from metaex.core.errors import (CannotCleanError, MalformedFileError, MetaexError,
                                 UnsupportedFormatError)
 from metaex.core.generic import mark_of_the_web_section
@@ -123,7 +124,8 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
                paranoid: bool = False, keep_orientation: bool = True,
                max_size: int = DEFAULT_MAX_SIZE, in_place: bool = False,
                fixed_time: bool = False, rename: bool = False,
-               rebuild_image_data: bool = False, remove_comments: bool = False) -> StripOutcome:
+               rebuild_image_data: bool = False, remove_comments: bool = False,
+               deep: bool = False) -> StripOutcome:
     """load -> detect -> strip -> temp file -> verify -> move into place.
 
     With ``in_place`` the original is replaced (still via a verified temp
@@ -136,7 +138,8 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     decompressed and compressed again without them (identical pixels)
     instead of being refused. With ``remove_comments`` (Office documents)
     comments are removed completely instead of being kept with "Author" as
-    their author.
+    their author. With ``deep`` (archives) the files inside are cleaned too,
+    each with its own format's stripper, and verified.
 
     Raises (and writes nothing) for unsupported types, malformed input, an
     existing output file, or a failed verification.
@@ -160,6 +163,21 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     if remove_comments and not getattr(module, "CAN_REMOVE_COMMENTS", False):
         raise MetaexError(f"--remove-comments is not available for {detected.name} files; "
                           "no file written")
+    if deep and not getattr(module, "CAN_DEEP", False):
+        raise MetaexError(f"--deep is only for archives (ZIP, TAR, gzip, bzip2, xz), not "
+                          f"{detected.name} files; no file written")
+    with ExitStack() as stack:
+        session = stack.enter_context(deep_cleaning()) if deep else None
+        return _strip(source, data, detected, module, output, session,
+                      keep_orientation=keep_orientation, paranoid=paranoid, in_place=in_place,
+                      fixed_time=fixed_time, rename=rename,
+                      rebuild_image_data=rebuild_image_data, remove_comments=remove_comments)
+
+
+def _strip(source: str, data: bytes, detected: ft.FileType, module, output,
+           session: DeepSession | None, *, keep_orientation: bool, paranoid: bool,
+           in_place: bool, fixed_time: bool, rename: bool, rebuild_image_data: bool,
+           remove_comments: bool) -> StripOutcome:
     if sum((in_place, output is not None, rename)) > 1:
         raise MetaexError("choose only one of --in-place, -o and --rename")
     if in_place:
@@ -177,6 +195,8 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
         options["rebuild_image_data"] = True
     if remove_comments:
         options["remove_comments"] = True
+    if session is not None:
+        options["deep"] = True
     try:
         cleaned = module.strip(data, keep_orientation=keep_orientation, paranoid=paranoid,
                                **options)
@@ -202,13 +222,25 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
         result = write_verified(target, cleaned, check, times=times)
     outcome = StripOutcome(source, target, detected, len(data), len(cleaned),
                            kept_by_design=result.kept_by_design, verify=result)
-    with scan_inner(False):
-        outcome.removed = removed_groups(module.parse(data), result.kept_by_design)
+    if session is None:
+        with scan_inner(False):
+            outcome.removed = removed_groups(module.parse(data), result.kept_by_design)
+    else:
+        # What disappeared, files inside included.
+        remaining = [Finding(s.title, f.label, format_value(f.value))
+                     for s in module.parse(cleaned).get("sections", []) for f in s.fields]
+        outcome.removed = removed_groups(module.parse(data), remaining)
     sizes_hook = getattr(module, "removed_sizes", None)
     if callable(sizes_hook):
         outcome.removed_sizes = {_SECTION_GROUPS.get(key, key): n
                                  for key, n in sizes_hook(data).items()}
-    outcome.warnings.extend(kept_warnings(module.parse(cleaned)))
+    with scan_inner(False):  # files inside: see the archive's kept_warnings
+        outcome.warnings.extend(kept_warnings(module.parse(cleaned)))
+    if session is not None:
+        outcome.warnings.extend(deep_warnings(session))
+        if session.cleaned:
+            outcome.notes.append(f"--deep cleaned {len(session.cleaned)} file(s) inside: "
+                                 + some([f"{p} ({kind})" for p, kind in session.cleaned]))
     option_warnings = getattr(module, "strip_warnings", None)
     if callable(option_warnings):  # e.g. MP3: what --paranoid took away
         outcome.warnings.extend(option_warnings(data, paranoid=paranoid))
@@ -441,6 +473,10 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
         if v.image_data_match and v.image_data_rebuilt:
             lines.append("  Image data rebuilt, pixels identical (SHA-256 of the "
                          f"decompressed image data {v.image_sha256})")
+        elif v.image_data_match and "cleaned and verified" in v.image_label:
+            # --deep: the files inside changed on purpose, each checked on its own
+            lines.append(f"  {v.image_label}: the same files as the original "
+                         f"(SHA-256 {v.image_sha256})")
         elif v.image_data_match:
             lines.append(f"  {v.image_label} unchanged (SHA-256 {v.image_sha256})")
     lines.append("")

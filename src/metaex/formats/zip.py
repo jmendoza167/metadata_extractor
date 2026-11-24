@@ -26,10 +26,12 @@ import zlib
 from datetime import datetime, timedelta, timezone
 
 from metaex.core import appledouble, zipwriter
-from metaex.core.archive import (DEVICE, DIR, FIFO, FILE, SYMLINK, Member, contents_section,
-                                 inner_warnings, junk_reason, junk_warnings, link_problem,
-                                 member_sections, neutral_mode, scan_files, scan_inner,
-                                 scan_state, some, user_folder_warnings)
+from metaex.core.archive import (DEVICE, DIR, FIFO, FILE, SYMLINK, Member, clean_inner,
+                                 compare_inner, contents_section, inner_warnings, junk_reason,
+                                 root_scan,
+                                 junk_warnings, link_problem, member_sections, neutral_mode,
+                                 scan_files, scan_inner, scan_state, some,
+                                 user_folder_warnings)
 from metaex.core.errors import CannotCleanError, MalformedFileError
 from metaex.core.inflate import sharing
 from metaex.core.reader import ByteReader
@@ -382,8 +384,12 @@ def kept_entries(archive: ZipArchive) -> list[tuple[ZipEntry, Member, str]]:
     return [(e, m, output_name(e)) for e, m in zip(archive.entries, found) if not m.junk]
 
 
+CAN_DEEP = True
+"""strip(deep=True) also cleans the files inside."""
+
+
 def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
-          paranoid: bool = False) -> bytes:
+          paranoid: bool = False, deep: bool = False) -> bytes:
     """Return a cleaned copy of a plain ZIP archive (whitelist).
 
     Every entry except operating system junk is kept, in order, with its
@@ -393,9 +399,13 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     links), no extra fields, no comments, no data descriptors. Removed:
     the archive comment, entry comments, extra fields (times, owners), data
     before, between and after the entries, __MACOSX/ and AppleDouble "._"
-    files, .DS_Store, Thumbs.db and desktop.ini. The files inside are not
-    changed. ``keep_orientation`` and ``paranoid`` apply to files inside
-    the archive, which are not cleaned here.
+    files, .DS_Store, Thumbs.db and desktop.ini.
+
+    The files inside are not changed, unless ``deep``: then each one metaex
+    can clean is cleaned with its own format's stripper (with
+    ``keep_orientation`` and ``paranoid``), verified, and compressed again
+    with its original method; the others are copied as they are (see
+    core/archive.py clean_inner()).
 
     Raises MalformedFileError for damaged or unsafe archives (and encrypted
     entries), CannotCleanError for signed archives and links to absolute
@@ -405,17 +415,31 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     found = members(archive)
     check_strippable(archive, found)
     kept = kept_entries(archive)
-    out = [zipwriter.copied(archive, e, name, output_mode(m)) for e, m, name in kept]
+    out = []
+    changed: set[str] = set()
+    with sharing(archive.budget), root_scan():
+        for e, m, name in kept:
+            if deep and m.kind == FILE and e.size:
+                original = archive.read(e)
+                inner = clean_inner(name, original, keep_orientation=keep_orientation,
+                                    paranoid=paranoid)
+                if inner != original:
+                    out.append(zipwriter.new(name, inner, e.method, output_mode(m)))
+                    changed.add(name)
+                    continue
+            out.append(zipwriter.copied(archive, e, name, output_mode(m)))
     try:
         cleaned = zipwriter.write_zip(out)
     except ValueError as exc:
         raise MalformedFileError(f"the cleaned ZIP archive can't be written: {exc}") from None
-    # Self-check: the same entries with the same contents.
+    # Self-check: the same entries with the same contents (files cleaned by
+    # --deep were verified one by one).
     result = open_archive(cleaned)
     names = [name for _e, _m, name in kept]
-    if (result.names() != names
-            or contents_digest(result, result.entries, names)
-            != contents_digest(archive, [e for e, _m, _n in kept], names)):
+    same = result.names() == names and all(
+        name in changed or result.read(new) == archive.read(old)
+        for new, (old, _m, name) in zip(result.entries, kept))
+    if not same:
         raise MalformedFileError("internal check failed: the archive's contents changed while "
                                  "stripping")
     return cleaned
@@ -537,8 +561,17 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
                                f"files aside): missing {some(missing) or 'none'}, added "
                                f"{some(added) or 'none'}" + ("" if missing or added else
                                                               ", order changed"))
-    for e, (oe, _m, _n) in zip(archive.entries, kept):
-        if e.crc != oe.crc or e.size != oe.size:
-            out["problems"].append(f"entry {e.name} differs from the original")
-    out["image_data_match"] = out["image_sha256"] == out["original_image_sha256"]
+        out["image_data_match"] = False
+        return out
+    # Every entry is the original's, or (--deep) a cleaned copy verified
+    # against it.
+    with sharing(source.budget):
+        problems, verified = compare_inner(
+            [(name, archive.read(e), source.read(oe))
+             for e, (oe, _m, name) in zip(archive.entries, kept)])
+    out["problems"] += problems
+    out["image_data_match"] = not problems
+    if verified:
+        out["image_label"] = (f"{IMAGE_LABEL} ({len(verified)} file(s) inside cleaned and "
+                              "verified)")
     return out

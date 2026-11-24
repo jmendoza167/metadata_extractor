@@ -558,19 +558,30 @@ def rewrap(c: Compressed, content: bytes | None) -> bytes:
     return lzma.compress(content, format=lzma.FORMAT_XZ, check=check)
 
 
-def strip(data: bytes | bytearray | memoryview, kind: str) -> bytes:
+def strip(data: bytes | bytearray | memoryview, kind: str, *, deep: bool = False,
+          keep_orientation: bool = True, paranoid: bool = False) -> bytes:
     """A cleaned copy: the wrapper rewritten without metadata (see rewrap())
-    around a cleaned TAR, or around the original single file."""
+    around a cleaned TAR, or around the single file inside, which is copied
+    as it is, or cleaned and verified with ``deep`` (with
+    ``keep_orientation`` and ``paranoid``; see core/archive.py
+    clean_inner())."""
+    from metaex.core.archive import clean_inner, root_scan
+
     c = open_compressed(data)
     if c.kind != kind:
         raise MalformedFileError(f"not a {NAMES[kind]} file")
-    content = None
-    if is_tar(c):
-        from metaex.core import tar as tarcore
+    new = c.content
+    with sharing(c.budget), root_scan():
+        if is_tar(c):
+            from metaex.core import tar as tarcore
 
-        cleaned_tar = _tar_module().strip_archive(tarcore.open_tar(c.content))
-        if cleaned_tar != c.content:
-            content = cleaned_tar
+            new = _tar_module().strip_archive(tarcore.open_tar(c.content), deep=deep,
+                                              keep_orientation=keep_orientation,
+                                              paranoid=paranoid)
+        elif deep:
+            new = clean_inner(inner_name(c), c.content, keep_orientation=keep_orientation,
+                              paranoid=paranoid)
+    content = new if new != c.content else None
     cleaned = rewrap(c, content)
     check = open_compressed(cleaned)
     if check.content != (c.content if content is None else content):
@@ -684,6 +695,14 @@ def verify_details(cleaned: bytes, original: bytes | None, kind: str) -> dict:
     out["image_label"] = "Compressed file contents"
     out["image_sha256"] = hashlib.sha256(c.content).hexdigest()
     if source is not None:
+        from metaex.core.archive import compare_inner
+
         out["original_image_sha256"] = hashlib.sha256(source.content).hexdigest()
-        out["image_data_match"] = out["image_sha256"] == out["original_image_sha256"]
+        # The original contents, or (--deep) a cleaned copy verified against them.
+        with sharing(c.budget):
+            problems, verified = compare_inner([(inner_name(c), c.content, source.content)])
+        out["problems"] += problems
+        out["image_data_match"] = not problems
+        if verified:
+            out["image_label"] = "Compressed file contents (cleaned and verified)"
     return out
