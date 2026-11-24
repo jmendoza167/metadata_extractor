@@ -79,7 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
                             "<title> and <desc>; office documents: in their images); "
                             "colors may shift. MP3: also the Xing/LAME information frame "
                             "(duration and seeking may be less accurate); WAV: also cue "
-                            "points and sampler loops")
+                            "points and sampler loops; FLAC: also the cue sheet")
     strip.add_argument("--no-orientation", action="store_true",
                        help="don't keep the EXIF Orientation tag (the image may display rotated)")
     strip.add_argument("--rebuild-image-data", action="store_true",

@@ -789,3 +789,121 @@ def audio_digest(data: bytes, found: FlacLayout) -> str:
     h = hashlib.sha256(found.blocks[0].data)
     h.update(data[found.audio_start:found.audio_end])
     return h.hexdigest()
+
+
+# -- Stripping ----------------------------------------------------------------------------------
+
+
+def checked_layout(data: bytes) -> FlacLayout:
+    """The layout of a FLAC for stripping or verification: anything malformed
+    raises (broken blocks or tags, an invalid first frame, a last frame that
+    can't be found or doesn't end the stream STREAMINFO describes)."""
+    found = layout(data)
+    if found.error is not None:
+        raise MalformedFileError(found.error)
+    for tag in found.leading + found.end_tags.id3v2:
+        if tag.error is not None:
+            raise MalformedFileError(f"the {tag.version} tag at offset {tag.offset} is "
+                                     f"malformed: {tag.error}")
+    if len(found.all(STREAMINFO)) != 1:
+        raise MalformedFileError("the file has more than one STREAMINFO block")
+    for block_type in (SEEKTABLE, CUESHEET):
+        if len(found.all(block_type)) > 1:
+            raise MalformedFileError(f"the file has more than one {BLOCK_NAMES[block_type]} "
+                                     "block")
+    seek = found.first(SEEKTABLE)
+    if seek is not None and len(seek.data) % SEEKPOINT_SIZE:
+        raise MalformedFileError("SEEKTABLE length is not a multiple of 18")
+    cue = found.first(CUESHEET)
+    if cue is not None:
+        parse_cuesheet(cue.data)
+    return found
+
+
+def kept_blocks(found: FlacLayout, paranoid: bool = False) -> list[tuple[int, bytes]]:
+    """(type, payload) of the blocks a stripped FLAC holds: STREAMINFO and
+    SEEKTABLE as they are, and (unless ``paranoid``) the CUESHEET with its
+    reserved bytes set to zero."""
+    out = [(STREAMINFO, found.blocks[0].data)]
+    seek = found.first(SEEKTABLE)
+    if seek is not None:
+        out.append((SEEKTABLE, seek.data))
+    cue = found.first(CUESHEET)
+    if cue is not None and not paranoid:
+        out.append((CUESHEET, clean_cuesheet(cue.data)))
+    return out
+
+
+def make_block(block_type: int, payload: bytes, last: bool) -> bytes:
+    return (bytes([block_type | (0x80 if last else 0)]) + len(payload).to_bytes(3, "big")
+            + payload)
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return a copy of the FLAC with all metadata removed (whitelist).
+
+    Kept: STREAMINFO (with the MD5 of the audio) and SEEKTABLE, byte for
+    byte, and every byte from the first frame to the end of the last. Kept
+    by default: the CUESHEET (track positions, with its reserved bytes set to
+    zero); ``paranoid`` removes it too. Removed: VORBIS_COMMENT, PICTURE,
+    APPLICATION, PADDING and reserved blocks, ID3v2 tags before the stream,
+    ID3v1, APE and other tags after it, and anything after the last frame.
+    The last-block flag is set on the last block written.
+    ``keep_orientation`` doesn't apply to audio.
+
+    Raises MalformedFileError for malformed input; nothing is ever partly
+    stripped.
+    """
+    data = bytes(data)
+    found = checked_layout(data)
+    blocks = kept_blocks(found, paranoid)
+    cleaned = (MAGIC + b"".join(make_block(t, p, i == len(blocks) - 1)
+                                for i, (t, p) in enumerate(blocks))
+               + data[found.audio_start:found.audio_end])
+    # Self-check: a well-formed FLAC, nothing around it, the same audio.
+    out = checked_layout(cleaned)
+    if (out.leading or out.end_tags.order or out.audio_end != len(cleaned)
+            or audio_digest(cleaned, out) != audio_digest(data, found)):
+        raise MalformedFileError("internal check failed: the audio changed while stripping")
+    return cleaned
+
+
+def kept_warnings(cleaned: bytes) -> list[str]:
+    """What a stripped FLAC still holds by design: the cue sheet."""
+    try:
+        found = layout(bytes(cleaned))
+    except MalformedFileError:
+        return []
+    cue = found.first(CUESHEET)
+    if cue is None:
+        return []
+    return ["the cue sheet is kept (track positions, with the disc's catalog number and "
+            "the tracks' ISRC codes if it has them); use --paranoid to remove it"]
+
+
+def strip_warnings(data: bytes, paranoid: bool = False) -> list[str]:
+    """Warnings about what stripping with these options takes away."""
+    if not paranoid:
+        return []
+    try:
+        found = layout(bytes(data))
+    except MalformedFileError:
+        return []
+    if found.first(CUESHEET) is None:
+        return []
+    return ["--paranoid removed the cue sheet (track positions)"]
+
+
+def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
+    """Bytes after the last frame (before any tags at the end)."""
+    data = bytes(data)
+    try:
+        found = layout(data)
+    except MalformedFileError:
+        return {}
+    if found.audio_end is None or found.audio_end >= found.data_end:
+        return {}
+    trailing = data[found.audio_end:found.data_end]
+    key = "audio_padding" if trailing.count(0) == len(trailing) else "audio_trailing"
+    return {key: len(trailing)}
