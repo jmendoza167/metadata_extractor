@@ -597,8 +597,9 @@ def _is_mpeg_audio(head: bytes) -> bool:
 # -- TAR -------------------------------------------------------------------------
 
 def _is_tar(head: bytes) -> bool:
-    """POSIX/GNU tar: "ustar" magic at 257 and a valid header checksum."""
-    if len(head) < 512 or head[257:262] != b"ustar":
+    """A TAR header with a valid checksum: POSIX/GNU ("ustar" magic at 257),
+    or old Unix v7 (no magic: a name, octal numbers and nothing else)."""
+    if len(head) < 512:
         return False
     field = head[148:156].split(b"\x00", 1)[0].strip()
     if not field or any(c not in b"01234567" for c in field):
@@ -607,7 +608,25 @@ def _is_tar(head: bytes) -> bool:
     header = head[:148] + b" " * 8 + head[156:512]
     unsigned = sum(header)
     signed = sum(b - 256 if b > 127 else b for b in header)
-    return stored in (unsigned, signed)
+    if stored not in (unsigned, signed):
+        return False
+    if head[257:262] == b"ustar":
+        return True
+    return _looks_like_v7(head)
+
+
+def _looks_like_v7(head: bytes) -> bool:
+    name = head[:100].split(b"\x00", 1)[0]
+    if not name or head[257:512].strip(b"\x00") or head[156:157] not in b"\x000123456":
+        return False
+    if any(c < 0x20 for c in name):
+        return False
+    for start, end in ((100, 108), (108, 116), (116, 124), (124, 136), (136, 148)):
+        digits = head[start:end].split(b"\x00", 1)[0].strip(b" ")
+        if not digits or any(c not in b"01234567" for c in digits):
+            return False
+    return True
+
 
 
 # -- SVG -------------------------------------------------------------------------

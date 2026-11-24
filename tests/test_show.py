@@ -26,13 +26,13 @@ def run_show(*args: str) -> subprocess.CompletedProcess:
 
 
 def test_show_text_report(tmp_path):
-    p = tmp_path / "backup.tar"  # a format metaex plans to support but can't read yet
-    p.write_bytes(make_tar())
+    p = tmp_path / "paper.pdf"  # a format metaex doesn't read
+    p.write_bytes(b"%PDF-1.7\n")
     result = run_show(str(p))
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
     out = " ".join(result.stdout.split())  # ignore line wrapping
-    for expected in ("File type", "TAR", "planned (not implemented yet)",
+    for expected in ("File type", "PDF", "not supported",
                      "File system", "Hashes", "SHA-256", "was NOT examined"):
         assert expected in out
 
@@ -158,7 +158,6 @@ def test_show_malformed_jpeg_is_partly_examined(tmp_path):
         ("sound.aiff", b"FORM\x00\x00\x00\x10AIFFCOMM" + bytes(20), "AIFF", "not supported"),
         ("letter.docx", make_zip({"[Content_Types].xml": "<T/>", "word/document.xml": "<w/>"}),
          "DOCX", SUPPORTED),
-        ("backup.tar", make_tar(), "TAR", PLANNED),
         ("paper.pdf", b"%PDF-1.7\n", "PDF", "not supported"),
         ("scan.heic", b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1heic", "HEIC",
          "not supported"),
@@ -176,6 +175,15 @@ def test_show_generated_files(tmp_path, name, content, type_name, support):
     assert field(data, "file_type", "embedded_metadata").startswith("not examined")
     assert field(data, "file_system", "size_bytes") == len(content)
     assert any("NOT examined" in w for w in data["warnings"])
+
+
+def test_show_tar_is_examined(tmp_path):
+    p = tmp_path / "backup.tar"
+    p.write_bytes(make_tar())
+    data = show_json(p)
+    assert field(data, "file_type", "name") == "TAR"
+    assert field(data, "file_type", "embedded_metadata") == "examined"
+    assert field(data, "archive_contents", "entries") == 1
 
 
 def test_show_plain_zip_is_examined(tmp_path):
