@@ -705,4 +705,6 @@ def verify_details(cleaned: bytes, original: bytes | None, kind: str) -> dict:
         out["image_data_match"] = not problems
         if verified:
             out["image_label"] = "Compressed file contents (cleaned and verified)"
+            out["notes"] = [f"{verified[0]}: a cleaned copy, verified against the original "
+                            "file inside (no metadata left, same contents)"]
     return out

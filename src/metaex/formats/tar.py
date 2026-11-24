@@ -368,6 +368,7 @@ def kept_warnings(cleaned: bytes) -> list[str]:
 # -- verification ----------------------------------------------------------------------------
 
 IMAGE_LABEL = "Archive contents"
+MAX_NOTES = 20
 
 
 def is_kept_by_design(section_key: str, field) -> bool:
@@ -446,6 +447,11 @@ def verify_archive(archive: tarcore.TarArchive, original: tarcore.TarArchive | N
     if verified:
         out["image_label"] = (f"{IMAGE_LABEL} ({len(verified)} file(s) inside cleaned and "
                               "verified)")
+        out["notes"] = [f"{path}: a cleaned copy, verified against the original file inside "
+                        "(no metadata left, same contents)" for path in verified[:MAX_NOTES]]
+        if len(verified) > MAX_NOTES:
+            out["notes"].append(f"... and {len(verified) - MAX_NOTES} more cleaned file(s) "
+                                "inside, all verified")
     return out
 
 

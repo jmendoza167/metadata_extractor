@@ -480,6 +480,7 @@ def kept_warnings(cleaned: bytes) -> list[str]:
 # -- verification ----------------------------------------------------------------------------
 
 IMAGE_LABEL = "Archive contents"
+MAX_NOTES = 20
 KEPT_SECTIONS = ("archive_contents", "archive_paths")
 """What may stay in a cleaned archive: its contents and the entry names
 (kept as they are, with a warning when they reveal a user folder)."""
@@ -574,4 +575,9 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
     if verified:
         out["image_label"] = (f"{IMAGE_LABEL} ({len(verified)} file(s) inside cleaned and "
                               "verified)")
+        out["notes"] = [f"{path}: a cleaned copy, verified against the original file inside "
+                        "(no metadata left, same contents)" for path in verified[:MAX_NOTES]]
+        if len(verified) > MAX_NOTES:
+            out["notes"].append(f"... and {len(verified) - MAX_NOTES} more cleaned file(s) "
+                                "inside, all verified")
     return out
