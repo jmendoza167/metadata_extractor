@@ -14,6 +14,7 @@ from helpers import jpeg
 from helpers.gif import kitchen_sink_gif
 from helpers.jpeg import kitchen_sink_jpeg
 from helpers.mp3 import kitchen_sink_mp3
+from helpers.wav import kitchen_sink_wav
 from helpers.ooxml import (COMMENTED_BODY, TRACKED_BODY, WORD_NAMESPACES, add_excel_comments,
                            add_media, add_ppt_comments, add_word_comments, docx, pptx,
                            with_properties, xlsx)
@@ -59,7 +60,7 @@ def test_cli_never_imports_test_only_packages(tmp_path):
     samples = {"photo.jpg": kitchen_sink_jpeg(), "image.png": kitchen_sink_png(),
                "anim.gif": kitchen_sink_gif(), "image.webp": kitchen_sink_webp(),
                "drawing.svg": kitchen_sink_svg(), **office_samples(),
-               "song.mp3": kitchen_sink_mp3()}
+               "song.mp3": kitchen_sink_mp3(), "take.wav": kitchen_sink_wav()}
     paths = []
     for name, data in samples.items():
         (tmp_path / name).write_bytes(data)
