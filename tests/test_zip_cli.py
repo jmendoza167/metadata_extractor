@@ -118,9 +118,9 @@ def test_zip_based_formats_are_refused_clearly(tmp_path, files, expected):
     assert not list(tmp_path.glob("*_clean*"))
 
 
-def test_strip_is_not_available_yet(tmp_path):
+def test_strip_is_available(tmp_path):
     path = tmp_path / "plans.zip"
     path.write_bytes(kitchen_sink())
     r = metaex("show", "--json", path)
     support = json.loads(r.stdout)["sections"]["file_type"]["fields"]["support"]["value"]
-    assert support == "viewing supported; stripping not implemented yet"
+    assert support == "supported"

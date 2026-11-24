@@ -183,7 +183,7 @@ def test_show_plain_zip_is_examined(tmp_path):
     p.write_bytes(make_zip({"a.txt": "a"}))
     data = show_json(p)
     assert field(data, "file_type", "name") == "ZIP"
-    assert field(data, "file_type", "support") == "viewing supported; stripping not implemented yet"
+    assert field(data, "file_type", "support") == "supported"
     assert field(data, "file_type", "embedded_metadata") == "examined"
     assert field(data, "archive_contents", "entries") == 1
 

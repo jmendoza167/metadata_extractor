@@ -61,10 +61,10 @@ def test_changed_image_data_is_not_clean(tmp_path):
 
 def test_errors_exit_1(tmp_path):
     assert run(str(tmp_path / "missing.jpg")).returncode == 1
-    archive = write(tmp_path, "a.zip", b"PK\x05\x06" + bytes(18))  # an empty ZIP
-    result = run(str(archive))
+    paper = write(tmp_path, "a.pdf", b"%PDF-1.7\n")
+    result = run(str(paper))
     assert result.returncode == 1
-    assert "can't verify ZIP" in result.stderr
+    assert "can't verify PDF" in result.stderr
 
 
 def test_json_keys(tmp_path):

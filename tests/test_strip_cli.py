@@ -18,7 +18,7 @@ from metaex.core.verify import verify
 from metaex.core.writer import write_verified
 from metaex.formats import jpeg
 
-EMPTY_ZIP = b"PK\x05\x06" + bytes(18)  # a format metaex can't strip yet
+PDF = b"%PDF-1.7\n"  # a format metaex can't strip
 
 
 def run(*args, stdin=None):
@@ -79,12 +79,12 @@ def test_output_option(photo, tmp_path):
 
 
 def test_unsupported_type_writes_nothing(tmp_path):
-    p = tmp_path / "bundle.zip"
-    p.write_bytes(EMPTY_ZIP)
+    p = tmp_path / "paper.pdf"
+    p.write_bytes(PDF)
     result = run("strip", str(p))
     assert result.returncode == 1
-    assert "metaex can't strip ZIP files yet; no file written" in result.stderr
-    assert listing(tmp_path) == ["bundle.zip"]
+    assert "metaex can't strip PDF files yet; no file written" in result.stderr
+    assert listing(tmp_path) == ["paper.pdf"]
 
 
 def test_malformed_jpeg_writes_nothing(tmp_path):

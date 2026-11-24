@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from metaex.core import appledouble, zipwriter
 from metaex.core.archive import (DEVICE, DIR, FIFO, FILE, SYMLINK, Member, contents_section,
                                  junk_reason, junk_warnings, link_problem, member_sections,
+                                 some,
                                  neutral_mode, user_folder_warnings)
 from metaex.core.errors import CannotCleanError, MalformedFileError
 from metaex.core.reader import ByteReader
@@ -425,3 +426,94 @@ def kept_warnings(cleaned: bytes) -> list[str]:
     except MalformedFileError:
         return []
     return user_folder_warnings(members(archive))
+
+
+# -- verification ----------------------------------------------------------------------------
+
+IMAGE_LABEL = "Archive contents"
+KEPT_SECTIONS = ("archive_contents", "archive_paths")
+"""What may stay in a cleaned archive: its contents and the entry names
+(kept as they are, with a warning when they reveal a user folder)."""
+
+
+def is_kept_by_design(section_key: str, field) -> bool:
+    """True if a reported field may stay in a cleaned ZIP: the contents, the
+    names, and symbolic links that stay inside the archive."""
+    if section_key in KEPT_SECTIONS:
+        return True
+    return section_key == "archive_links" and field.note is None
+
+
+def header_leftovers(archive: ZipArchive) -> list[tuple[str, str, str]]:
+    """Header values a cleaned archive must not have that the report doesn't
+    show (it leaves out neutral-looking values): every entry must be "made
+    by" Unix with its neutral mode, no flags but UTF-8, no extra fields."""
+    out = []
+    for e, m in zip(archive.entries, members(archive)):
+        where = f"entry {e.name}"
+        if e.created_by != zipwriter.UNIX_VERSION:
+            out.append(("ZIP structure", where, f"made by {e.os_name} "
+                        f"(version {e.created_by & 0xFF})"))
+        if m.kind in _TYPE_BITS:
+            expected = output_mode(m) << 16 | (zipwriter.DOS_DIRECTORY if e.is_dir else 0)
+            if e.external_attr != expected:
+                out.append(("ZIP structure", where, f"attributes 0x{e.external_attr:08x} "
+                            f"(expected 0x{expected:08x})"))
+        if e.flags & ~zipwriter.FLAG_UTF8:
+            out.append(("ZIP structure", where, f"flags 0x{e.flags:04x}"))
+        if e.extra:
+            out.append(("ZIP structure", where, ", ".join(x.name for x in e.extra)))
+        if e.version_needed != zipwriter.VERSION:
+            out.append(("ZIP structure", where, f"version needed {e.version_needed}"))
+    return out
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """ZIP-specific verification, beyond the field-level whitelist.
+
+    - The archive must open strictly (no encrypted entries, nothing
+      damaged) and every header must hold metaex's neutral values.
+    - SHA-256 over every entry's name and uncompressed data; compared with
+      an original, the entries must be the original's minus operating
+      system junk, in the same order, with the same data (CRC-32 and
+      SHA-256).
+    """
+    out: dict = {"leftovers": [], "problems": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None,
+                 "image_label": IMAGE_LABEL}
+    try:
+        archive = open_archive(cleaned)
+    except MalformedFileError as exc:
+        out["problems"].append(f"not a complete, readable ZIP archive: {exc}")
+        return out
+    out["leftovers"] += header_leftovers(archive)
+    names = archive.names()
+    try:
+        out["image_sha256"] = contents_digest(archive, archive.entries, names)
+    except MalformedFileError as exc:
+        out["problems"].append(f"an entry can't be read: {exc}")
+        return out
+    if original is None:
+        return out
+    try:
+        source = open_archive(original)
+        kept = kept_entries(source)
+        theirs = [name for _e, _m, name in kept]
+        out["original_image_sha256"] = contents_digest(source, [e for e, _m, _n in kept],
+                                                       theirs)
+    except MalformedFileError as exc:
+        out["problems"].append(f"the original is not a readable ZIP archive ({exc}); contents "
+                               "not compared")
+        return out
+    if names != theirs:
+        missing = [n for n in theirs if n not in names]
+        added = [n for n in names if n not in theirs]
+        out["problems"].append("the entries differ from the original's (operating system "
+                               f"files aside): missing {some(missing) or 'none'}, added "
+                               f"{some(added) or 'none'}" + ("" if missing or added else
+                                                              ", order changed"))
+    for e, (oe, _m, _n) in zip(archive.entries, kept):
+        if e.crc != oe.crc or e.size != oe.size:
+            out["problems"].append(f"entry {e.name} differs from the original")
+    out["image_data_match"] = out["image_sha256"] == out["original_image_sha256"]
+    return out
