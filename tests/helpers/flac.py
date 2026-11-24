@@ -319,3 +319,50 @@ def kitchen_sink_flac(cover: bytes | None = None) -> bytes:
         info=info, frames=frames,
         before=b.tag(b.text("TPE1", "Jane Doe"), b.text("TIT2", "Floor plan blues"),
                      version=3))
+
+
+def variants() -> dict[str, bytes]:
+    """FLAC files with every kind of block, tag position and frame; each one
+    well-formed."""
+    from helpers import audiotags as at
+    from helpers import id3 as b
+    from helpers.jpeg import sample_photo
+
+    photo = sample_photo()
+    left, right = sine(6000), sine(6000, freq=550.0)
+    stereo = encode([left, right], kind="fixed", order=2, assignment=10)
+    lpc = encode([left], kind="lpc", coefs=(1900, -950), precision=13, shift=10,
+                 partition_order=1)
+    deep = encode([sine(3000, bits=24)], bits=24, kind="fixed", order=3)
+    small = encode([left], block_size=576, kind="fixed", order=1)
+    return {
+        "minimal": flac(),
+        "stereo_mid_side": flac(info=stereo[0], frames=stereo[1]),
+        "lpc": flac(info=lpc[0], frames=lpc[1]),
+        "24bit": flac(info=deep[0], frames=deep[1]),
+        "small_blocks": flac(info=small[0], frames=small[1]),
+        "vorbis": flac((VORBIS_COMMENT, vorbis_comment(fields=[("ARTIST", "Jane Doe"),
+                                                               ("TITLE", "x")]))),
+        "vorbis_empty": flac((VORBIS_COMMENT, vorbis_comment(vendor="", fields=[]))),
+        "picture": flac((PICTURE, picture(photo))),
+        "application": flac((APPLICATION, b"test" + b"payload")),
+        "seektable": flac((SEEKTABLE, seektable((0, 0, 4096), (4096, 1000, 3904),
+                                                placeholders=2))),
+        "cuesheet": flac((CUESHEET, cuesheet(lead_out=8000))),
+        "padding": flac((PADDING, bytes(1024))),
+        "reserved_type": flac((42, b"future block")),
+        "all_blocks": flac((SEEKTABLE, seektable((0, 0, 4096))),
+                           (VORBIS_COMMENT, vorbis_comment(fields=[("ARTIST", "Jane Doe")])),
+                           (PICTURE, picture(photo)), (APPLICATION, b"riffLIST"),
+                           (CUESHEET, cuesheet(lead_out=8000)), (PADDING, bytes(64)),
+                           (42, b"x")),
+        "id3v2_before": flac(before=b.tag(b.text("TPE1", "Jane Doe"), b.apic(photo))),
+        "two_id3v2_before": flac(before=b.tag(b.text("TPE1", "x"), version=3)
+                                 + b.tag(b.text("TIT2", "y"))),
+        "id3v1_after": flac(after=at.id3v1()),
+        "ape_after": flac(after=at.ape_kitchen_sink(photo)),
+        "tags_after": flac(after=b.tag(b.text("TPE1", "x"), footer=True)
+                           + at.ape([at.ape_item("Artist", b"x")]) + at.id3v1()),
+        "trailing": flac(after=b"hidden after the audio"),
+        "kitchen_sink": kitchen_sink_flac(photo),
+    }
