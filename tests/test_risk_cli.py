@@ -62,8 +62,8 @@ def test_cleaned_file_has_no_critical_or_high(tmp_path):
 
 
 def test_unsupported_type_hint(tmp_path):
-    p = tmp_path / "a.flac"
-    p.write_bytes(b"fLaC" + bytes(20))
+    p = tmp_path / "a.ogg"
+    p.write_bytes(b"OggS\x00\x02" + bytes(30))
     result = run(str(p))
     assert result.returncode == 0
     assert "No embedded metadata found." in result.stdout

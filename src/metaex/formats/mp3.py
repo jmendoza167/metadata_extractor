@@ -501,23 +501,11 @@ def _refuse_other_streams(data: bytes, start: int, end: int, sync: int | None) -
 
 # -- ID3v2 tags before the audio ----------------------------------------------------------
 
-MAX_LEADING_TAGS = 16
-
-
 def leading_tags(data: bytes, budget: Budget | None = None) -> tuple[list[id3.Tag], int]:
     """The ID3v2 tags at the start of the file (some files have several, one
     after the other) and the offset where the audio starts. Raises
     MalformedFileError for a tag that extends past the end of the file."""
-    budget = budget or Budget(id3.DECOMPRESS_LIMIT)
-    tags: list[id3.Tag] = []
-    pos = 0
-    while id3.header_size(data, pos) is not None:
-        if len(tags) >= MAX_LEADING_TAGS:
-            raise MalformedFileError(f"more than {MAX_LEADING_TAGS} ID3v2 tags")
-        tag = id3.parse_tag(data, pos, budget)
-        tags.append(tag)
-        pos = tag.end
-    return tags, pos
+    return id3.leading_tags(data, budget)
 
 
 @dataclass

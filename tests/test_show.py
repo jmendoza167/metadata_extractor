@@ -14,7 +14,6 @@ from metaex.commands import show as show_cmd
 
 PNG = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR" + b"\x00" * 64
 JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00" + b"\x00" * 32
-FLAC = b"fLaC" + b"\x00" * 64  # a format metaex plans to support but can't read yet
 
 
 def run_show(*args: str) -> subprocess.CompletedProcess:
@@ -27,13 +26,13 @@ def run_show(*args: str) -> subprocess.CompletedProcess:
 
 
 def test_show_text_report(tmp_path):
-    p = tmp_path / "song.flac"
-    p.write_bytes(FLAC)
+    p = tmp_path / "backup.tar"  # a format metaex plans to support but can't read yet
+    p.write_bytes(make_tar())
     result = run_show(str(p))
     assert result.returncode == 0, result.stderr
     assert result.stderr == ""
     out = " ".join(result.stdout.split())  # ignore line wrapping
-    for expected in ("File type", "FLAC", "planned (not implemented yet)",
+    for expected in ("File type", "TAR", "planned (not implemented yet)",
                      "File system", "Hashes", "SHA-256", "was NOT examined"):
         assert expected in out
 
@@ -156,7 +155,6 @@ def test_show_malformed_jpeg_is_partly_examined(tmp_path):
 @pytest.mark.parametrize(
     "name,content,type_name,support",
     [
-        ("song.flac", FLAC, "FLAC", PLANNED),
         ("sound.aiff", b"FORM\x00\x00\x00\x10AIFFCOMM" + bytes(20), "AIFF", "not supported"),
         ("letter.docx", make_zip({"[Content_Types].xml": "<T/>", "word/document.xml": "<w/>"}),
          "DOCX", SUPPORTED),

@@ -185,7 +185,7 @@ def _detect_content(data: bytes | bytearray | memoryview) -> FileType:
     if head.startswith((b"PK\x03\x04", b"PK\x05\x06")):
         return _detect_zip(data)
     if head.startswith(b"ID3"):
-        found = _detect_id3(head)
+        found = _detect_id3(data)
         if found is not None:
             return found
     if head[4:8] == b"ftyp":
@@ -447,15 +447,31 @@ def _with_warning(filetype: FileType, warning: str) -> FileType:
 
 # -- Audio -----------------------------------------------------------------------
 
-def _detect_id3(head: bytes) -> FileType | None:
-    """An ID3v2 tag usually means MP3, but FLAC files sometimes carry one too."""
-    if len(head) < 10 or head[3] not in (2, 3, 4) or head[4] == 0xFF:
-        return None
-    if any(b >= 0x80 for b in head[6:10]):  # sizes are "synchsafe" 7-bit bytes
+ID3_MAX_TAGS = 16
+
+
+def _id3_tag_end(data: bytes | bytearray | memoryview, pos: int) -> int | None:
+    """End of the ID3v2 tag whose valid header is at ``pos``, else None."""
+    head = bytes(data[pos : pos + 10])
+    if (len(head) < 10 or head[:3] != b"ID3" or head[3] not in (2, 3, 4) or head[4] == 0xFF
+            or any(b >= 0x80 for b in head[6:10])):  # sizes are "synchsafe" 7-bit bytes
         return None
     size = (head[6] << 21) | (head[7] << 14) | (head[8] << 7) | head[9]
-    end = 10 + size + (10 if head[3] == 4 and head[5] & 0x10 else 0)
-    if head[end : end + 4] == b"fLaC":
+    return pos + 10 + size + (10 if head[3] == 4 and head[5] & 0x10 else 0)
+
+
+def _detect_id3(data: bytes | bytearray | memoryview) -> FileType | None:
+    """An ID3v2 tag usually means MP3, but FLAC files sometimes carry one (or
+    several) too: look at what follows the tags, however large they are."""
+    end = _id3_tag_end(data, 0)
+    if end is None:
+        return None
+    for _ in range(ID3_MAX_TAGS):
+        following = _id3_tag_end(data, end)
+        if following is None:
+            break
+        end = following
+    if bytes(data[end : end + 4]) == b"fLaC":
         return FLAC
     return MP3
 

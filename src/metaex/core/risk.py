@@ -195,7 +195,7 @@ AUDIO_SECTIONS = {
     "audio_pictures": HIGH, "wav_adtl": HIGH, "wav_cart": HIGH,
     "wav_ixml": None, "wav_axml": None, "flac_application": MEDIUM,
     "hidden_audio_data": CRITICAL, "hidden_tag_data": CRITICAL, "audio_padding": LOW,
-    "hidden_chunk_data": CRITICAL, "audio_trailing": CRITICAL,
+    "hidden_chunk_data": CRITICAL, "audio_trailing": CRITICAL, "hidden_block_data": CRITICAL,
     "id3v2": None, "id3v1": None, "ape": None, "lyrics3": None, "vorbis_comment": None,
     "wav_info": None, "wav_bext": None,
 }

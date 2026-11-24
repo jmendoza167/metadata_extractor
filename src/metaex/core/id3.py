@@ -206,6 +206,26 @@ def header_size(data: bytes, pos: int) -> int | None:
     return HEADER_SIZE + size + footer
 
 
+MAX_LEADING_TAGS = 16
+
+
+def leading_tags(data: bytes, budget: Budget | None = None,
+                 start: int = 0) -> tuple[list[Tag], int]:
+    """The ID3v2 tags one after the other from ``start`` (some files have
+    several) and the offset just past them. Raises MalformedFileError for a
+    tag that extends past the end of the data."""
+    budget = budget or Budget(DECOMPRESS_LIMIT)
+    tags: list[Tag] = []
+    pos = start
+    while header_size(data, pos) is not None:
+        if len(tags) >= MAX_LEADING_TAGS:
+            raise MalformedFileError(f"more than {MAX_LEADING_TAGS} ID3v2 tags")
+        tag = parse_tag(data, pos, budget)
+        tags.append(tag)
+        pos = tag.end
+    return tags, pos
+
+
 def footer_start(data: bytes, end: int) -> int | None:
     """Start of an ID3v2.4 tag that ends at ``end`` with a footer ("3DI"),
     if its header matches the footer; else None."""
