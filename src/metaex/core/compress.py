@@ -499,3 +499,85 @@ def parse(data: bytes | bytearray | memoryview, kind: str) -> dict:
         out["warnings"] += inner["warnings"]
         out["structure"] = inner.get("structure")
     return out
+
+
+# -- writing -----------------------------------------------------------------------------------
+
+NEUTRAL_GZIP_HEADER = GZIP_MAGIC + b"\x00" + bytes(4) + b"\x00" + bytes([NEUTRAL_OS])
+"""No flags, MTIME 0, XFL 0, OS 255 (unknown)."""
+
+
+def rewrap(c: Compressed, content: bytes | None) -> bytes:
+    """The cleaned wrapper around ``content``, or around the original
+    content if ``content`` is None.
+
+    Unchanged content keeps its compressed bytes: each gzip member's
+    deflate data and trailer behind a neutral header, the bzip2 and xz
+    streams as they are, without padding or data after them. New content
+    is compressed again (gzip: deflate level 9 in one member; bzip2: the
+    original's block size; xz: the original's integrity check).
+    """
+    if content is None:
+        if c.kind == GZIP:
+            return b"".join(NEUTRAL_GZIP_HEADER + c.data[m.data_start:m.end] for m in c.members)
+        return b"".join(c.data[m.start:m.end] for m in c.members)
+    if c.kind == GZIP:
+        z = zlib.compressobj(9, zlib.DEFLATED, -15)
+        body = z.compress(content) + z.flush()
+        return (NEUTRAL_GZIP_HEADER + body
+                + struct.pack("<II", zlib.crc32(content), len(content) & 0xFFFFFFFF))
+    if c.kind == BZIP2:
+        return bz2.compress(content, c.members[0].level if c.members else 9)
+    check = c.members[0].check if c.members else lzma.CHECK_CRC64
+    if check not in (lzma.CHECK_NONE, lzma.CHECK_CRC32, lzma.CHECK_CRC64, lzma.CHECK_SHA256):
+        check = lzma.CHECK_CRC64
+    return lzma.compress(content, format=lzma.FORMAT_XZ, check=check)
+
+
+def strip(data: bytes | bytearray | memoryview, kind: str) -> bytes:
+    """A cleaned copy: the wrapper rewritten without metadata (see rewrap())
+    around a cleaned TAR, or around the original single file."""
+    c = open_compressed(data)
+    if c.kind != kind:
+        raise MalformedFileError(f"not a {NAMES[kind]} file")
+    content = None
+    if is_tar(c):
+        from metaex.core import tar as tarcore
+
+        cleaned_tar = _tar_module().strip_archive(tarcore.open_tar(c.content))
+        if cleaned_tar != c.content:
+            content = cleaned_tar
+    cleaned = rewrap(c, content)
+    check = open_compressed(cleaned)
+    if check.content != (c.content if content is None else content):
+        raise MalformedFileError("internal check failed: the contents changed while stripping")
+    return cleaned
+
+
+def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
+    try:
+        c = open_compressed(data)
+    except MalformedFileError:
+        return {}
+    out = {}
+    if c.trailing is not None:
+        out["compress_hidden"] = c.trailing[1] - c.trailing[0]
+    if is_tar(c):
+        out.update(_tar_module().removed_sizes(c.content))
+    return out
+
+
+def strip_warnings(data: bytes) -> list[str]:
+    try:
+        c = open_compressed(data)
+    except MalformedFileError:
+        return []
+    return _tar_module().strip_warnings(c.content) if is_tar(c) else []
+
+
+def kept_warnings(cleaned: bytes) -> list[str]:
+    try:
+        c = open_compressed(cleaned)
+    except MalformedFileError:
+        return []
+    return _tar_module().kept_warnings(c.content) if is_tar(c) else []

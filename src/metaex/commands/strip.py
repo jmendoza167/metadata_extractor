@@ -73,10 +73,24 @@ class StripOutcome:
         }
 
 
-def default_output_path(path: str, filetype: ft.FileType) -> str:
-    """<name>_clean.<ext> next to the original."""
-    directory, base = os.path.split(path)
+COMPRESSED_KEYS = ("gzip", "bzip2", "xz")
+
+
+def _split_name(base: str, filetype: ft.FileType) -> tuple[str, str]:
+    """(stem, extension) of a file name; a compressed file keeps both its
+    extensions (backup.tar.gz -> backup, .tar.gz; photo.jpg.gz -> photo, .jpg.gz)."""
     stem, ext = os.path.splitext(base)
+    if filetype.key in COMPRESSED_KEYS and ext:
+        inner_stem, inner_ext = os.path.splitext(stem)
+        if inner_ext and inner_stem:
+            return inner_stem, inner_ext + ext
+    return stem, ext
+
+
+def default_output_path(path: str, filetype: ft.FileType) -> str:
+    """<name>_clean.<ext> next to the original (backup.tar.gz -> backup_clean.tar.gz)."""
+    directory, base = os.path.split(path)
+    stem, ext = _split_name(base, filetype)
     if not ext:
         ext = filetype.extensions[0] if filetype.extensions else ""
     return os.path.join(directory, f"{stem}_clean{ext}")
@@ -90,10 +104,13 @@ def random_output_path(path: str, filetype: ft.FileType, attempts: int = 20) -> 
     """img_<8 random hex digits>.<ext> in the same folder, not yet existing.
 
     The extension is the canonical one for the detected type, not the
-    original's, so the name reveals nothing about the original file.
+    original's, so the name reveals nothing about the original file (a
+    compressed TAR keeps ".tar" in front: img_<hex>.tar.gz).
     """
     directory = os.path.dirname(path)
     ext = filetype.extensions[0] if filetype.extensions else ""
+    if _split_name(os.path.basename(path), filetype)[1].lower().startswith(".tar."):
+        ext = ".tar" + ext
     for _ in range(attempts):
         candidate = os.path.join(directory, f"img_{secrets.token_hex(4)}{ext}")
         if not os.path.lexists(candidate):
