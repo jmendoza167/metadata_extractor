@@ -187,6 +187,9 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
         outcome.removed_sizes = {_SECTION_GROUPS.get(key, key): n
                                  for key, n in sizes_hook(data).items()}
     outcome.warnings.extend(kept_warnings(module.parse(cleaned)))
+    option_warnings = getattr(module, "strip_warnings", None)
+    if callable(option_warnings):  # e.g. MP3: what --paranoid took away
+        outcome.warnings.extend(option_warnings(data, paranoid=paranoid))
     format_warnings = getattr(module, "kept_warnings", None)
     if callable(format_warnings):  # e.g. SVG: kept <title>, scripts, external links
         outcome.warnings.extend(format_warnings(cleaned))
@@ -278,6 +281,16 @@ _SECTION_GROUPS = {
     "odf_settings": "Application settings",
     "odf_configurations": "User interface settings",
     "odf_signatures": "Digital signatures",
+    # Audio
+    "id3v2": "ID3v2 tags",
+    "id3v1": "ID3v1 tag",
+    "ape": "APE tag",
+    "lyrics3": "Lyrics3 tag",
+    "audio_pictures": "Embedded pictures and objects",
+    "hidden_audio_data": "Hidden data in the audio stream",
+    "hidden_tag_data": "Hidden data in tags",
+    "audio_padding": "Padding in the audio stream",
+    "encoder_info": "Encoder information frame",
 }
 _CAMERA = {"Make", "Model", "BodySerialNumber", "LensMake", "LensModel", "LensSerialNumber",
            "LensSpecification", "MakerNote", "CameraOwnerName", "UniqueCameraModel",

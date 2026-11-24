@@ -632,7 +632,7 @@ def junk_sections(walk: FrameWalk, data: bytes, warnings: list[str]) -> list[Sec
     """Bytes between or after the frames that are not frames: hidden data if
     any byte is non-zero, padding otherwise. Decoders skip both."""
     hidden = Section("hidden_audio_data", "Hidden data in the audio stream")
-    padding = Section("padding", "Padding in the audio stream")
+    padding = Section("audio_padding", "Padding in the audio stream")
     hidden_total = padding_total = 0
     for start, end in walk.junk:
         chunk = data[start:end]
@@ -721,3 +721,111 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
         complete = False
     return {"warnings": warnings, "sections": sections,
             "structure": structure_section(found, walk), "complete": complete}
+
+
+# -- Stripping ----------------------------------------------------------------------------
+
+
+def checked_layout(data: bytes) -> tuple[Layout, FrameWalk]:
+    """The layout and frames of an MP3 for stripping or verification:
+    anything malformed raises (a broken tag, a truncated frame, no frames);
+    free-format MPEG audio and AAC raise UnsupportedFormatError."""
+    budget = Budget(id3.DECOMPRESS_LIMIT)
+    leading, start = leading_tags(data, budget)
+    found = Layout(leading, start, find_end_tags(data, start, budget))
+    for tag in found.id3v2:
+        if tag.error is not None:
+            raise MalformedFileError(f"the {tag.version} tag at offset {tag.offset} is "
+                                     f"malformed: {tag.error}")
+    return found, walk_frames(data, found.audio_start, found.audio_end)
+
+
+def audio_frames(data: bytes, walk: FrameWalk, keep_info: bool = True) -> bytes:
+    """Every frame, in order, without what lies between them. The
+    information frame is kept with its unknown ranges set to zero
+    (``keep_info``) or left out."""
+    parts = []
+    info = walk.info
+    for start, end in walk.runs:
+        if info is not None and start == info.offset:
+            if keep_info:
+                parts.append(clean_info_frame(data, info))
+            start += info.length
+        parts.append(data[start:end])
+    return b"".join(parts)
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return the MP3's audio frames without any tag (whitelist).
+
+    Kept, byte for byte and in order: every MPEG audio frame. Kept by
+    default: the Xing/Info or VBRI information frame (with its LAME tag),
+    which players need for seeking and gapless playback; anything in it
+    outside its known fields is set to zero. ``paranoid`` removes it too.
+    Removed: every ID3v2, ID3v1, APE and Lyrics3 tag (with the pictures in
+    them) and anything between, before or after the frames.
+    ``keep_orientation`` doesn't apply to audio.
+
+    Raises MalformedFileError for malformed input and UnsupportedFormatError
+    for free-format MPEG audio and AAC; nothing is ever partly stripped.
+    """
+    data = bytes(data)
+    _found, walk = checked_layout(data)
+    cleaned = audio_frames(data, walk, keep_info=not paranoid)
+    # Self-check: the output has no tags, nothing between its frames, and
+    # the same frames.
+    out_found, out_walk = checked_layout(cleaned)
+    if (out_found.tag_ranges() or out_walk.junk
+            or audio_frames(cleaned, out_walk) != cleaned
+            or out_walk.audio_frames != walk.audio_frames):
+        raise MalformedFileError("internal check failed: the audio frames changed while "
+                                 "stripping")
+    return cleaned
+
+
+def kept_warnings(cleaned: bytes) -> list[str]:
+    """What a stripped MP3 still holds by design: the LAME tag's encoder name."""
+    try:
+        _found, walk = checked_layout(bytes(cleaned))
+    except (MalformedFileError, UnsupportedFormatError):
+        return []
+    info = walk.info
+    if info is None:
+        return []
+    what = f"the {info.kind} frame" + (
+        f" with the LAME tag (encoder {info.lame.encoder!r})" if info.lame else "")
+    return [f"{what} is kept for seeking and gapless playback; use --paranoid to remove it"]
+
+
+def strip_warnings(data: bytes, paranoid: bool = False) -> list[str]:
+    """Warnings about what stripping with these options takes away."""
+    if not paranoid:
+        return []
+    try:
+        _found, walk = checked_layout(bytes(data))
+    except (MalformedFileError, UnsupportedFormatError):
+        return []
+    if walk.info is None:
+        return []
+    return [f"--paranoid removed the {walk.info.kind} frame: players may show a less "
+            "accurate duration and seek less precisely, and gapless playback information "
+            "is gone"]
+
+
+def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
+    """Bytes removed that are better described by size than by fields."""
+    data = bytes(data)
+    try:
+        _found, walk = checked_layout(data)
+    except (MalformedFileError, UnsupportedFormatError):
+        return {}
+    out: dict[str, int] = {}
+    for start, end in walk.junk:
+        chunk = data[start:end]
+        key = "audio_padding" if chunk.count(0) == len(chunk) else "hidden_audio_data"
+        out[key] = out.get(key, 0) + len(chunk)
+    if walk.info is not None and walk.info.hidden_bytes(data):
+        out["hidden_audio_data"] = (out.get("hidden_audio_data", 0)
+                                    + walk.info.hidden_bytes(data))
+    return out

@@ -77,7 +77,8 @@ def build_parser() -> argparse.ArgumentParser:
                             "density data (JPEG: JFIF density; PNG: gAMA, cHRM, cICP, "
                             "mDCv, cLLI, pHYs; GIF and WebP: the ICC profile only; SVG: "
                             "<title> and <desc>; office documents: in their images); "
-                            "colors may shift")
+                            "colors may shift. MP3: also the Xing/LAME information frame "
+                            "(duration and seeking may be less accurate)")
     strip.add_argument("--no-orientation", action="store_true",
                        help="don't keep the EXIF Orientation tag (the image may display rotated)")
     strip.add_argument("--rebuild-image-data", action="store_true",

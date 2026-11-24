@@ -172,7 +172,7 @@ def test_junk_before_the_first_frame_and_after_the_last():
     assert w.junk == [(0, 100), (100 + len(audio), len(data))]
     warnings = []
     keys = [s.key for s in junk_sections(w, data, warnings)]
-    assert keys == ["hidden_audio_data", "padding"]
+    assert keys == ["hidden_audio_data", "audio_padding"]
     assert any("CRITICAL" in x for x in warnings) and any("zero padding" in x for x in warnings)
 
 
