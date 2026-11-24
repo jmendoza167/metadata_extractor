@@ -105,3 +105,19 @@ def test_copying_checks_the_entry_first():
 
 def test_empty_archive():
     assert open_archive(write_zip([])).entries == []
+
+
+def test_entries_with_a_mode_are_made_by_unix():
+    import io
+    import zipfile
+
+    from metaex.core.zipwriter import new, write_zip
+
+    data = write_zip([new("dir/", b"", mode=0o40755), new("dir/run", b"x", mode=0o100755),
+                      new("plain", b"y")])
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        infos = {i.filename: i for i in z.infolist()}
+    assert infos["dir/"].create_system == 3
+    assert infos["dir/"].external_attr == 0o40755 << 16 | 0x10
+    assert infos["dir/run"].external_attr == 0o100755 << 16
+    assert infos["plain"].create_system == 0 and infos["plain"].external_attr == 0

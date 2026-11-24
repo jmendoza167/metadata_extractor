@@ -393,7 +393,12 @@ def _decode_name(raw: bytes, flags: int) -> str:
 
 
 def _check_name(entry: ZipEntry) -> None:
-    name = entry.name
+    check_entry_name(entry.name)
+
+
+def check_entry_name(name: str) -> None:
+    """Raise MalformedFileError for a name that is unsafe to extract (see
+    the module docstring)."""
     shown = repr(name)
     if not name:
         raise MalformedFileError("ZIP has an entry with an empty name")

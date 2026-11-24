@@ -127,10 +127,11 @@ def apple_target(name: str) -> str:
 _HOME = re.compile(r"(?i)^(?:\./)?(?:home|users|documents and settings)/([^/]+)/")
 
 
-def name_user(name: str) -> str | None:
+def name_user(name: str, is_dir: bool = False) -> str | None:
     """The user name in an entry name that starts with a user folder
-    (home/jane/..., Users/jane/...): archivers drop the leading "/"."""
-    m = _HOME.match(name)
+    (home/jane/..., Users/jane/..., or the folder home/jane itself):
+    archivers drop the leading "/"."""
+    m = _HOME.match(name + "/" if is_dir and not name.endswith("/") else name)
     if m is None:
         return None
     user = m.group(1)
@@ -138,12 +139,14 @@ def name_user(name: str) -> str | None:
 
 
 def link_user(target: str) -> str | None:
-    """The user name a link target reveals (absolute or archive-relative)."""
+    """The user name an absolute link target reveals (/home/<name>/...,
+    C:\\Users\\<name>\\...). A relative target points inside the archive,
+    whose names are reported on their own."""
     for path in local_paths(target) or [target]:
         found = user_name(path)
         if found:
             return found
-    return name_user(target.lstrip("/"))
+    return None
 
 
 def link_problem(member: Member) -> str | None:
@@ -170,6 +173,35 @@ def link_problem(member: Member) -> str | None:
     if user:
         return f"{member.kind} {member.name!r} points into the user folder of {user!r}"
     return None
+
+
+# -- warnings for strip ------------------------------------------------------------------------
+
+MAX_LISTED_WARNING = 20
+
+
+def some(names: list[str]) -> str:
+    """The first names of a list, and how many more there are."""
+    listed = ", ".join(names[:MAX_LISTED_WARNING])
+    more = len(names) - MAX_LISTED_WARNING
+    return listed + (f" and {more} more" if more > 0 else "")
+
+
+def junk_warnings(members: list[Member]) -> list[str]:
+    """The operating system files a cleaned archive leaves out, by name."""
+    junk = [m.name for m in members if m.junk]
+    return [f"removed {len(junk)} operating system file(s): {some(junk)}"] if junk else []
+
+
+def user_folder_warnings(members: list[Member]) -> list[str]:
+    """Entry names that reveal a user folder: kept, since they are the files'
+    names, so the user must know."""
+    users = sorted({u for u in (name_user(m.name, m.kind == DIR) for m in members) if u})
+    if not users:
+        return []
+    return [f"CRITICAL: entry names reveal the user folder of {', '.join(map(repr, users))} "
+            "(home/<name>/... or Users/<name>/...); metaex keeps file names as they are. Move "
+            "the files out of the user folder and create the archive again to remove it"]
 
 
 # -- report ----------------------------------------------------------------------------------
@@ -272,7 +304,7 @@ def member_sections(members: list[Member], *, comment: str = "",
     sections.append(s)
 
     s = Section("archive_paths", "Names that reveal a user folder")
-    revealing = [(m, name_user(m.name)) for m in members]
+    revealing = [(m, name_user(m.name, m.kind == DIR)) for m in members]
     revealing = [(m, u) for m, u in revealing if u]
     for m, user in revealing[:MAX_LISTED]:
         s.add(f"name.{m.name}", m.name, f"user folder of {user!r}", sensitive=True)

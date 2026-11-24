@@ -304,18 +304,34 @@ _SECTION_GROUPS = {
     "flac_application": "Application blocks",
     "flac_cuesheet": "Cue sheet",
     "hidden_block_data": "Hidden data in metadata blocks",
+    # Archives
+    "archive_hidden": "Hidden data in the archive",
+    "archive_comments": "Comments",
+    "archive_times": "Entry times",
+    "archive_owners": "Owners",
+    "archive_system": "System and permissions",
+    "archive_junk": "Operating system files",
+    "archive_xattrs": "Extended attributes",
+    "archive_extra": "Other entry information",
+    "archive_links": "Link targets",
+    "archive_paths": "Names",
 }
 _CAMERA = {"Make", "Model", "BodySerialNumber", "LensMake", "LensModel", "LensSerialNumber",
            "LensSpecification", "MakerNote", "CameraOwnerName", "UniqueCameraModel",
            "CameraFirmware", "ImageUniqueID"}
 _AUTHOR = {"Artist", "Copyright", "ImageDescription", "UserComment", "ImageTitle",
            "Photographer", "ImageEditor", "DocumentName"}
+_NOT_METADATA = {"archive_contents", "compress_contents"}
+"""What an archive contains (entry counts, sizes): not metadata, and it
+changes when junk files are removed."""
 _THUMBNAIL_FIELDS = {("jfif", "thumbnail"), ("jfif", "jfxx_thumbnail"),
                      ("photoshop", "0x040c"), ("photoshop", "0x0409")}
 
 
 def group_for(section_key: str, field_key: str) -> str | None:
     """Category a removed field is reported under; None for non-metadata fields."""
+    if section_key in _NOT_METADATA:
+        return None
     if (section_key, field_key) in _THUMBNAIL_FIELDS:
         return "Thumbnail"
     if section_key == "exif":

@@ -20,17 +20,20 @@ extracted to disk); its entries become core/archive.py members:
 
 from __future__ import annotations
 
+import hashlib
 import stat
+import zlib
 from datetime import datetime, timedelta, timezone
 
-from metaex.core import appledouble
+from metaex.core import appledouble, zipwriter
 from metaex.core.archive import (DEVICE, DIR, FIFO, FILE, SYMLINK, Member, contents_section,
-                                 junk_reason, link_problem, member_sections)
-from metaex.core.errors import MalformedFileError
+                                 junk_reason, junk_warnings, link_problem, member_sections,
+                                 neutral_mode, user_folder_warnings)
+from metaex.core.errors import CannotCleanError, MalformedFileError
 from metaex.core.reader import ByteReader
 from metaex.core.result import Section
-from metaex.core.ziparchive import (NO_TIME, OS_NAMES, ZipArchive, ZipEntry, entry_refusal,
-                                    open_archive)
+from metaex.core.ziparchive import (NO_TIME, OS_NAMES, ZipArchive, ZipEntry, check_entry_name,
+                                    entry_refusal, open_archive)
 
 UNIX_SYSTEMS = (3, 19)
 """ZIP "made by" systems whose external attributes hold a Unix mode: Unix and macOS."""
@@ -286,3 +289,139 @@ def report(data: bytes | bytearray | memoryview) -> dict:
 def parse(data: bytes | bytearray | memoryview) -> dict:
     """What a plain ZIP archive reveals besides its files (see report())."""
     return report(data)
+
+
+# -- stripping -------------------------------------------------------------------------------
+
+_TYPE_BITS = {FILE: stat.S_IFREG, DIR: stat.S_IFDIR, SYMLINK: stat.S_IFLNK}
+
+
+def output_name(entry: ZipEntry) -> str:
+    """The entry's name as a cleaned archive writes it: the name of a valid
+    Unicode Path extra field (whose CRC matches the raw name; readers that
+    know the field show that name), else the name itself."""
+    for x in entry.extra:
+        if x.header_id != 0x7075 or len(x.data) < 5 or x.data[0] != 1:
+            continue
+        if int.from_bytes(x.data[1:5], "little") != zlib.crc32(entry.raw_name):
+            continue
+        try:
+            name = x.data[5:].decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+        if name.endswith("/") != entry.name.endswith("/"):
+            continue
+        check_entry_name(name)
+        return name
+    return entry.name
+
+
+def output_mode(member: Member) -> int:
+    """The neutral Unix mode of a cleaned entry: 644, 755 for folders and
+    executables (the executable bit is kept), 777 for symbolic links."""
+    return _TYPE_BITS[member.kind] | neutral_mode(member)
+
+
+def check_strippable(archive: ZipArchive, found: list[Member]) -> None:
+    """Raise CannotCleanError for archives metaex must not clean."""
+    reason = signed(archive)
+    if reason is not None:
+        raise CannotCleanError(f"the ZIP archive is signed: {reason}; cleaning it would break "
+                               "the signature")
+    for m in found:
+        if m.kind not in _TYPE_BITS:
+            raise CannotCleanError(f"the ZIP entry {m.name!r} is a {m.kind}, which metaex "
+                                   "can't keep in a cleaned archive")
+        if m.link is not None:
+            problem = link_problem(m)
+            if problem is not None:
+                raise CannotCleanError(f"the ZIP archive holds a {problem}; this reveals "
+                                       "where the files came from, but removing the link "
+                                       "would change the archive; refused")
+
+
+def entry_digest(name: str, data: bytes) -> str:
+    return f"{name}:{hashlib.sha256(data).hexdigest()}\n"
+
+
+def contents_digest(archive: ZipArchive, entries: list[ZipEntry], names: list[str]) -> str:
+    """SHA-256 over every entry's name and the SHA-256 of its uncompressed data."""
+    h = hashlib.sha256()
+    for entry, name in zip(entries, names):
+        h.update(entry_digest(name, archive.read(entry)).encode("utf-8", "surrogateescape"))
+    return h.hexdigest()
+
+
+def kept_entries(archive: ZipArchive) -> list[tuple[ZipEntry, Member, str]]:
+    """(entry, member, output name) of the entries a cleaned archive keeps:
+    all but operating system junk."""
+    found = members(archive)
+    return [(e, m, output_name(e)) for e, m in zip(archive.entries, found) if not m.junk]
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return a cleaned copy of a plain ZIP archive (whitelist).
+
+    Every entry except operating system junk is kept, in order, with its
+    compressed bytes copied as they are (nothing is compressed again) and
+    new headers: time 1980-01-01 00:00, "made by" Unix with the neutral
+    permissions 644 (755 for folders and executables, 777 for symbolic
+    links), no extra fields, no comments, no data descriptors. Removed:
+    the archive comment, entry comments, extra fields (times, owners), data
+    before, between and after the entries, __MACOSX/ and AppleDouble "._"
+    files, .DS_Store, Thumbs.db and desktop.ini. The files inside are not
+    changed. ``keep_orientation`` and ``paranoid`` apply to files inside
+    the archive, which are not cleaned here.
+
+    Raises MalformedFileError for damaged or unsafe archives (and encrypted
+    entries), CannotCleanError for signed archives and links to absolute
+    paths, outside the archive or into a user folder.
+    """
+    archive = open_archive(data)
+    found = members(archive)
+    check_strippable(archive, found)
+    kept = kept_entries(archive)
+    out = [zipwriter.copied(archive, e, name, output_mode(m)) for e, m, name in kept]
+    try:
+        cleaned = zipwriter.write_zip(out)
+    except ValueError as exc:
+        raise MalformedFileError(f"the cleaned ZIP archive can't be written: {exc}") from None
+    # Self-check: the same entries with the same contents.
+    result = open_archive(cleaned)
+    names = [name for _e, _m, name in kept]
+    if (result.names() != names
+            or contents_digest(result, result.entries, names)
+            != contents_digest(archive, [e for e, _m, _n in kept], names)):
+        raise MalformedFileError("internal check failed: the archive's contents changed while "
+                                 "stripping")
+    return cleaned
+
+
+def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
+    """Bytes of hidden data (not part of any entry) a cleaned archive drops."""
+    try:
+        archive = open_archive(data, strict=False)
+    except MalformedFileError:
+        return {}
+    total = sum(h.size for h in archive.hidden)
+    return {"archive_hidden": total} if total else {}
+
+
+
+def strip_warnings(data: bytes, paranoid: bool = False) -> list[str]:
+    """What stripping removed that the user may miss: the junk files, by name."""
+    try:
+        archive = open_archive(data, strict=False)
+    except MalformedFileError:
+        return []
+    return junk_warnings(members(archive))
+
+
+def kept_warnings(cleaned: bytes) -> list[str]:
+    """What a cleaned archive still reveals by design: names of user folders."""
+    try:
+        archive = open_archive(cleaned)
+    except MalformedFileError:
+        return []
+    return user_folder_warnings(members(archive))

@@ -4,6 +4,10 @@ were made.
 Every entry gets the same headers: time 1980-01-01 00:00:00 (the DOS
 epoch, what Microsoft Office writes too), "made by" MS-DOS / ZIP 2.0, no
 extra fields, no comments, no data descriptors, and no archive comment.
+An entry given a Unix ``mode`` (plain archives, which keep the executable
+bit) is "made by" Unix instead, with that mode in its external attributes
+(and the MS-DOS folder attribute for folders), the way Info-ZIP and
+Python's zipfile write them.
 Entries are written in the order given, except that the names passed as
 ``first`` move to the front ([Content_Types].xml for OOXML, mimetype for
 OpenDocument, which must also be stored uncompressed).
@@ -24,6 +28,9 @@ from metaex.core.ziparchive import (DEFLATED, NO_TIME, STORED, ZipArchive, ZipEn
 
 VERSION = 20
 """ZIP version 2.0, operating system 0 (MS-DOS): "made by" and "needed"."""
+UNIX_VERSION = 3 << 8 | VERSION
+"""ZIP version 2.0, operating system 3 (Unix): "made by" of entries with a mode."""
+DOS_DIRECTORY = 0x10
 FLAG_UTF8 = 0x0800
 MAX_ENTRIES = 0xFFFF - 1
 MAX_SIZE = 0xFFFFFFFF - 1
@@ -38,19 +45,24 @@ class OutEntry:
     """The bytes stored for the entry (compressed if ``method`` is deflate)."""
     crc: int
     size: int
+    mode: int | None = None
+    """Unix mode (file type and permission bits), or None to write none."""
 
 
-def copied(archive: ZipArchive, entry: ZipEntry) -> OutEntry:
-    """An entry copied from ``archive`` with its compressed bytes unchanged.
+def copied(archive: ZipArchive, entry: ZipEntry, name: str | None = None,
+           mode: int | None = None) -> OutEntry:
+    """An entry copied from ``archive`` with its compressed bytes unchanged
+    (under ``name`` and with ``mode`` if given).
 
     The entry is read (and so checked: size, CRC, limits) first, so damaged
     or hidden data is never copied unseen.
     """
     archive.read(entry)
-    return OutEntry(entry.name, entry.method, archive.raw(entry), entry.crc, entry.size)
+    return OutEntry(entry.name if name is None else name, entry.method, archive.raw(entry),
+                    entry.crc, entry.size, mode)
 
 
-def new(name: str, data: bytes, method: int = DEFLATED) -> OutEntry:
+def new(name: str, data: bytes, method: int = DEFLATED, mode: int | None = None) -> OutEntry:
     """An entry with new contents, compressed with ``method``."""
     if method == STORED:
         payload = bytes(data)
@@ -59,7 +71,7 @@ def new(name: str, data: bytes, method: int = DEFLATED) -> OutEntry:
         payload = c.compress(data) + c.flush()
     else:
         raise ValueError(f"unsupported compression method {method}")
-    return OutEntry(name, method, payload, zlib.crc32(data), len(data))
+    return OutEntry(name, method, payload, zlib.crc32(data), len(data), mode)
 
 
 def write_zip(entries: Iterable[OutEntry], first: tuple[str, ...] = ()) -> bytes:
@@ -88,10 +100,15 @@ def write_zip(entries: Iterable[OutEntry], first: tuple[str, ...] = ()) -> bytes
             raise ValueError("archive too large without ZIP64")
         common = struct.pack("<HHHHIII", flags, e.method, time, date, e.crc, len(e.payload),
                              e.size)
+        made_by, attributes = VERSION, 0
+        if e.mode is not None:
+            made_by = UNIX_VERSION
+            attributes = e.mode << 16 | (DOS_DIRECTORY if e.name.endswith("/") else 0)
         out += b"PK\x03\x04" + struct.pack("<H", VERSION) + common + struct.pack(
             "<HH", len(name), 0) + name + e.payload
-        directory += (b"PK\x01\x02" + struct.pack("<HH", VERSION, VERSION) + common
-                      + struct.pack("<HHHHHII", len(name), 0, 0, 0, 0, 0, offset) + name)
+        directory += (b"PK\x01\x02" + struct.pack("<HH", made_by, VERSION) + common
+                      + struct.pack("<HHHHHII", len(name), 0, 0, 0, 0, attributes, offset)
+                      + name)
     cd_offset = len(out)
     if cd_offset + len(directory) > MAX_SIZE:
         raise ValueError("archive too large without ZIP64")
