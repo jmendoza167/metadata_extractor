@@ -157,7 +157,7 @@ def test_show_malformed_jpeg_is_partly_examined(tmp_path):
     "name,content,type_name,support",
     [
         ("song.flac", FLAC, "FLAC", PLANNED),
-        ("sound.wav", b"RIFF\x24\x00\x00\x00WAVEfmt " + bytes(20), "WAV", PLANNED),
+        ("sound.aiff", b"FORM\x00\x00\x00\x10AIFFCOMM" + bytes(20), "AIFF", "not supported"),
         ("letter.docx", make_zip({"[Content_Types].xml": "<T/>", "word/document.xml": "<w/>"}),
          "DOCX", SUPPORTED),
         ("bundle.zip", make_zip({"a.txt": "a"}), "ZIP", PLANNED),

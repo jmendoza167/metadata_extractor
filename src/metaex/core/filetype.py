@@ -100,6 +100,8 @@ MP3 = _t("mp3", "MP3", "audio/mpeg", ".mp3", True)
 WAV = _t("wav", "WAV", "audio/wav", ".wav .wave", True)
 FLAC = _t("flac", "FLAC", "audio/flac", ".flac", True)
 OGG = _t("ogg", "Ogg", "audio/ogg", ".ogg .oga .ogv .opus .spx .ogx", False)
+RF64 = _t("rf64", "RF64/BW64 (WAV over 4 GiB)", "audio/x-rf64", ".wav .rf64 .bw64", False)
+AIFF = _t("aiff", "AIFF", "audio/aiff", ".aif .aiff .aifc", False)
 MP4 = _t("mp4", "MP4", "video/mp4", ".mp4 .m4v", False)
 MOV = _t("mov", "QuickTime", "video/quicktime", ".mov .qt", False)
 M4A = _t("m4a", "M4A", "audio/mp4", ".m4a .m4b .m4p", False)
@@ -176,6 +178,10 @@ def _detect_content(data: bytes | bytearray | memoryview) -> FileType:
             return WEBP
         if head[8:12] == b"WAVE":
             return WAV
+    if head.startswith((b"RF64", b"BW64")) and head[8:12] == b"WAVE":
+        return RF64
+    if head.startswith(b"FORM") and head[8:12] in (b"AIFF", b"AIFC"):
+        return AIFF
     if head.startswith((b"PK\x03\x04", b"PK\x05\x06")):
         return _detect_zip(data)
     if head.startswith(b"ID3"):
@@ -216,6 +222,14 @@ _REFUSALS = {
               "PowerPoint or LibreOffice, save it as .pptx, and try again"),
     OLE2.key: ("legacy Office (OLE2 compound) files are not supported. Save Office documents "
                "in the current format (.docx, .xlsx, .pptx) and try again"),
+    RF64.key: ("RF64 and BW64 files (WAV files over 4 GiB) are not supported; metaex reads "
+               "MP3, WAV (up to 4 GiB) and FLAC audio"),
+    AIFF.key: ("AIFF files are not supported; metaex reads MP3, WAV and FLAC audio. Convert "
+               "the file to WAV or FLAC, or remove its metadata with another tool"),
+    OGG.key: ("Ogg files (Vorbis, Opus, FLAC in Ogg) are not supported; metaex reads MP3, WAV "
+              "and FLAC audio"),
+    M4A.key: ("M4A/AAC files (MPEG-4 audio) are not supported; metaex reads MP3, WAV and "
+              "FLAC audio"),
 }
 
 
