@@ -281,3 +281,8 @@ def report(data: bytes | bytearray | memoryview) -> dict:
     return {"sections": sections, "warnings": warnings, "complete": True,
             "structure": structure_section(archive)}
 
+
+
+def parse(data: bytes | bytearray | memoryview) -> dict:
+    """What a plain ZIP archive reveals besides its files (see report())."""
+    return report(data)

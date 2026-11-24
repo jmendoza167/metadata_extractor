@@ -81,6 +81,10 @@ ODT = _t("odt", "ODT", "application/vnd.oasis.opendocument.text", ".odt .ott", T
 ODS = _t("ods", "ODS", "application/vnd.oasis.opendocument.spreadsheet", ".ods .ots", True)
 ODP = _t("odp", "ODP", "application/vnd.oasis.opendocument.presentation", ".odp .otp", True)
 EPUB = _t("epub", "EPUB", "application/epub+zip", ".epub", False)
+JAR = _t("jar", "Java archive (JAR, WAR, EAR)", "application/java-archive", ".jar .war .ear",
+         False)
+APK = _t("apk", "Android package (APK)", "application/vnd.android.package-archive",
+         ".apk .aab", False)
 OLE2 = _t(
     "ole2", "Legacy Office (OLE2)", "application/x-ole-storage",
     ".doc .xls .ppt .dot .xlt .pot .msg .msi", False,
@@ -196,6 +200,11 @@ def _detect_content(data: bytes | bytearray | memoryview) -> FileType:
         return MP3
     if _looks_like_svg(head):
         return SVG
+    if _ends_with_zip(data):
+        # Data glued in front of a ZIP archive (a script, a self-extractor
+        # stub, anything): the archive still opens; what's in front is
+        # hidden data its parser reports.
+        return _with_warning(_detect_zip(data), "data before the start of the ZIP archive")
     return UNKNOWN
 
 
@@ -230,6 +239,15 @@ _REFUSALS = {
               "and FLAC audio"),
     M4A.key: ("M4A/AAC files (MPEG-4 audio) are not supported; metaex reads MP3, WAV and "
               "FLAC audio"),
+    EPUB.key: ("EPUB e-books are not supported: they are ZIP archives with rules of their own "
+               "(and metadata in their package files) that metaex doesn't handle"),
+    JAR.key: ("Java archives (JAR, WAR, EAR) are not supported: they are often signed, and "
+              "any change would break the signature"),
+    APK.key: ("Android packages (APK) are not supported: they are signed, and any change "
+              "would break the signature"),
+    SEVEN_ZIP.key: ("7-Zip archives are not supported; metaex reads ZIP, TAR, gzip, bzip2 "
+                    "and xz archives"),
+    RAR.key: "RAR archives are not supported; metaex reads ZIP, TAR, gzip, bzip2 and xz archives",
 }
 
 
@@ -359,7 +377,33 @@ def _classify_zip_names(names: set[str], mimetype: str | None) -> FileType:
         }
         if len(found) == 1:
             return found.pop()
+    if "AndroidManifest.xml" in names and ("classes.dex" in names or "resources.arsc" in names):
+        return APK
+    if "META-INF/MANIFEST.MF" in names or "WEB-INF/web.xml" in names:
+        return JAR
     return ZIP
+
+
+def _ends_with_zip(data: bytes | bytearray | memoryview) -> bool:
+    """True if the data ends with a ZIP end record whose central directory
+    is where the record says (allowing for data in front of the archive)."""
+    tail_start = max(0, len(data) - (22 + 0xFFFF))
+    tail = bytes(data[tail_start:])
+    eocd = tail.rfind(b"PK\x05\x06")
+    if eocd < 0 or eocd + 22 > len(tail):
+        return False
+    size, offset = struct.unpack_from("<II", tail, eocd + 12)
+    comment = struct.unpack_from("<H", tail, eocd + 20)[0]
+    if eocd + 22 + comment > len(tail) or size == 0xFFFFFFFF or offset == 0xFFFFFFFF:
+        return False
+    start = tail_start + eocd - size
+    if start < 0 or start < offset:
+        return False
+    if bytes(data[start:start + 4]) != b"PK\x01\x02":
+        return False
+    first = struct.unpack_from("<I", bytes(data[start + 42:start + 46]).ljust(4, b"\x00"))[0]
+    local = first + (start - offset)
+    return bytes(data[local:local + 4]) == b"PK\x03\x04"
 
 
 ZIP_LOCAL_SCAN_ENTRIES = 1000

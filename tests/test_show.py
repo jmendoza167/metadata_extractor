@@ -158,7 +158,6 @@ def test_show_malformed_jpeg_is_partly_examined(tmp_path):
         ("sound.aiff", b"FORM\x00\x00\x00\x10AIFFCOMM" + bytes(20), "AIFF", "not supported"),
         ("letter.docx", make_zip({"[Content_Types].xml": "<T/>", "word/document.xml": "<w/>"}),
          "DOCX", SUPPORTED),
-        ("bundle.zip", make_zip({"a.txt": "a"}), "ZIP", PLANNED),
         ("backup.tar", make_tar(), "TAR", PLANNED),
         ("paper.pdf", b"%PDF-1.7\n", "PDF", "not supported"),
         ("scan.heic", b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1heic", "HEIC",
@@ -177,6 +176,16 @@ def test_show_generated_files(tmp_path, name, content, type_name, support):
     assert field(data, "file_type", "embedded_metadata").startswith("not examined")
     assert field(data, "file_system", "size_bytes") == len(content)
     assert any("NOT examined" in w for w in data["warnings"])
+
+
+def test_show_plain_zip_is_examined(tmp_path):
+    p = tmp_path / "bundle.zip"
+    p.write_bytes(make_zip({"a.txt": "a"}))
+    data = show_json(p)
+    assert field(data, "file_type", "name") == "ZIP"
+    assert field(data, "file_type", "support") == "viewing supported; stripping not implemented yet"
+    assert field(data, "file_type", "embedded_metadata") == "examined"
+    assert field(data, "archive_contents", "entries") == 1
 
 
 def test_json_has_expected_keys(tmp_path):

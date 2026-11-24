@@ -106,6 +106,8 @@ OTHER_FORMATS = [
     (make_zip({"mimetype": "application/vnd.oasis.opendocument.spreadsheet"}), ft.ODS),
     (make_zip({"mimetype": "application/vnd.oasis.opendocument.presentation"}), ft.ODP),
     (make_zip({"mimetype": "application/epub+zip", "META-INF/container.xml": "<c/>"}), ft.EPUB),
+    (make_zip({"META-INF/MANIFEST.MF": "Manifest-Version: 1.0\n", "A.class": "x"}), ft.JAR),
+    (make_zip({"AndroidManifest.xml": "x", "classes.dex": "x"}), ft.APK),
     (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 504, ft.OLE2),
     (ole2.legacy_word(), ft.DOC),
     (ole2.legacy_excel(), ft.XLS),
@@ -141,7 +143,8 @@ def test_in_scope_formats_are_marked_supported():
     for t in (ft.DOCX, ft.XLSX, ft.PPTX, ft.ODT, ft.ODS, ft.ODP, ft.MP3, ft.WAV, ft.FLAC,
               ft.ZIP, ft.TAR):
         assert t.supported is True, t.key
-    for t in (ft.PDF, ft.OLE2, ft.DOC, ft.XLS, ft.PPT, ft.ENCRYPTED_OFFICE, ft.EPUB, ft.OGG,
+    for t in (ft.PDF, ft.OLE2, ft.DOC, ft.XLS, ft.PPT, ft.ENCRYPTED_OFFICE, ft.EPUB, ft.JAR,
+              ft.APK, ft.OGG,
               ft.MP4, ft.MOV,
               ft.M4A, ft.GZIP, ft.SEVEN_ZIP, ft.RAR, ft.UNKNOWN):
         assert t.supported is False, t.key
@@ -394,3 +397,26 @@ def test_mismatch_warning_is_added_after_zip_warning():
     result = detect(data, "a.docx")
     assert len(result.warnings) == 2
     assert result.warnings[1] == "extension .docx but content is ZIP"
+
+
+def test_zip_with_data_in_front_is_zip_with_a_warning():
+    data = b"MZ self-extractor stub " * 10 + make_zip({"a.txt": "hello"})
+    result = detect(data)
+    assert result.key == "zip"
+    assert result.warnings == ("data before the start of the ZIP archive",)
+
+
+def test_office_file_with_data_in_front_keeps_its_type():
+    data = b"junk in front\n" + make_zip({"[Content_Types].xml": OOXML_CT,
+                                          "word/document.xml": "<w/>"})
+    assert detect(data).key == "docx"
+
+
+@pytest.mark.parametrize("data", [
+    b"text that ends with PK\x05\x06" + bytes(18),
+    b"text" + b"PK\x05\x06" + bytes(8) + (100).to_bytes(4, "little") + bytes(6),
+    b"x" * 100 + b"PK\x01\x02" + bytes(40) + b"PK\x05\x06" + bytes(6)
+    + (46).to_bytes(4, "little") + (0).to_bytes(4, "little") + bytes(2),
+])
+def test_end_record_alone_is_not_zip(data):
+    assert detect(data) == ft.UNKNOWN
