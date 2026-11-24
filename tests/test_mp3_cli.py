@@ -43,8 +43,7 @@ def test_show_json(tmp_path):
     assert r.returncode == 0, r.stderr
     report = json.loads(r.stdout)
     sections = report["sections"]
-    assert sections["file_type"]["fields"]["support"]["value"] == (
-        "viewing supported; stripping not implemented yet")
+    assert sections["file_type"]["fields"]["support"]["value"] == "supported"
     assert sections["file_type"]["fields"]["embedded_metadata"]["value"] == "examined"
     assert sections["audio"]["fields"]["format"]["value"] == "MPEG-1 Layer III"
     assert sections["encoder_info"]["fields"]["encoder"]["value"] == "LAME3.100"
@@ -68,9 +67,9 @@ def test_risk(tmp_path):
     assert ("ID3v2.3 tag 1 (at offset 0)", "Popularimeter (rating by e-mail): "
             "jane.doe@example.com") in critical
     assert any(section.endswith("GPS") for section, _label in critical)
-    assert result["can_strip"] is False
+    assert result["can_strip"] is True
     text = metaex("risk", "--no-color", path)
-    assert "CRITICAL (" in text.stdout and "metaex can't strip this type of file yet" in text.stdout
+    assert "CRITICAL (" in text.stdout and 'Run "metaex strip' in text.stdout
 
 
 def test_a_clean_mp3(tmp_path):
@@ -122,12 +121,13 @@ def test_unsupported_variants(tmp_path, data, message):
     assert any(message in w for w in report["warnings"])
 
 
-def test_strip_is_not_offered_yet(tmp_path):
-    path = tmp_path / "song.mp3"
-    path.write_bytes(mp3.stream(3))
+def test_strip_refuses_unsupported_variants(tmp_path):
+    path = tmp_path / "odd.mp3"
+    path.write_bytes((mp3.header(bitrate_index=0) + bytes(400)) * 3)
     r = metaex("strip", path)
-    assert r.returncode == 1 and "can't strip MP3 files yet" in r.stderr
-    assert not (tmp_path / "song_clean.mp3").exists()
+    assert r.returncode == 1 and "free-format MPEG audio is not supported" in r.stderr
+    assert "no file written" in r.stderr
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["odd.mp3"]
 
 
 def test_parse_reports_the_structure_in_file_order():

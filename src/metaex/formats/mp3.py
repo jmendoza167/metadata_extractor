@@ -30,6 +30,7 @@ one byte.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 
@@ -828,4 +829,74 @@ def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
     if walk.info is not None and walk.info.hidden_bytes(data):
         out["hidden_audio_data"] = (out.get("hidden_audio_data", 0)
                                     + walk.info.hidden_bytes(data))
+    return out
+
+
+# -- Verification -------------------------------------------------------------------------
+
+# Report sections (and field keys; None = every field) a stripped MP3 may
+# still contain. Anything else found by verify is a leftover.
+KEPT_BY_DESIGN: dict[str, set[str] | None] = {
+    "audio": None,
+    "encoder_info": None,
+}
+
+
+def audio_digest(data: bytes, walk: FrameWalk) -> str:
+    """SHA-256 of the audio frames, in order (without the information frame)."""
+    return hashlib.sha256(audio_frames(data, walk, keep_info=False)).hexdigest()
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """MP3-specific verification, beyond the field-level whitelist.
+
+    - The file must be well-formed: frames from start to end, no tags (not
+      even empty ones), nothing between the frames, nothing hidden in the
+      information frame.
+    - SHA-256 of the audio frames; compared with the original's if one is
+      given: the same frames, byte for byte, in the same order. A kept
+      information frame must be the original's (with only its unknown
+      ranges set to zero).
+    """
+    out: dict = {"leftovers": [], "problems": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None,
+                 "image_label": "Audio frames"}
+    try:
+        found, walk = checked_layout(bytes(cleaned))
+    except (MalformedFileError, UnsupportedFormatError) as exc:
+        out["problems"].append(f"not a complete, well-formed MP3: {exc}")
+        return out
+    out["image_sha256"] = audio_digest(cleaned, walk)
+    for kind, start, end in found.tag_ranges():
+        out["leftovers"].append(("MP3 structure", f"{kind} tag at offset {start}",
+                                 f"{end - start} bytes"))
+    for start, end in walk.junk:
+        out["leftovers"].append(("MP3 structure", f"data at offset {start}",
+                                 f"{end - start} bytes that are not audio frames"))
+    if walk.info is not None and walk.info.hidden_bytes(cleaned):
+        out["leftovers"].append(("MP3 structure", f"{walk.info.kind} frame",
+                                 f"{walk.info.hidden_bytes(cleaned)} non-zero bytes outside "
+                                 "its fields"))
+    if original is None:
+        return out
+    try:
+        _orig_found, orig_walk = checked_layout(bytes(original))
+    except (MalformedFileError, UnsupportedFormatError) as exc:
+        out["problems"].append(f"original is not a complete, well-formed MP3 ({exc}); audio "
+                               "frames not compared")
+        return out
+    out["original_image_sha256"] = audio_digest(original, orig_walk)
+    match = out["original_image_sha256"] == out["image_sha256"]
+    if not match:
+        out["problems"].append("audio frames differ from the original")
+    info = walk.info
+    if info is not None:
+        if orig_walk.info is None:
+            out["problems"].append(f"the {info.kind} frame is not in the original")
+            match = False
+        elif (cleaned[info.offset:info.offset + info.length]
+              != clean_info_frame(original, orig_walk.info)):
+            out["problems"].append(f"the {info.kind} frame differs from the original's")
+            match = False
+    out["image_data_match"] = match
     return out
