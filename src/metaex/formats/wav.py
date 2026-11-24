@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 
 from metaex.core import id3, xmp
 from metaex.core.embedded import Picture, picture_sections
-from metaex.core.errors import MalformedFileError
+from metaex.core.errors import HiddenDataError, MalformedFileError
 from metaex.core.result import Section
 
 MAX_CHUNKS = 100_000
@@ -747,3 +747,148 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
         complete = False
     return {"warnings": warnings, "sections": sections, "structure": structure_section(structure),
             "complete": complete}
+
+
+# -- Stripping --------------------------------------------------------------------------------
+
+
+def make_chunk(fourcc: str, payload: bytes) -> bytes:
+    """A chunk with its size and, for an odd size, a zero padding byte."""
+    return (fourcc.encode("latin-1") + len(payload).to_bytes(4, "little") + payload
+            + (b"\x00" if len(payload) % 2 else b""))
+
+
+def checked_structure(data: bytes) -> WavStructure:
+    """Walk a WAV for stripping or verification: anything malformed raises.
+
+    Refused: a truncated file or chunk, not exactly one fmt and one data
+    chunk (fmt first), a broken fmt, fact, cue or smpl chunk, and bytes after
+    the format description in the fmt chunk (the fmt chunk is copied byte
+    for byte, so they couldn't be removed).
+    """
+    structure = walk_chunks(data)
+    if structure.error:
+        raise MalformedFileError(structure.error)
+    fmts, datas = structure.all("fmt "), structure.all("data")
+    if len(fmts) != 1 or len(datas) != 1:
+        raise MalformedFileError(f"the file has {len(fmts)} fmt and {len(datas)} data chunks "
+                                 "(exactly one of each is needed)")
+    if structure.chunks.index(fmts[0]) > structure.chunks.index(datas[0]):
+        raise MalformedFileError("the fmt chunk comes after the data chunk")
+    fmt = parse_format(fmts[0])
+    if fmt.extra and fmt.extra.count(0) != len(fmt.extra):
+        raise HiddenDataError(f"the fmt chunk holds {len(fmt.extra)} bytes after the format "
+                              "description; the fmt chunk is copied byte for byte, so they "
+                              "can't be removed")
+    for chunk in structure.all("fact"):
+        if len(chunk.data) < 4:
+            raise MalformedFileError("fact chunk is too short")
+    for chunk in structure.all("cue "):
+        parse_cue(chunk)
+    for chunk in structure.all("smpl"):
+        parse_smpl(chunk)
+    return structure
+
+
+def kept_chunks(structure: WavStructure, paranoid: bool = False) -> list[bytes]:
+    """The chunks a stripped WAV holds, in the original order: fmt and data
+    as they are, the first fact (its sample count), and (unless
+    ``paranoid``) the first cue and smpl chunks rebuilt from their fields."""
+    out: list[bytes] = []
+    seen: set[str] = set()
+    for chunk in structure.chunks:
+        fourcc = chunk.fourcc
+        if fourcc in seen:
+            continue
+        if fourcc in ("fmt ", "data"):
+            out.append(make_chunk(fourcc, chunk.data))
+        elif fourcc == "fact":
+            out.append(make_chunk(fourcc, chunk.data[:4]))
+        elif fourcc == "cue " and not paranoid:
+            points = parse_cue(chunk)
+            if not points:
+                continue
+            out.append(make_chunk(fourcc, cue_bytes(points)))
+        elif fourcc == "smpl" and not paranoid:
+            out.append(make_chunk(fourcc, smpl_bytes(parse_smpl(chunk))))
+        else:
+            continue
+        seen.add(fourcc)
+    return out
+
+
+def riff(chunks: list[bytes]) -> bytes:
+    body = b"WAVE" + b"".join(chunks)
+    return b"RIFF" + len(body).to_bytes(4, "little") + body
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return a copy of the WAV with all metadata removed (whitelist).
+
+    Kept, in their original order: fmt and data, byte for byte; fact (the
+    sample count of compressed formats). Kept by default: cue points (cue)
+    and sampler loops (smpl), rebuilt from their positions only, without
+    the sampler's manufacturer, product and vendor data; ``paranoid``
+    removes them too. Removed: LIST INFO, LIST adtl (cue labels), bext,
+    iXML, axml, _PMX (XMP), id3 chunks, JUNK/PAD/FLLR, every other chunk
+    and anything after the RIFF data. Padding bytes are written as zero and
+    the RIFF size is recomputed. ``keep_orientation`` doesn't apply to audio.
+
+    Raises MalformedFileError for malformed input (HiddenDataError for data
+    hidden inside the fmt chunk); nothing is ever partly stripped.
+    """
+    data = bytes(data)
+    structure = checked_structure(data)
+    cleaned = riff(kept_chunks(structure, paranoid))
+    # Self-check: the output is a well-formed WAV with the same fmt and data.
+    out = checked_structure(cleaned)
+    if (out.first("fmt ").data != structure.first("fmt ").data
+            or out.first("data").data != structure.first("data").data
+            or len(cleaned) != out.end):
+        raise MalformedFileError("internal check failed: the audio changed while stripping")
+    return cleaned
+
+
+def kept_warnings(cleaned: bytes) -> list[str]:
+    """What a stripped WAV still holds by design: cue points and loops."""
+    try:
+        structure = walk_chunks(bytes(cleaned))
+    except MalformedFileError:
+        return []
+    kept = [name for fourcc, name in (("cue ", "cue points"), ("smpl", "sampler loops"))
+            if structure.first(fourcc) is not None]
+    if not kept:
+        return []
+    return [f"{' and '.join(kept)} are kept (positions only, without labels); use "
+            "--paranoid to remove them"]
+
+
+def strip_warnings(data: bytes, paranoid: bool = False) -> list[str]:
+    """Warnings about what stripping with these options takes away."""
+    if not paranoid:
+        return []
+    try:
+        structure = walk_chunks(bytes(data))
+    except MalformedFileError:
+        return []
+    removed = [name for fourcc, name in (("cue ", "cue points (markers)"),
+                                         ("smpl", "sampler loops"))
+               if structure.first(fourcc) is not None]
+    if not removed:
+        return []
+    return [f"--paranoid removed the {' and the '.join(removed)}"]
+
+
+def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
+    """Bytes after the RIFF data, for the strip summary."""
+    data = bytes(data)
+    try:
+        structure = walk_chunks(data)
+    except MalformedFileError:
+        return {}
+    if structure.end is None or len(data) <= structure.end:
+        return {}
+    trailing = data[structure.end:]
+    key = "audio_padding" if trailing.count(0) == len(trailing) else "audio_trailing"
+    return {key: len(trailing)}
