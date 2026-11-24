@@ -7,10 +7,10 @@ Guidance for working on **metaex** in this repository.
 metaex is a command-line tool that **shows** and **removes** metadata from
 files (photos, documents, audio, archives) for privacy. It is written in
 Python and uses **only the standard library at runtime**. The only dev
-dependencies are pytest, Pillow, python-docx, openpyxl and python-pptx:
-independent readers for the tests' pixel checks and Office content checks.
-metaex itself must never import them (or lxml, which they use); a test
-enforces this.
+dependencies are pytest, Pillow, python-docx, openpyxl, python-pptx and
+mutagen: independent readers for the tests' pixel checks, Office content
+checks and audio tag checks. metaex itself must never import them (or
+lxml, which some of them use); a test enforces this.
 
 It is used for real privacy work and published as a public repo, so
 **correctness and honesty matter more than features**. Never claim a file is
@@ -70,7 +70,21 @@ These hold for every format metaex strips:
   content type override (OpenDocument: its manifest entry). Embedded images
   go through the image strippers. Verification compares every part: same
   bytes, or the same canonical XML that leaves out only what strip may
-  change, or the same image data.
+  change, or the same image data. Where a format requires a date, strip
+  writes neutral dates from 2000-01-01T00:00:00 in one-second steps that
+  keep the original order (`ooxml.neutral_dates`).
+- **Audio (MP3, WAV, FLAC) loses every tag; the audio stays byte for
+  byte.** MP3: every audio frame in order (not the bytes between them).
+  WAV: `fmt` and `data` (and the `fact` sample count). FLAC: STREAMINFO,
+  SEEKTABLE and every byte from the first frame to the end of the last.
+  Kept by default because players use them, removed with `--paranoid`: the
+  MP3 Xing/Info/VBRI frame (its unknown bytes zeroed), WAV `cue`/`smpl`
+  (rebuilt from their positions, without labels or sampler identity) and
+  the FLAC CUESHEET (reserved bytes zeroed). Non-zero padding and data
+  between or after frames is hidden data: reported as critical and always
+  removed. Verification compares the frames (or `fmt`/`data`, or
+  STREAMINFO and frames) with the original, and PCM WAV frames also with
+  the stdlib `wave` module.
 
 ## Layout
 
@@ -103,7 +117,10 @@ What belongs where:
   `ooxml_verify.py`, shared by DOCX, XLSX and PPTX), OpenDocument packages
   (`odf.py`, `odf_verify.py`, shared by ODT, ODS and ODP), the OLE2
   directory reader that recognizes legacy and encrypted Office files
-  (`ole2.py`) and local path detection (`paths.py`).
+  (`ole2.py`) and local path detection (`paths.py`). For audio: ID3v2 and
+  ID3v1 tags (`id3.py`, used by MP3, WAV and FLAC), APE and Lyrics3 tags
+  and the scanner for tags at the end of a file (`audiotags.py`), pictures
+  read with the image parsers (`embedded.py`) and CRC-8/CRC-16 (`crc.py`).
 - **`commands/`**: the logic of each subcommand (`show.py`, ...). Builds a
   report from `core/` and `formats/`; no argparse here.
 - **`formats/`**: one module per file format (`jpeg.py`, ...), each
@@ -145,7 +162,8 @@ pytest
   the test helpers (never with Pillow), with made-up metadata only, and is
   byte-identical on every machine (PNG zlib data uses stored blocks,
   Office ZIP entries are stored, and the zip bomb sample uses a hand-written
-  deflate stream; never use zlib-compressed output in a sample). Never
+  deflate stream; never use zlib-compressed output in a sample; audio
+  samples are computed with integers only, never with floating point). Never
   edit those files by hand: change the generator, run
   `python scripts/make_samples.py` and commit the result. The tests run
   `--check`, which fails on a missing, changed or extra file.

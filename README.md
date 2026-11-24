@@ -6,10 +6,10 @@ uses only the standard library, so there is nothing to install besides
 Python itself.
 
 > **Status: work in progress. The supported formats so far are images
-> (JPEG, PNG, GIF, WebP, SVG) and office documents (Word, Excel and
+> (JPEG, PNG, GIF, WebP, SVG), office documents (Word, Excel and
 > PowerPoint: DOCX, XLSX, PPTX; LibreOffice and other OpenDocument
-> programs: ODT, ODS, ODP).** For these, metaex can show, assess, strip and
-> verify metadata. For every other format it only shows file system
+> programs: ODT, ODS, ODP) and audio (MP3, WAV, FLAC).** For these, metaex
+> can show, assess, strip and verify metadata. For every other format it only shows file system
 > information (size, dates, hashes) and refuses to strip. The other formats
 > listed below are planned, not done.
 
@@ -54,11 +54,15 @@ it before you share.
 | SVG    | yes  | yes  | yes   | yes    |
 | DOCX, XLSX, PPTX | yes | yes | yes | yes |
 | ODT, ODS, ODP    | yes | yes | yes | yes |
+| MP3    | yes  | yes  | yes   | yes    |
+| WAV    | yes  | yes  | yes   | yes    |
+| FLAC   | yes  | yes  | yes   | yes    |
 
 The Office rows include the macro-enabled and template variants (.docm,
 .dotx, .dotm, .xlsm, .xltx, .xltm, .pptm, .potx, .potm, .ppsx, .ppsm; .ott,
 .ots, .otp). See [Office documents](#office-documents) for what metaex
-reads, removes and keeps.
+reads, removes and keeps, and [Audio files](#audio-files) for MP3, WAV and
+FLAC.
 
 For JPEG, metaex reads EXIF (including GPS and the embedded thumbnail), XMP
 and Extended XMP, IPTC and Photoshop resources, ICC profiles, MPF extra
@@ -111,13 +115,15 @@ refused before parsing.
 
 | Category  | Formats                   |
 |-----------|---------------------------|
-| Audio     | MP3, WAV, FLAC            |
 | Archives  | ZIP, TAR                  |
 
 **Refused, with an explanation:** legacy Office files (.doc, .xls, .ppt:
 save them in the current format first), password-protected Office and
 OpenDocument files (remove the password first), "Strict Open XML" documents
-and binary Excel workbooks (.xlsb).
+and binary Excel workbooks (.xlsb); audio in other formats: AIFF, Ogg
+(Vorbis, Opus), M4A/AAC (also AAC in a file named .mp3), WAV files over
+4 GiB (RF64, BW64) and "free-format" MP3 (a rare variant without a fixed
+frame size).
 
 `metaex show` already recognizes these (and others) by their content, but
 does not read their embedded metadata yet; `metaex strip` refuses them and
@@ -213,8 +219,17 @@ version, comment and revision authors, sensitivity labels, custom
 properties and data, document variables, links and data connections,
 macros, embedded objects, hidden text), **medium** (editing time,
 revision number, printer settings, revision IDs, thumbnail, hidden sheets
-and slides, speaker notes), **low** (counts and everything else). On a
-terminal the levels are colored; use `--no-color`
+and slides, speaker notes), **low** (counts and everything else). For
+audio files: **critical** (e-mail addresses in any tag, account and
+purchase identifiers: ID3 POPM, PRIV, UFID, OWNE; data hidden in the
+audio stream or in tag padding; GPS in cover art), **high** (artist,
+composer, originator, encoded by, copyright, dates, comments, lyrics, user
+links, recording devices and places, original file names, embedded
+pictures, cue point labels), **medium** (titles and albums, encoder
+software and settings, Broadcast WAV coding history, iXML and axml project
+data, unknown fields, chunks and blocks), **low** (format, bitrate, sample
+rate, channels, the LAME tag, track numbers, genre, cue points and loops).
+On a terminal the levels are colored; use `--no-color`
 or set `NO_COLOR` to turn that off. `--json` prints the findings as JSON.
 
 ### strip
@@ -299,7 +314,9 @@ How it works, and what is guaranteed:
   `--paranoid` also removes the ICC profile, the JFIF density (JPEG),
   gAMA, cHRM, cICP, mDCv, cLLI and pHYs (PNG; sRGB stays) and SVG
   `<title>`/`<desc>`, so colors may shift. `--no-orientation` drops the
-  orientation (the image may display rotated).
+  orientation (the image may display rotated). For audio files,
+  `--paranoid` removes the MP3 Xing/LAME frame, WAV cue points and loops
+  and the FLAC cue sheet; see [Audio files](#audio-files).
 - **Hidden data in a PNG's image stream is refused**, not copied: extra
   bytes after the pixels or after the end of the compressed stream make
   `strip` stop and explain. `--rebuild-image-data` then decompresses
@@ -689,7 +706,9 @@ ODS, ODP).
   changes themselves stay. Where a format requires a value (PowerPoint
   comment author initials and account details, OpenDocument change dates,
   PowerPoint comment dates) an empty or neutral value is written instead:
-  an empty string, "Author", "None", or the date 2000-01-01T00:00:00.
+  an empty string, "Author", "None", or a date from 2000-01-01T00:00:00 on,
+  one second apart, in the original order (PowerPoint and LibreOffice sort
+  comments and changes by date).
   `--remove-comments` removes comments completely, with their marks in the
   text.
 - Every embedded JPEG, PNG, GIF, WebP and SVG image is cleaned with the
@@ -812,6 +831,133 @@ Note: CRITICAL: the document still contains tracked changes, and 14 characters o
 
 OpenDocument files (`metaex strip notes.odt`) work the same way.
 
+## Audio files
+
+metaex reads and cleans MP3, WAV and FLAC files. Every tag is removed,
+cover art included; the audio itself stays **byte for byte** the same (it
+is never decoded or encoded again), and `verify` proves it.
+
+**What metaex finds**
+
+- **MP3**: ID3v2 tags (versions 2.2, 2.3 and 2.4, at the start of the file
+  or appended at the end, several of them if there are), ID3v1 and ID3v1.1
+  (with the extended "TAG+" block), APEv1 and APEv2 tags, Lyrics3 tags, and
+  the Xing/Info (with the LAME tag) or VBRI frame encoders write before the
+  audio. Every ID3 frame is shown: titles, people, dates, comments, lyrics,
+  user-defined text and links, pictures and embedded files, and the frames
+  that identify you or a purchase: **POPM** (a rating stored with your
+  e-mail address), **PRIV** (private data of a program or store), **UFID**
+  (an identifier in a music database or store) and **OWNE** (price, date
+  and seller). Compressed and unsynchronised frames are read; encrypted
+  ones are listed (their content can't be read).
+- **WAV**: the RIFF INFO list (artist, comments, dates, software, ...), the
+  Broadcast WAV `bext` chunk (description, originator, often the recorder's
+  name, origination date and time, the unique material identifier, coding
+  history), `iXML` and `axml` (project data from field recorders and
+  broadcast systems, sometimes with a location), XMP (`_PMX`), ID3v2 tags
+  in `id3 ` chunks, cue points with their labels and notes, sampler loops
+  and every other chunk.
+- **FLAC**: Vorbis comments (with the encoder's vendor string), PICTURE
+  blocks, APPLICATION blocks, the seek table and cue sheet, padding, and
+  ID3v2, ID3v1 or APE tags that some programs add around the stream.
+- **Embedded pictures** (cover art in any of these tags) are read with
+  metaex's image readers, so a cover photo with GPS coordinates is reported
+  like any other photo with GPS coordinates.
+- **Hidden data**: anything in tag padding, padding chunks and blocks that
+  is not zero, bytes between or after the audio frames, and data after the
+  end of a WAV's RIFF data. Players skip all of it, so it can hide anything.
+
+**What strip removes and keeps**
+
+- **Removed**: every tag (ID3v2, ID3v1, APE, Lyrics3, Vorbis comments,
+  RIFF INFO, `bext`, `iXML`, `axml`, XMP), every picture and embedded file,
+  cue point labels, padding, unknown chunks and blocks, and any hidden data.
+- **Kept**: the audio. MP3: every audio frame, in order. WAV: the `fmt`
+  and `data` chunks and the sample count (`fact`). FLAC: STREAMINFO (with
+  the MD5 of the audio, which lets players check it), the seek table and
+  every byte of the audio frames.
+- **Kept by default because players use them**, removed with `--paranoid`:
+  - MP3: the Xing/Info or VBRI frame with the LAME tag. Players need it to
+    show the right duration, to seek in variable-bitrate files and for
+    gapless playback; it names the encoder (for example "LAME3.100"), and
+    the summary says so. Without it, players may show a less accurate
+    duration and seek less precisely.
+  - WAV: cue points (markers) and sampler loops, rebuilt with their
+    positions only: their text labels are always removed, and so are the
+    sampler's manufacturer, product and vendor data.
+  - FLAC: the cue sheet (track positions; it can hold the disc's catalog
+    number and the tracks' ISRC codes). Its reserved bytes are set to zero.
+
+**What strip refuses** (nothing is written): damaged files (a truncated
+frame or chunk, a tag that goes past the end of the file, a broken metadata
+block, frames that don't add up to the length STREAMINFO gives), tags whose
+frames can't be read, data hidden inside a WAV's `fmt` chunk (that chunk is
+copied byte for byte, so it can't be cleaned), and the audio formats listed
+under [Planned](#planned-not-implemented-yet).
+
+**How verify checks**: the cleaned file is read again from scratch. It may
+hold only the audio and what is kept by design; then the MP3 frames, the
+WAV `fmt` and `data` chunks, or the FLAC STREAMINFO and frames are compared
+byte for byte (by SHA-256) with the original. For PCM WAV files, the frames
+are also read with Python's own `wave` module from both files and compared.
+
+Real output for an MP3 generated by the test suite (all values are made
+up; the same file is `tests/samples/mp3/kitchen_sink.mp3`):
+
+```
+$ metaex risk song.mp3
+metaex risk: song.mp3
+30 critical, 46 high, 21 medium, 35 low
+
+CRITICAL (30)
+  ID3v2.3 tag 1 (at offset 0): User text: Contact  jane.doe@example.com
+  ID3v2.3 tag 1 (at offset 0): Private data: WM/UniqueFileIdentifier  AMGa_id=R 123456;AMGp_id=P 7890
+  ID3v2.3 tag 1 (at offset 0): Popularimeter (rating by e-mail): jane.doe@example.com  rating 196/255, play count 42
+  ID3v2.3 tag 1 (at offset 0): Ownership (purchase)  price paid 'EUR0.99', purchased 20240501, seller 'Example Music Store'
+  ID3v2.3 APIC 1 (JPEG): GPS: Coordinates   48.858367, 2.294481
+  Hidden data in tag padding: ID3v2.3 tag at offset 0  11 non-zero bytes in 64 bytes of padding
+  ...                                       (output shortened here)
+
+HIGH (46)
+  ID3v2.3 tag 1 (at offset 0): Artist       Jane Doe
+  ID3v2.3 tag 1 (at offset 0): Comment      Recorded on my phone, first take
+  ID3v2.3 tag 1 (at offset 0): Picture (front cover)  front cover, image/jpeg, 2920 bytes, description 'Cover'
+  APEv2 tag (at offset 36104): Record Location  12 Example Street
+  ...                                       (output shortened here)
+
+Run "metaex strip song.mp3" to remove these.
+```
+
+```
+$ metaex strip song.mp3
+metaex strip: song.mp3
+Wrote song_clean.mp3 (31.4 KiB; original 38.9 KiB)
+
+Removed:
+  ID3v2 tags                      24 fields: Title, Artist, Album, Composer, ...
+  APE tag                         8 fields: Title, Artist, Comment, Year, ...
+  Lyrics3 tag                     5 fields: Indications, Lyrics, Lyrics author, Artist, ...
+  ID3v1 tag                       11 fields: Title, Artist, Album, Year, ...
+  Embedded pictures and objects   3 fields: ID3v2.3 APIC 1, ID3v2.3 GEOB 1, APEv2 Cover Art (Front)
+  GPS location                    16 fields: Coordinates, Latitude, Longitude, OpenStreetMap, ...
+  Hidden data in tags             1 field: ID3v2.3 tag at offset 0
+  ...                                       (output shortened here)
+
+Kept by design:
+  Audio: Format = MPEG-1 Layer III, Sample rate = 44100 Hz, Channels = joint stereo, Bitrate = 128 kbit/s (constant), Duration = 1.985 s, Audio frames = 76, Header flags = original
+  Info frame: Information frame = Info (constant bitrate), Frame count = 77, Byte count = 32181, Seek table = yes, Quality = 0, Encoder = LAME3.100, Encoder delay = 576 samples, Encoder padding = 1152 samples, Lowpass filter = 17000 Hz, LAME tag CRC = valid
+  Warning: the Info frame with the LAME tag (encoder 'LAME3.100') is kept for seeking and gapless playback; use --paranoid to remove it
+
+Verification: clean
+  Audio frames unchanged (SHA-256 ff6b3eb2a88e1b42b15a4231feb639f5cc44b9b2133218bdf4b5ea52eb2689e4)
+
+File timestamps: new (not copied from the original)
+Windows Zone.Identifier stream: none (no download origin attached)
+```
+
+WAV and FLAC files (`metaex strip take.wav`, `metaex strip track.flac`)
+work the same way.
+
 ## Limitations
 
 Removing metadata does not make a file anonymous. No metadata tool can
@@ -899,6 +1045,24 @@ Specific to office documents:
   check before you share a cleaned copy outside it.
 - Files that are changed are compressed again, so the cleaned file's size
   differs from the original even where little was removed.
+
+Specific to audio:
+
+- **The audio is never decoded.** Watermarks, data hidden in the sound
+  itself (steganography) and anything a recording reveals (voices, the
+  room, background noise) are not detected and stay.
+- MP3: data hidden inside the audio frames (their unused bits and
+  "ancillary data") is not detected. The private bit of each frame header
+  is kept as it is.
+- FLAC: only the first and the last frame are parsed (the last to find
+  exactly where the audio ends); the frames in between are copied byte for
+  byte without being checked, so data hidden between them would be kept.
+  The MD5 in STREAMINFO is kept, so players can still check the audio.
+- The duration and encoder information a player shows can change with
+  `--paranoid` for MP3 files (the Xing/LAME frame is gone).
+- Tags metaex doesn't know in other places of the file (for example an APE
+  tag at the start of an MP3) are not read; in an MP3 they are removed as
+  hidden data, together with anything else that is not an audio frame.
 
 Specific to SVG:
 
