@@ -198,6 +198,9 @@ class ZipArchive:
             entry = found
         if entry.index in self._cache:
             return self._cache[entry.index]
+        refusal = entry_refusal(entry)
+        if refusal is not None:
+            raise MalformedFileError(refusal)
         out = _decompress(self, entry)
         self._cache[entry.index] = out
         return out
@@ -212,11 +215,15 @@ class ZipArchive:
 
 
 def open_archive(data: bytes | bytearray | memoryview, limits: ZipLimits = DEFAULT_LIMITS, *,
-                 depth: int = 0, budget: Budget | None = None) -> ZipArchive:
+                 depth: int = 0, budget: Budget | None = None,
+                 strict: bool = True) -> ZipArchive:
     """Read and check the archive's structure (nothing is decompressed yet).
 
     Raises MalformedFileError if it is damaged or unsafe; see the module
-    docstring for what is refused.
+    docstring for what is refused. With ``strict`` False, encrypted entries
+    and unknown compression methods are accepted (for reporting what the
+    archive's headers reveal); reading such an entry still raises (see
+    entry_refusal()).
     """
     if depth > limits.max_depth:
         raise ArchiveLimitError(f"ZIP archives are nested more than {limits.max_depth} deep "
@@ -268,7 +275,7 @@ def open_archive(data: bytes | bytearray | memoryview, limits: ZipLimits = DEFAU
                                      + "; refused")
         archive._by_name[entry.name] = entry
         archive._folded[folded] = entry
-        _check_entry_flags(entry)
+        _check_entry_flags(entry, strict)
         _read_local_header(reader, entry, cd_start)
 
     archive.hidden = _hidden_ranges(entries, cd_start, end, len(data))
@@ -407,15 +414,27 @@ def _check_name(entry: ZipEntry) -> None:
                                  "refused")
 
 
-def _check_entry_flags(entry: ZipEntry) -> None:
+def entry_refusal(entry: ZipEntry) -> str | None:
+    """Why metaex can't read an entry's data (encrypted, or compressed with a
+    method other than stored and deflate), else None."""
     shown = repr(entry.name)
     if entry.flags & (FLAG_ENCRYPTED | FLAG_STRONG_ENCRYPTION | FLAG_MASKED_HEADERS) \
             or entry.method == 99:
-        raise MalformedFileError(f"ZIP entry {shown} is encrypted (password-protected); metaex "
-                                 "can't read encrypted archives; refused")
+        return (f"ZIP entry {shown} is encrypted (password-protected); metaex can't read "
+                "encrypted archives; refused")
     if entry.method not in (STORED, DEFLATED):
-        raise MalformedFileError(f"ZIP entry {shown} uses compression method {entry.method}; "
-                                 "only stored and deflate are supported")
+        return (f"ZIP entry {shown} uses compression method {entry.method}; only stored and "
+                "deflate are supported")
+    return None
+
+
+def _check_entry_flags(entry: ZipEntry, strict: bool = True) -> None:
+    shown = repr(entry.name)
+    refusal = entry_refusal(entry)
+    if refusal is not None:
+        if strict:
+            raise MalformedFileError(refusal)
+        return
     if entry.method == STORED and entry.compressed_size != entry.size:
         raise MalformedFileError(f"ZIP entry {shown} is stored uncompressed, but its sizes "
                                  f"differ ({entry.compressed_size} and {entry.size})")

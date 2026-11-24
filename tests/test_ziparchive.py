@@ -477,3 +477,22 @@ def test_many_extra_fields_are_counted_not_all_listed():
 def test_methods_are_stored_or_deflated_only():
     assert {e.method for e in open_archive(build_zip([Entry("a", b"1"), Entry(
         "b", b"2", method=DEFLATED)])).entries} == {STORED, DEFLATED}
+
+
+def test_lenient_open_accepts_encrypted_entries_but_never_reads_them():
+    data = build_zip([Entry("a.txt", b"x", flags=FLAG_ENCRYPTED), Entry("b.txt", b"y")])
+    with pytest.raises(MalformedFileError, match="encrypted"):
+        open_archive(data)
+    archive = open_archive(data, strict=False)
+    assert archive.names() == ["a.txt", "b.txt"]
+    with pytest.raises(MalformedFileError, match="encrypted"):
+        archive.read("a.txt")
+    assert archive.read("b.txt") == b"y"
+
+
+def test_lenient_open_accepts_unknown_methods_but_never_reads_them():
+    data = build_zip([Entry("a.txt", b"x", method=14, compressed=b"LZMA")])
+    with pytest.raises(MalformedFileError, match="method 14"):
+        open_archive(data)
+    with pytest.raises(MalformedFileError, match="method 14"):
+        open_archive(data, strict=False).read("a.txt")
