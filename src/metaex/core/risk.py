@@ -33,10 +33,25 @@ OFFICE_SECTIONS and OFFICE_FIELDS:
 - medium: total editing time, revision number, printer settings, revision
   IDs (rsids), thumbnail, hidden sheets and slides, speaker notes
 - low: counts and everything else
+
+Audio files (MP3, WAV, FLAC) have their own tables, AUDIO_SECTIONS and
+AUDIO_NAMES (by field name, the same for ID3, APE, Vorbis comments, RIFF
+INFO and Lyrics3):
+- critical: e-mail addresses anywhere in a tag, account and purchase IDs
+  (ID3 POPM, PRIV, UFID, OWNE), data hidden in the audio stream or in tag
+  padding (and GPS in embedded pictures, by the image rules)
+- high: people (artist, composer, originator, encoded by, copyright
+  owner), dates, comments, lyrics, user URLs, recording devices and
+  places, original file names, embedded pictures, cue labels
+- medium: titles and albums, software and encoder settings, BWF coding
+  history, iXML and axml project data, unknown fields, chunks and blocks
+- low: technical fields (format, bitrate, sample rate, channels, the
+  LAME tag, track numbers, genre, cue points and loops)
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from metaex.core.report import format_value
@@ -171,6 +186,123 @@ OFFICE_FIELDS = {
 }
 
 
+# -- audio files -----------------------------------------------------------------------
+
+AUDIO_SECTIONS = {
+    # section key -> level of all its fields (None: by field name, see AUDIO_NAMES)
+    "audio": LOW, "encoder_info": LOW, "wav_format": LOW, "flac_streaminfo": LOW,
+    "flac_seektable": LOW, "flac_cuesheet": LOW, "wav_cue": LOW, "wav_smpl": None,
+    "audio_pictures": HIGH, "wav_adtl": HIGH, "wav_cart": HIGH,
+    "wav_ixml": None, "wav_axml": None, "flac_application": MEDIUM,
+    "hidden_audio_data": CRITICAL, "hidden_tag_data": CRITICAL,
+    "id3v2": None, "id3v1": None, "ape": None, "lyrics3": None, "vorbis_comment": None,
+    "wav_info": None, "wav_bext": None,
+}
+_AUDIO_DEFAULTS = {"wav_ixml": MEDIUM, "wav_axml": MEDIUM}
+"""Level of the fields in a section decided by name that no rule names
+(otherwise MEDIUM: an unknown field could hold anything)."""
+
+AUDIO_NAMES: dict[str, str] = {}
+"""Upper-case field name (ID3 frame ID, APE key, Vorbis comment name, RIFF
+INFO ID, BWF field) -> level."""
+
+
+def _audio_names(level: str, names: str) -> None:
+    for name in names.split(","):
+        AUDIO_NAMES[name.strip().upper()] = level
+
+
+_audio_names(CRITICAL, "PRIV, UFID, OWNE, POPM, EMAIL, E-MAIL, ACCOUNT, APPLE_ID, USERID, "
+                       "USER_ID, ITUNES_ACCOUNT, PURCHASE_ACCOUNT")
+_audio_names(HIGH, (
+    # people and organizations
+    "TPE1, TPE2, TPE3, TPE4, TCOM, TEXT, TOLY, TOPE, TENC, TIPL, TMCL, IPLS, TOWN, TCOP, "
+    "TPUB, TRSO, TSOP, TSO2, TSOC, ARTIST, ALBUMARTIST, ALBUM ARTIST, ALBUM_ARTIST, COMPOSER, "
+    "PERFORMER, CONDUCTOR, LYRICIST, ARRANGER, ENCODED-BY, ENCODEDBY, ENCODED BY, COPYRIGHT, "
+    "ORGANIZATION, PUBLISHER, LABEL, PRODUCER, ENGINEER, MIXER, DJMIXER, REMIXER, WRITER, "
+    "AUTHOR, CONTACT, OWNER, ARTISTSORT, ALBUMARTISTSORT, COMPOSERSORT, ORIGINAL ARTIST, "
+    "IART, IENG, ITCH, ICOP, ISRC, ICMS, AUT, EAR, ORIGINATOR, ORIGINATOR_REFERENCE, UMID, "
+    # dates
+    "TDRC, TYER, TDAT, TIME, TORY, TDOR, TDEN, TDRL, TDTG, TRDA, DATE, YEAR, ORIGINALDATE, "
+    "ORIGINALYEAR, RECORD DATE, RELEASE DATE, RELEASEDATE, ENCODING DATE, ICRD, "
+    "ORIGINATION_DATE, ORIGINATION_TIME, "
+    # comments, lyrics, free descriptions
+    "COMM, USLT, SYLT, COMMENT, COMMENTS, DESCRIPTION, LYRICS, UNSYNCEDLYRICS, ICMT, LYR, INF, "
+    "NOTES, NOTE, "
+    # links
+    "WXXX, WOAR, WOAF, WOAS, WORS, WPAY, WPUB, WCOM, WCOP, WFED, URL, WEBSITE, RELATED, IMG, "
+    # devices, places, files
+    "DEVICE, RECORDER, RECORDING DEVICE, MODEL, MAKE, HARDWARE, MICROPHONE, LOCATION, "
+    "RECORD LOCATION, RECORDING LOCATION, IARL, TOFN, "
+    # embedded pictures and objects
+    "APIC, GEOB, METADATA_BLOCK_PICTURE, COVERART"))
+_audio_names(MEDIUM, (
+    "TSSE, ENCODER, ENCODER SETTINGS, ENCODERSETTINGS, ENCODER_OPTIONS, ENCODING, VENDOR, "
+    "TOOL NAME, TOOL VERSION, ISFT, CODING_HISTORY, "
+    "TIT1, TIT2, TIT3, TALB, TOAL, TSST, TSOA, TSOT, TDES, TITLE, ALBUM, SUBTITLE, "
+    "INAM, IPRD, ISBJ, IKEY, ETT, EAL, PCNT, TXXX, USER, COMR"))
+_audio_names(LOW, (
+    "TCON, GENRE, TRCK, TRACK, TRACKNUMBER, TRACKTOTAL, TOTALTRACKS, TPOS, DISC, DISCNUMBER, "
+    "DISCTOTAL, TOTALDISCS, TBPM, BPM, TKEY, KEY, TLAN, LANGUAGE, TLEN, TMED, MEDIA, TFLT, "
+    "TSIZ, TCMP, COMPILATION, TMOO, MOOD, TSRC, MCDI, RVA2, RVAD, EQU2, EQUA, ETCO, MLLT, SYTC, "
+    "POSS, RBUF, ASPI, SEEK, SIGN, AENC, ENCR, GRID, LINK, TDLY, TPRO, PCST, TCAT, TKWD, "
+    "CHAP, CTOC, IND, IGNR, IMED, ISRF, ILGT, IDPI, IDIM, IPLT, ISHP, ICRP, ITRK, "
+    "GENRE_TEXT, START_TIME, END_TIME, SPEED, EMPTY, EXTENDED_HEADER, "
+    "VERSION, TIME_REFERENCE, LOUDNESS_VALUE, LOUDNESS_RANGE, MAX_TRUE_PEAK_LEVEL, "
+    "MAX_MOMENTARY_LOUDNESS, MAX_SHORT_TERM_LOUDNESS, LOOPS, SAMPLE_PERIOD, MIDI_UNITY_NOTE, "
+    "MIDI_PITCH_FRACTION, SMPTE_FORMAT, SMPTE_OFFSET"))
+_AUDIO_LOW_PREFIXES = ("REPLAYGAIN", "MP3GAIN", "R128_", "ITUNNORM", "ITUNSMPB", "ITUNPGAP")
+_AUDIO_HIGH_PREFIXES = ("COVER ART",)
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+
+
+def _audio_name(section_key: str, field_key: str) -> str:
+    """The field's name for AUDIO_NAMES: the frame ID of an ID3v2 field
+    ("COMM:eng:desc" -> "COMM"), else the key itself (without a "_2"
+    suffix that makes it unique); upper case."""
+    if section_key == "id3v2":
+        return field_key.split(":", 1)[0].upper()
+    return field_key.upper()
+
+
+def _audio_level(section_key: str, field_key: str, value: str) -> str:
+    if _EMAIL.search(value) or _EMAIL.search(field_key):
+        return CRITICAL
+    fixed = AUDIO_SECTIONS[section_key]
+    if fixed is not None:
+        return fixed
+    name = _audio_name(section_key, field_key)
+    if section_key == "id3v2" and field_key.count(":") >= 2:
+        # COMM and USLT: "COMM:<language>:<description>"; iTunes stores
+        # technical data in comments described iTunNORM, iTunSMPB, ...
+        description = field_key.split(":", 2)[2].upper()
+        if description.startswith(_AUDIO_LOW_PREFIXES):
+            return LOW
+    if section_key == "id3v2" and name in ("TXXX", "WXXX") and ":" in field_key:
+        user_name = field_key.split(":", 1)[1].upper()
+        if user_name.startswith(_AUDIO_LOW_PREFIXES):
+            return LOW
+        if user_name in AUDIO_NAMES and name == "TXXX":
+            return AUDIO_NAMES[user_name]
+    if section_key in ("wav_ixml", "wav_axml"):
+        last = re.split(r"[/.]", name)[-1]
+        if "GPS" in last:
+            return CRITICAL
+        if any(word in last for word in ("NOTE", "LOCATION", "USER", "OPERATOR", "DEVICE")):
+            return HIGH
+        return _AUDIO_DEFAULTS[section_key]
+    if name.startswith(_AUDIO_LOW_PREFIXES):
+        return LOW
+    if name.startswith(_AUDIO_HIGH_PREFIXES):
+        return HIGH
+    if section_key == "wav_smpl":
+        return MEDIUM if name in ("MANUFACTURER", "PRODUCT") else LOW
+    level = AUDIO_NAMES.get(name)
+    if level is None:
+        level = AUDIO_NAMES.get(re.sub(r"_\d+$", "", name), MEDIUM)
+    return level
+
+
 def _office_level(section_key: str, field_key: str, value: str) -> str:
     """Level of a field in an Office section (see OFFICE_SECTIONS)."""
     from metaex.core.paths import local_paths, user_name
@@ -220,6 +352,8 @@ def classify(section_key: str, field_key: str, label: str = "", value: str = "")
     sections look at it, for file paths that name a user)."""
     if section_key in OFFICE_SECTIONS:
         return _office_level(section_key, field_key, value)
+    if section_key in AUDIO_SECTIONS:
+        return _audio_level(section_key, field_key, value)
     if section_key == "icc":
         # ICC fields share names with personal fields (Description, Copyright) but
         # describe a color profile; only the device fields can fingerprint.
