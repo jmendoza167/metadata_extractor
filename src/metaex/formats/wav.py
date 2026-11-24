@@ -21,6 +21,9 @@ RF64 and BW64 (WAV files over 4 GiB, with 64-bit sizes) are not supported.
 
 from __future__ import annotations
 
+import hashlib
+import io
+import wave
 from dataclasses import dataclass, field
 
 from metaex.core import id3, xmp
@@ -892,3 +895,129 @@ def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
     trailing = data[structure.end:]
     key = "audio_padding" if trailing.count(0) == len(trailing) else "audio_trailing"
     return {key: len(trailing)}
+
+
+# -- Verification -------------------------------------------------------------------------------
+
+IMAGE_LABEL = "Audio (fmt and data chunks)"
+
+
+def is_kept_by_design(section_key: str, field) -> bool:
+    """True if a field may stay in a stripped WAV: the format, the cue
+    points and the number of loops (not extra bytes or the sampler's
+    identity)."""
+    if section_key == "wav_format":
+        return True
+    if section_key == "wav_cue":
+        return field.key.startswith("cue_") or field.key in ("more", "count")
+    if section_key == "wav_smpl":
+        return field.key in ("loops", "midi_unity_note")
+    return False
+
+
+def _record(fourcc: str, payload: bytes) -> bytes:
+    return fourcc.encode("latin-1") + len(payload).to_bytes(8, "big") + payload
+
+
+def audio_data(structure: WavStructure) -> bytes:
+    """The fmt and data payloads, for comparing two files."""
+    return (_record("fmt ", structure.first("fmt ").data)
+            + _record("data", structure.first("data").data))
+
+
+def _wave_frames(data: bytes) -> tuple[tuple, bytes]:
+    """(parameters, frames) as the standard library's wave module reads them;
+    raises wave.Error, EOFError or ValueError if it can't."""
+    with wave.open(io.BytesIO(data), "rb") as reader:
+        params = (reader.getnchannels(), reader.getsampwidth(), reader.getframerate(),
+                  reader.getnframes())
+        return params, reader.readframes(reader.getnframes())
+
+
+def _chunk_problem(chunk: Chunk, seen: set[str]) -> str | None:
+    """Why a chunk is not one strip() would write; None if it is."""
+    first = chunk.fourcc not in seen
+    seen.add(chunk.fourcc)
+    if chunk.padding not in (b"", b"\x00"):
+        return "padding byte is not zero"
+    if not first:
+        return f"a second {chunk.label} chunk"
+    if chunk.fourcc in ("fmt ", "data"):
+        return None
+    if chunk.fourcc == "fact":
+        return None if chunk.size == 4 else "fact chunk holds more than the sample count"
+    if chunk.fourcc == "cue ":
+        return None if cue_bytes(parse_cue(chunk)) == chunk.data else (
+            "cue chunk holds more than its cue points")
+    if chunk.fourcc == "smpl":
+        return None if smpl_bytes(parse_smpl(chunk)) == chunk.data else (
+            "smpl chunk holds more than its loops")
+    return f"{chunk.label} chunk is not allowed in a cleaned WAV"
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """WAV-specific verification, beyond the field-level whitelist.
+
+    - The file must be complete and well-formed, with the RIFF size equal to
+      the file size minus 8 (nothing after the RIFF data).
+    - Chunk whitelist: one fmt, one data, at most one fact (sample count
+      only), one cue (cue points only) and one smpl (loops only, without the
+      sampler's identity); padding bytes must be zero.
+    - SHA-256 of the fmt and data payloads, compared with the original's if
+      one is given. For PCM audio the frames are also read with Python's
+      wave module from both files and compared.
+    """
+    out: dict = {"leftovers": [], "problems": [], "notes": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None,
+                 "image_label": IMAGE_LABEL}
+    try:
+        structure = checked_structure(bytes(cleaned))
+    except MalformedFileError as exc:
+        out["problems"].append(f"not a complete, well-formed WAV: {exc}")
+        return out
+    out["image_sha256"] = hashlib.sha256(audio_data(structure)).hexdigest()
+    if structure.end != len(cleaned):
+        out["leftovers"].append(("WAV structure", f"data at offset {structure.end}",
+                                 f"{len(cleaned) - structure.end} bytes after the RIFF data"))
+    seen: set[str] = set()
+    for chunk in structure.chunks:
+        problem = _chunk_problem(chunk, seen)
+        if problem is not None:
+            out["leftovers"].append(("WAV structure", f"{chunk.label} at offset {chunk.offset}",
+                                     f"{problem} ({chunk.size} bytes)"))
+    if original is None:
+        return out
+    try:
+        orig_structure = checked_structure(bytes(original))
+    except MalformedFileError as exc:
+        out["problems"].append(f"original is not a complete, well-formed WAV ({exc}); audio "
+                               "not compared")
+        return out
+    out["original_image_sha256"] = hashlib.sha256(audio_data(orig_structure)).hexdigest()
+    match = out["original_image_sha256"] == out["image_sha256"]
+    if not match:
+        out["problems"].append("the fmt or data chunk differs from the original")
+    if parse_format(structure.first("fmt ")).code == WAVE_FORMAT_PCM:
+        match = _compare_frames(bytes(cleaned), bytes(original), out) and match
+    out["image_data_match"] = match
+    return out
+
+
+def _compare_frames(cleaned: bytes, original: bytes, out: dict) -> bool:
+    """Compare the PCM frames as the wave module reads them; False if they differ."""
+    try:
+        orig_params, orig_frames = _wave_frames(original)
+    except (wave.Error, EOFError, ValueError) as exc:
+        out["notes"].append(f"Python's wave module can't read the original ({exc}); the "
+                            "frames were compared byte for byte only")
+        return True
+    try:
+        params, frames = _wave_frames(cleaned)
+    except (wave.Error, EOFError, ValueError) as exc:
+        out["problems"].append(f"Python's wave module can't read the cleaned file ({exc})")
+        return False
+    if (params, frames) != (orig_params, orig_frames):
+        out["problems"].append("the PCM frames read with Python's wave module differ from the "
+                               "original's")
+        return False
+    return True
