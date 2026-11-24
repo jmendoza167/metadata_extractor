@@ -369,6 +369,8 @@ _SECTION_GROUPS = {
     "archive_extra": "Other entry information",
     "archive_links": "Link targets",
     "archive_paths": "Names",
+    "compress_header": "gzip header",
+    "compress_hidden": "Hidden data after the compressed data",
 }
 _CAMERA = {"Make", "Model", "BodySerialNumber", "LensMake", "LensModel", "LensSerialNumber",
            "LensSpecification", "MakerNote", "CameraOwnerName", "UniqueCameraModel",

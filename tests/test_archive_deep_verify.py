@@ -107,3 +107,28 @@ def test_cli_verify_deep_output(tmp_path):
     assert "Archive contents (1 file(s) inside cleaned and verified): matches the original" \
         in r.stdout
     assert "trip/a.jpg: a cleaned copy, verified against the original file inside" in r.stdout
+
+
+def test_compressed_tar_deep_output_says_what_was_cleaned(tmp_path):
+    """Regression: the gzip wrapper passed on the TAR's verdict but not its
+    label, so strip said "Archive contents unchanged" after --deep."""
+    original = gz.gzip(build_tar([file("trip/a.jpg", PHOTO)]))
+    result = verify(gzipformat.strip(original, deep=True), original)
+    assert result.clean and result.image_data_match
+    assert result.image_label == "Archive contents (1 file(s) inside cleaned and verified)"
+    assert result.notes[0].startswith("trip/a.jpg: a cleaned copy, verified")
+    path = tmp_path / "trip.tar.gz"
+    path.write_bytes(original)
+    r = metaex("strip", "--deep", path)
+    assert r.returncode == 0, r.stderr
+    assert "unchanged" not in r.stdout.split("Verification:")[1].splitlines()[1]
+    assert "(1 file(s) inside cleaned and verified): the same files" in r.stdout
+
+
+def test_strip_names_the_gzip_header_it_removed(tmp_path):
+    path = tmp_path / "notes.txt.gz"
+    path.write_bytes(gz.gzip(b"plain text", name=b"notes.txt", mtime=1714559400,
+                             comment=b"draft"))
+    r = metaex("strip", path)
+    assert r.returncode == 0, r.stderr
+    assert "gzip header" in r.stdout and "  Other " not in r.stdout

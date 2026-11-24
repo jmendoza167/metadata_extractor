@@ -689,7 +689,9 @@ def verify_details(cleaned: bytes, original: bytes | None, kind: str) -> dict:
         inner = tar.verify_archive(mine, theirs)
         out["leftovers"] += inner["leftovers"]
         out["problems"] += inner["problems"]
-        for key in ("image_sha256", "original_image_sha256", "image_data_match"):
+        out["notes"] = inner.get("notes", [])
+        # The TAR's label says whether files inside were cleaned (--deep).
+        for key in ("image_sha256", "original_image_sha256", "image_data_match", "image_label"):
             out[key] = inner[key]
         return out
     out["image_label"] = "Compressed file contents"
