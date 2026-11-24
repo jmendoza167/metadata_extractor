@@ -47,6 +47,20 @@ INFO and Lyrics3):
   history, iXML and axml project data, unknown fields, chunks and blocks
 - low: technical fields (format, bitrate, sample rate, channels, the
   LAME tag, track numbers, genre, cue points and loops)
+
+Archives (ZIP, TAR) have their own table, ARCHIVE_SECTIONS and
+ARCHIVE_FIELDS:
+- critical: "where from" URLs and quarantine records of downloads (in
+  extended attributes), names and link targets that reveal a user folder,
+  e-mail addresses anywhere, data hidden in the archive
+- high: entry times, owner user and group names, comments, operating
+  system junk files (__MACOSX, AppleDouble, .DS_Store, Thumbs.db, ...)
+- medium: the operating system that made the entries, owner user and
+  group IDs, permissions
+- low: everything else (other extended attributes, other link targets,
+  unknown extra fields)
+The files inside an archive are reported with their own sections (titles
+start with the entry's path) and keep their own levels.
 """
 
 from __future__ import annotations
@@ -61,7 +75,7 @@ CRITICAL, HIGH, MEDIUM, LOW = "critical", "high", "medium", "low"
 LEVELS = (CRITICAL, HIGH, MEDIUM, LOW)
 
 # Sections that describe the file itself rather than embedded metadata.
-NOT_METADATA_SECTIONS = {"file_type", "file_system", "hashes", "structure"}
+NOT_METADATA_SECTIONS = {"file_type", "file_system", "hashes", "structure", "archive_contents"}
 
 # -- critical --------------------------------------------------------------------------
 CRITICAL_SECTIONS = {"gps", "mpf", "trailing",
@@ -304,6 +318,41 @@ def _audio_level(section_key: str, field_key: str, value: str) -> str:
     return level
 
 
+# -- archives --------------------------------------------------------------------------
+
+ARCHIVE_SECTIONS = {
+    # section key -> level of its fields (None: decided by the field, see _archive_level)
+    "archive_hidden": CRITICAL, "archive_paths": CRITICAL,
+    "archive_times": HIGH, "archive_comments": HIGH, "archive_junk": HIGH,
+    "archive_owners": None, "archive_system": MEDIUM,
+    "archive_xattrs": None, "archive_links": None, "archive_extra": LOW,
+}
+ARCHIVE_FIELDS = {
+    ("archive_owners", "owner_names"): HIGH, ("archive_owners", "owner_ids"): MEDIUM,
+}
+DOWNLOAD_ATTRIBUTES = ("com.apple.quarantine", "kMDItemWhereFroms")
+"""Extended attributes that record where a file was downloaded from."""
+
+
+def _archive_level(section_key: str, field_key: str, value: str) -> str:
+    """Level of a field in an archive section (see ARCHIVE_SECTIONS)."""
+    from metaex.core.archive import link_user
+    from metaex.core.paths import local_paths, user_name
+
+    if _EMAIL.search(value) or _EMAIL.search(field_key):
+        return CRITICAL
+    if section_key == "archive_xattrs":
+        return CRITICAL if any(a in field_key for a in DOWNLOAD_ATTRIBUTES) else LOW
+    if section_key == "archive_links":
+        return CRITICAL if link_user(value) else LOW
+    if any(user_name(p) for p in local_paths(value)):
+        return CRITICAL
+    level = ARCHIVE_FIELDS.get((section_key, field_key))
+    if level is not None:
+        return level
+    return ARCHIVE_SECTIONS[section_key] or LOW
+
+
 def _office_level(section_key: str, field_key: str, value: str) -> str:
     """Level of a field in an Office section (see OFFICE_SECTIONS)."""
     from metaex.core.paths import local_paths, user_name
@@ -349,12 +398,15 @@ def _is_date(name: str) -> bool:
 
 
 def classify(section_key: str, field_key: str, label: str = "", value: str = "") -> str:
-    """Risk level of one field (``value`` is its displayed value; only Office
-    sections look at it, for file paths that name a user)."""
+    """Risk level of one field (``value`` is its displayed value; Office, audio
+    and archive sections look at it, for file paths that name a user and
+    e-mail addresses)."""
     if section_key in OFFICE_SECTIONS:
         return _office_level(section_key, field_key, value)
     if section_key in AUDIO_SECTIONS:
         return _audio_level(section_key, field_key, value)
+    if section_key in ARCHIVE_SECTIONS:
+        return _archive_level(section_key, field_key, value)
     if section_key == "icc":
         # ICC fields share names with personal fields (Description, Copyright) but
         # describe a color profile; only the device fields can fingerprint.
