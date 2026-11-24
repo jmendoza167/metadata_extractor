@@ -266,6 +266,36 @@ def test_strip_without_deep_keeps_the_files_inside(name, tmp_path):
         assert v.returncode == 0 and result["leftovers"] == []
 
 
+@pytest.mark.parametrize("deep", [False, True], ids=["plain", "deep"])
+@pytest.mark.parametrize("name", [n for n in SAMPLES if n.endswith(ARCHIVE_SUFFIXES)])
+def test_strip_and_verify_agree(name, deep, tmp_path):
+    """Regression: strip said "Verification: clean" while verify called the
+    same file NOT CLEAN (metadata in the files inside). Both now give the
+    same verdict, in text and JSON; the exit codes are unchanged."""
+    copy = copy_sample(name, tmp_path)
+    option = ["--deep"] if deep else []
+    out = tmp_path / ("stripped" + copy.suffix)
+    s = metaex("strip", copy, "-o", out, "--json", *option)
+    assert s.returncode == 0, s.stderr
+    stripped = json.loads(s.stdout)["verify"]
+    v = metaex("verify", out, "--original", copy, "--json")
+    checked = json.loads(v.stdout)
+    assert stripped["verdict"] == checked["verdict"]
+    assert stripped["clean"] == checked["clean"]
+    assert v.returncode == (0 if checked["clean"] else 3)
+    if deep or "kitchen_sink" not in name and "photo" not in name:
+        assert checked["verdict"] == "CLEAN"
+    else:
+        assert checked["verdict"].startswith("NOT CLEAN: archive metadata clean; ")
+    # the text output says it in the same words
+    text_out = tmp_path / ("text" + copy.suffix)
+    s = metaex("strip", copy, "-o", text_out, *option)
+    v = metaex("verify", text_out, "--original", copy)
+    line = next(x for x in s.stdout.splitlines() if x.startswith("Verification: "))
+    result = next(x for x in v.stdout.splitlines() if x.startswith("Result: "))
+    assert line[len("Verification: "):] == result[len("Result: "):] == checked["verdict"]
+
+
 # -- SAMPLES.md ---------------------------------------------------------------------------
 
 _ROW = re.compile(r"^\| `([^`]+)` \|.*\| (\d+) / (\d+) / (\d+) / (\d+) \|$", re.M)

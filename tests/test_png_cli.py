@@ -40,7 +40,7 @@ def test_strip_png(image):
     assert trailing.rstrip().endswith("10 B")
     assert "Kept by design:" in text_out and "ICC profile" in text_out
     assert "Warning: ICC profile names a device (ACME X100)" in text_out
-    assert "Verification: clean" in text_out and "Image data unchanged" in text_out
+    assert "Verification: CLEAN" in text_out and "Image data unchanged" in text_out
     assert sorted(os.listdir(image.parent)) == ["image.png", "image_clean.png"]
 
 

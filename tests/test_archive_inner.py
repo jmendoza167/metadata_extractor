@@ -168,13 +168,16 @@ def test_strip_without_deep_warns_and_keeps_files_inside(tmp_path):
     assert r.returncode == 0, r.stderr
     assert "1 file(s) inside the archive still contain metadata: a.jpg (JPEG)" in r.stdout
     assert "use --deep" in r.stdout
-    assert "Verification: clean" in r.stdout
+    expected = ("NOT CLEAN: archive metadata clean; 1 file(s) inside still contain metadata "
+                "(not cleaned, use --deep)")
+    assert f"Verification: {expected}" in r.stdout  # strip still writes the file (exit 0)
     cleaned = tmp_path / "photos_clean.zip"
     from metaex.core.ziparchive import open_archive
 
     assert open_archive(cleaned.read_bytes()).read("a.jpg") == PHOTO
     r = metaex("verify", cleaned)
     assert r.returncode == 3 and "a.jpg: GPS" in r.stdout
+    assert f"Result: {expected}" in r.stdout
 
 
 def test_cli_risk_groups_findings_by_entry(tmp_path):

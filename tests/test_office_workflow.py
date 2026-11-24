@@ -54,7 +54,7 @@ def test_show_strip_verify_show(name, options, tmp_path):
     r = metaex("strip", original, *options)
     assert r.returncode == 0, r.stderr
     cleaned = tmp_path / name.replace(".", "_clean.")
-    assert "Verification: clean" in r.stdout
+    assert "Verification: CLEAN" in r.stdout
     assert sha(original) == before  # the original is never touched
 
     v = metaex("verify", cleaned, "--original", original, "--json")

@@ -34,7 +34,7 @@ def test_strip_gif(image):
     assert trailing.rstrip().endswith("17 B")
     assert "Animation: Frames = 2, Loop count = forever" in out
     assert "Warning: ICC profile names a device (ACME X100)" in out
-    assert "Verification: clean" in out and "Image data unchanged" in out
+    assert "Verification: CLEAN" in out and "Image data unchanged" in out
     assert sorted(os.listdir(image.parent)) == ["anim.gif", "anim_clean.gif"]
 
 

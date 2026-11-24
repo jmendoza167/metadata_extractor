@@ -32,7 +32,7 @@ def test_strip_svg(drawing):
                   "Embedded images"):
         assert f"  {group} " in out, group
     assert "Warning: kept 1 <title>/<desc> element(s) for accessibility" in out
-    assert "Verification: clean" in out and "Drawing unchanged" in out
+    assert "Verification: CLEAN" in out and "Drawing unchanged" in out
     assert sorted(os.listdir(drawing.parent)) == ["plan.svg", "plan_clean.svg"]
 
 

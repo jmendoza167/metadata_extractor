@@ -35,7 +35,7 @@ def test_strip_webp(image):
     assert "EXIF: Orientation = Rotated 90" in out
     assert "Animation: Frames = 2, Loop count = forever" in out
     assert "Warning: ICC profile names a device (ACME X100)" in out
-    assert "Verification: clean" in out and "Image data unchanged" in out
+    assert "Verification: CLEAN" in out and "Image data unchanged" in out
     assert sorted(os.listdir(image.parent)) == ["image.webp", "image_clean.webp"]
 
 

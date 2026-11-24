@@ -19,7 +19,7 @@ from metaex.core.generic import mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, format_size, load_file
 from metaex.core.registry import can_strip, format_module
 from metaex.core.report import CRITICAL_PREFIX, format_value
-from metaex.core.verify import Finding, VerifyResult, verify
+from metaex.core.verify import Finding, VerifyResult, verdict, verify
 from metaex.core.writer import write_verified
 
 
@@ -61,6 +61,7 @@ class StripOutcome:
             ],
             "verify": None if v is None else {
                 "clean": v.clean,
+                "verdict": verdict(v),
                 "leftovers": [str(f) for f in v.leftovers],
                 "problems": v.problems,
                 "image_data_match": v.image_data_match,
@@ -222,6 +223,12 @@ def _strip(source: str, data: bytes, detected: ft.FileType, module, output,
         result = write_verified(target, cleaned, check, times=times)
     outcome = StripOutcome(source, target, detected, len(data), len(cleaned),
                            kept_by_design=result.kept_by_design, verify=result)
+    if getattr(module, "CAN_DEEP", False):
+        # The check above looked at the archive itself (files inside that
+        # were not cleaned are warned about, not refused). Report what
+        # `metaex verify --original` says about the same file, files inside
+        # included, so both give the same verdict.
+        outcome.verify = verify(cleaned, data, filename=target)
     if session is None:
         with scan_inner(False):
             outcome.removed = removed_groups(module.parse(data), result.kept_by_design)
@@ -470,8 +477,7 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
     lines.append("")
     v = outcome.verify
     if v is not None:
-        status = "clean" if v.clean else "NOT CLEAN"
-        lines.append(f"Verification: {status}")
+        lines.append(f"Verification: {verdict(v)}")
         if v.image_data_match and v.image_data_rebuilt:
             lines.append("  Image data rebuilt, pixels identical (SHA-256 of the "
                          f"decompressed image data {v.image_sha256})")

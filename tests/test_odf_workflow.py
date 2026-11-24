@@ -49,7 +49,7 @@ def test_show_strip_verify_show(kind, options, tmp_path):
         "Jane Doe"
     r = metaex("strip", original, *options)
     assert r.returncode == 0, r.stderr
-    assert "Verification: clean" in r.stdout
+    assert "Verification: CLEAN" in r.stdout
     assert original.read_bytes() == before
     cleaned = tmp_path / f"notes_clean.{kind}"
     v = metaex("verify", cleaned, "--original", original, "--json")

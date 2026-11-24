@@ -78,7 +78,7 @@ def test_cli_strip_and_verify(tmp_path):
     path.write_bytes(gz.gzip(TAR, name=b"backup.tar", mtime=JAN_2024) + b"appended")
     r = metaex("strip", path)
     assert r.returncode == 0, r.stderr
-    assert "Verification: clean" in r.stdout
+    assert "Verification: CLEAN" in r.stdout
     cleaned = tmp_path / "backup_clean.tar.gz"
     assert cleaned.exists()
     r = metaex("verify", cleaned, "--original", path)

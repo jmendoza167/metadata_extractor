@@ -7,7 +7,7 @@ from typing import Any
 
 from metaex.core.generic import mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, load_file
-from metaex.core.verify import VerifyResult, verify
+from metaex.core.verify import VerifyResult, verdict, verify
 
 
 def verify_file(cleaned: str | os.PathLike[str], original: str | os.PathLike[str] | None = None,
@@ -31,6 +31,7 @@ def result_to_dict(path: str, result: VerifyResult) -> dict[str, Any]:
         "path": path,
         "type": result.filetype.name,
         "clean": result.clean,
+        "verdict": verdict(result),
         "leftovers": findings(result.leftovers),
         "problems": result.problems,
         "kept_by_design": findings(result.kept_by_design),
@@ -44,7 +45,7 @@ def result_to_dict(path: str, result: VerifyResult) -> dict[str, Any]:
 
 def result_lines(path: str, result: VerifyResult) -> list[str]:
     lines = [f"metaex verify: {path}",
-             f"Result: {'CLEAN' if result.clean else 'NOT CLEAN'}", ""]
+             f"Result: {verdict(result)}", ""]
     if result.leftovers:
         lines.append(f"Leftovers ({len(result.leftovers)}):")
         lines += [f"  {f}" for f in result.leftovers]

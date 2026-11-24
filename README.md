@@ -254,7 +254,7 @@ Removed:
 Kept by design:
   (nothing)
 
-Verification: clean
+Verification: CLEAN
   Image data unchanged (SHA-256 cbe659a3289989ba9faef835d6493ac530fbf3957ae2cae412e32b2f4308c4cb)
 
 File timestamps: new (not copied from the original)
@@ -460,7 +460,7 @@ Kept by design:
   Animation: Frames = 2, Plays = forever, Frame control chunks (fcTL) = 2, Frame data chunks (fdAT) = 1
   Warning: ICC profile names a device (ACME X100); use --paranoid to remove it (colors may shift)
 
-Verification: clean
+Verification: CLEAN
   Image data unchanged (SHA-256 03ce548db8058ab8ddd887827310346e5f71b681d26b694b65a108965051fa82)
 
 File timestamps: new (not copied from the original)
@@ -532,7 +532,7 @@ Kept by design:
   Animation: Frames = 3, Loop count = forever
   Warning: ICC profile names a device (ACME X100); use --paranoid to remove it (colors may shift)
 
-Verification: clean
+Verification: CLEAN
   Image data unchanged (SHA-256 2601bdae84462f8012750454a3e29275031a72d38078c27315a5e4dbfd8a2bc3)
 
 File timestamps: new (not copied from the original)
@@ -561,7 +561,7 @@ Kept by design:
   Animation: Frames = 2, Loop count = forever, Background color = #000000, alpha 255
   Warning: ICC profile names a device (ACME X100); use --paranoid to remove it (colors may shift)
 
-Verification: clean
+Verification: CLEAN
   Image data unchanged (SHA-256 532c1a272cc97bcbfb0027ff61169adbb37e8ff83ebaa11b7d22ddb4316056e1)
 
 File timestamps: new (not copied from the original)
@@ -638,7 +638,7 @@ Kept by design:
   Warning: the SVG contains 1 <script> element(s) (first at line 16); they can run code when the file is opened in a browser
   Warning: external reference: https://tracker.example/pixel.png (href of <image> at line 17); opening the SVG can contact that server, which can be used for tracking
 
-Verification: clean
+Verification: CLEAN
   Drawing unchanged (SHA-256 94199fe11aa26adc8bf224c540050cc88702f8a8cc30ba464a5912a26b997ab9)
 
 File timestamps: new (not copied from the original)
@@ -817,7 +817,7 @@ Kept by design:
   Warning: kept the glossary document (building blocks and AutoText), which can hold text copied from other documents
   Warning: kept 1 external link(s) (e.g. https://example.com/flat); they are part of the document, and opening it may contact those addresses
 
-Verification: clean
+Verification: CLEAN
   Document content unchanged (SHA-256 c8445705967bf84f23ebff4e32cda57f3bcddbe09bd70cb7f6d12bf1adc0e348)
 
 File timestamps: new (not copied from the original)
@@ -952,7 +952,7 @@ Kept by design:
   Info frame: Information frame = Info (constant bitrate), Frame count = 77, Byte count = 32181, Seek table = yes, Quality = 0, Encoder = LAME3.100, Encoder delay = 576 samples, Encoder padding = 1152 samples, Lowpass filter = 17000 Hz, LAME tag CRC = valid
   Warning: the Info frame with the LAME tag (encoder 'LAME3.100') is kept for seeking and gapless playback; use --paranoid to remove it
 
-Verification: clean
+Verification: CLEAN
   Audio frames unchanged (SHA-256 ff6b3eb2a88e1b42b15a4231feb639f5cc44b9b2133218bdf4b5ea52eb2689e4)
 
 File timestamps: new (not copied from the original)
@@ -1019,8 +1019,10 @@ time and no comment. A compressed file is compressed again only if what it
 holds changed.
 
 **Without `--deep`, the files inside are not changed.** If they contain
-metadata, `strip` names them in a warning, and `verify` reports their
-metadata, so it says NOT CLEAN. **`--deep` cleans them too**, each with its
+metadata, `strip` still writes the archive and names them in a warning, and
+`strip` and `verify` give the same verdict: "NOT CLEAN: archive metadata
+clean; 2 file(s) inside still contain metadata (not cleaned, use --deep)"
+(`verify` exits with 3). **`--deep` cleans them too**, each with its
 own format's rules (`--paranoid` applies to them as well), and checks each
 cleaned file against the original one inside. Files metaex can't clean
 (other formats, damaged files, archives nested more than 3 levels deep)
@@ -1059,7 +1061,7 @@ Kept by design:
   Warning: --deep copied 2 file(s) inside unchanged, because metaex can't clean them: Users/jane.doe/Desktop/todo.txt (type not recognized), run.sh (type not recognized)
   Warning: removed 6 operating system file(s): plans/.DS_Store, plans/Thumbs.db, plans/desktop.ini, __MACOSX, __MACOSX/plans, __MACOSX/plans/._floor plan.jpg
 
-Verification: clean
+Verification: CLEAN
   Archive contents (2 file(s) inside cleaned and verified): the same files as the original (SHA-256 63f10701c06540c34e5831ce7b2fdc2585bcc8dcd7252cd2185be7ba9796ebe3)
 
 File timestamps: new (not copied from the original)

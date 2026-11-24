@@ -127,7 +127,7 @@ def test_cli_deep(tmp_path):
     assert "--deep cleaned 1 file(s) inside: a.jpg (JPEG)" in r.stdout
     assert "--deep copied 1 file(s) inside unchanged" in r.stdout
     assert "notes.txt (type not recognized)" in r.stdout
-    assert "Verification: clean" in r.stdout
+    assert "Verification: CLEAN" in r.stdout
     r = metaex("verify", tmp_path / "photos_clean.zip")
     assert r.returncode == 0, r.stdout
 

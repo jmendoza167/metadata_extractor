@@ -91,7 +91,7 @@ def test_cli_strip_then_verify(tmp_path):
     path.write_bytes(original())
     r = metaex("strip", path)
     assert r.returncode == 0, r.stderr
-    assert "Verification: clean" in r.stdout
+    assert "Verification: CLEAN" in r.stdout
     assert "removed 1 operating system file(s): __MACOSX/._a.txt" in r.stdout
     cleaned = tmp_path / "plans_clean.zip"
     r = metaex("verify", cleaned, "--original", path)

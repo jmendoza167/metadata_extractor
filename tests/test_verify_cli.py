@@ -72,6 +72,6 @@ def test_json_keys(tmp_path):
     data = json.loads(run(str(c), "--json").stdout)
     assert set(data) == {"path", "type", "clean", "leftovers", "problems", "kept_by_design",
                          "image_data_match", "image_data_rebuilt", "image_sha256",
-                         "original_image_sha256", "notes"}
-    assert data["image_data_match"] is None
+                         "original_image_sha256", "notes", "verdict"}
+    assert data["image_data_match"] is None and data["verdict"] == "CLEAN"
     assert data["image_data_rebuilt"] is False

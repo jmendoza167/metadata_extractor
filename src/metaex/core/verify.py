@@ -48,6 +48,26 @@ class VerifyResult:
     image_data_rebuilt: bool = False
     """True if the image data was compressed again (PNG --rebuild-image-data);
     then image_data_match compares the decompressed data: identical pixels."""
+    inner_leftovers: list[Finding] = field(default_factory=list)
+    """Archives: the leftovers that belong to files inside (also in ``leftovers``)."""
+    inner_files: list[str] = field(default_factory=list)
+    """Archives: the files inside that still contain metadata."""
+
+
+def verdict(result: VerifyResult) -> str:
+    """The one-line verdict on a file, worded the same by strip and verify:
+    "CLEAN", "NOT CLEAN", or for an archive whose own metadata is clean
+    while files inside still hold theirs, "NOT CLEAN: archive metadata
+    clean; N file(s) inside still contain metadata (not cleaned, use
+    --deep)"."""
+    if result.clean:
+        return "CLEAN"
+    only_inside = (result.inner_files and not result.problems
+                   and len(result.leftovers) == len(result.inner_leftovers))
+    if only_inside:
+        return (f"NOT CLEAN: archive metadata clean; {len(result.inner_files)} file(s) inside "
+                "still contain metadata (not cleaned, use --deep)")
+    return "NOT CLEAN"
 
 
 def kept_rule(module) -> Callable[[str, Field], bool]:
@@ -93,6 +113,9 @@ def verify(cleaned: bytes, original: bytes | None = None,
                 result.kept_by_design.append(finding)
             else:
                 result.leftovers.append(finding)
+                if section.kept is not None:  # a file inside an archive
+                    result.inner_leftovers.append(finding)
+    result.inner_files = [f.path for f in parsed.get("inner", []) if f.leftovers]
     if not parsed.get("complete", True):
         result.problems.append("the file structure is malformed, so it could not be "
                                "checked completely")

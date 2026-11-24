@@ -48,7 +48,7 @@ def test_strip_writes_clean_copy(photo):
     assert check.clean and check.image_data_match
     text = result.stdout
     for expected in ("Removed:", "GPS location", "Thumbnail", "XMP", "Kept by design:",
-                     "ICC profile", "Verification: clean", "Image data unchanged"):
+                     "ICC profile", "Verification: CLEAN", "Image data unchanged"):
         assert expected in text
     assert listing(photo.parent) == ["photo.jpg", "photo_clean.jpg"]
 
