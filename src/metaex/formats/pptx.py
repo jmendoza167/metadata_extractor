@@ -150,9 +150,10 @@ def anonymize(ed) -> None:
     lose their dates. Where PowerPoint requires a value (legacy author
     initials; modern authors' user ID and provider; modern comment dates)
     it is set to an empty or neutral one: initials "", user ID "Author",
-    provider "None" (what PowerPoint writes for a local account), date
-    2000-01-01T00:00:00."""
-    from metaex.core.ooxml import PLACEHOLDER_DATE, anonymize_attributes
+    provider "None" (what PowerPoint writes for a local account), dates
+    from 2000-01-01T00:00:00 in one-second steps that keep the comments'
+    order (PowerPoint reorders comments that share a date)."""
+    from metaex.core.ooxml import anonymize_attributes, neutral_dates
 
     pkg = ed.pkg
     for part in pkg.parts_of_type(COMMENT_AUTHORS_TYPE):
@@ -166,13 +167,18 @@ def anonymize(ed) -> None:
             anonymize_attributes(ed, part, a, names=("name", "userId"), remove=("initials",))
             if a.get("providerId") not in (None, "None"):
                 ed.editor(part).set_attr(a, a.attr_name("providerId"), "None")
+    dated = []
     for part in pkg.parts_of_type(MODERN_COMMENTS_TYPE):
         for c in pkg.xml(part).root.iter():
             if c.uri == P188_NS and c.local in ("cm", "reply"):
                 for name in ("startDate", "dueDate"):
                     anonymize_attributes(ed, part, c, dates=(name,))
-                if c.get("created") not in (None, PLACEHOLDER_DATE):
-                    ed.editor(part).set_attr(c, c.attr_name("created"), PLACEHOLDER_DATE)
+                if c.get("created") is not None:
+                    dated.append((part, c))
+    neutral = neutral_dates([c.get("created") for _part, c in dated])
+    for (part, c), date in zip(dated, neutral):
+        if c.get("created") != date:
+            ed.editor(part).set_attr(c, c.attr_name("created"), date)
 
 
 def remove_comments(ed) -> None:

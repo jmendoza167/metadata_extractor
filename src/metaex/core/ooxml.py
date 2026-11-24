@@ -17,8 +17,10 @@ refuses.
 from __future__ import annotations
 
 import posixpath
+import re
 import urllib.parse
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 
 from metaex.core.errors import MalformedFileError, UnsupportedFormatError
 from metaex.core.inflate import Budget
@@ -1189,8 +1191,78 @@ def strip_custom_xml(ed: PackageEditor, keep: set[str] = frozenset()) -> None:
 ANONYMOUS = "Author"
 """What every comment and revision author's name becomes."""
 PLACEHOLDER_DATE = "2000-01-01T00:00:00.000"
-"""Written where the file format requires a date (PowerPoint modern comments);
-optional dates are removed instead."""
+"""The first neutral date, written where the file format requires a date
+(PowerPoint modern comments); optional dates are removed instead."""
+
+MAX_NEUTRAL_SECONDS = 1_000_000
+"""Neutral dates are PLACEHOLDER_DATE plus at most this many seconds."""
+_NEUTRAL_BASE = datetime(2000, 1, 1)
+_ISO_DATE = re.compile(r"(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:[.,](\d+))?"
+                       r"(Z|[+-]\d{2}:?\d{2})?\s*$")
+
+
+def _parse_iso(value: str) -> datetime | None:
+    """An ISO 8601 date-time as naive UTC (no time zone: taken as UTC), or None."""
+    m = _ISO_DATE.match(value.strip())
+    if m is None:
+        return None
+    year, month, day, hour, minute, second = (int(g) for g in m.groups()[:6])
+    micro = int((m.group(7) or "0")[:6].ljust(6, "0"))
+    try:
+        dt = datetime(year, month, day, hour, minute, min(second, 59), micro)
+    except ValueError:
+        return None
+    zone = m.group(8)
+    if zone and zone != "Z":
+        sign = -1 if zone[0] == "-" else 1
+        digits = zone[1:].replace(":", "")
+        dt -= sign * timedelta(hours=int(digits[:2]), minutes=int(digits[2:]))
+    return dt
+
+
+def neutral_dates(originals: list[str], millis: bool = True) -> list[str]:
+    """Neutral replacements for required dates, one per original, in one-second
+    steps from 2000-01-01T00:00:00 that keep the original order.
+
+    Programs sort comments and changes by date (PowerPoint reorders comments
+    that share one), so the earliest original gets 00:00:00, the next
+    00:00:01, and so on; equal or unreadable dates keep their document order.
+    If any date can't be read, document order alone decides.
+    """
+    parsed = [_parse_iso(v) for v in originals]
+    order = list(range(len(originals)))
+    if all(p is not None for p in parsed):
+        order.sort(key=lambda i: (parsed[i], i))
+    out = [""] * len(originals)
+    for rank, i in enumerate(order[:MAX_NEUTRAL_SECONDS]):
+        text = (_NEUTRAL_BASE + timedelta(seconds=rank)).isoformat()
+        out[i] = text + ".000" if millis else text
+    for i in order[MAX_NEUTRAL_SECONDS:]:  # absurdly many: the last neutral date
+        out[i] = out[order[MAX_NEUTRAL_SECONDS - 1]]
+    return out
+
+
+_NEUTRAL_DATE = re.compile(r"2000-01-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.000)?")
+
+
+def is_neutral_date(value: str) -> bool:
+    """True if ``value`` is a date neutral_dates() writes."""
+    m = _NEUTRAL_DATE.fullmatch(value)
+    if m is None:
+        return False
+    day, hour, minute, second = (int(g) for g in m.groups())
+    if not (1 <= day <= 31 and hour < 24 and minute < 60 and second < 60):
+        return False
+    return (day - 1) * 86400 + hour * 3600 + minute * 60 + second < MAX_NEUTRAL_SECONDS
+
+
+_DATE_RANGE = re.compile(r"(\S+)(?: \(\d+ times\)| to (\S+) \(\d+ dates\))?")
+
+
+def is_neutral_date_range(value: str) -> bool:
+    """True if a date_range() summary holds only neutral dates."""
+    m = _DATE_RANGE.fullmatch(value)
+    return m is not None and all(is_neutral_date(d) for d in m.groups() if d is not None)
 
 
 def anonymize_attributes(ed: PackageEditor, part: str, element: XmlElement,

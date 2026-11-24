@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 from metaex.core import ooxml
 from metaex.core.errors import MalformedFileError, UnsupportedFormatError
-from metaex.core.ooxml import (ANONYMOUS, CONTENT_TYPES, PLACEHOLDER_DATE, Package, R_NS,
+from metaex.core.ooxml import (ANONYMOUS, CONTENT_TYPES, Package, R_NS, is_neutral_date_range,
                                open_package, source_of_rels)
 from metaex.core.result import Field
 from metaex.core.xmldoc import XmlComment, XmlElement, XmlPI, XmlText, parse_xml
@@ -81,10 +81,9 @@ def kept_by_design(section_key: str, field: Field) -> bool:
         if last == "authors":
             return field.value == [ANONYMOUS]
         if last == "dates":
-            # the placeholder written where a date is required (PowerPoint
-            # comments, OpenDocument tracked changes), once or many times
-            value = str(field.value)
-            return value.startswith(PLACEHOLDER_DATE[:19]) and " to " not in value
+            # the neutral dates written where a date is required (PowerPoint
+            # comments, OpenDocument tracked changes)
+            return is_neutral_date_range(str(field.value))
         # deleted text is content: strip keeps it, with a loud warning
         return last in ("deleted_characters", "deleted_text")
     if section_key == "office_people":

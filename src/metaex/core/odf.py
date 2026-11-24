@@ -635,9 +635,6 @@ def parse_package(data: bytes | bytearray | memoryview, kind: str) -> dict:
 # -- stripping ---------------------------------------------------------------------------------
 
 STRIPPED_SETTINGS = PRINTER_ITEMS + RSID_ITEMS
-PLACEHOLDER_DATE = "2000-01-01T00:00:00"
-"""Written where OpenDocument requires a date (a tracked change's dc:date);
-optional dates (comments) are removed instead."""
 
 
 class OdfEditor:
@@ -719,11 +716,13 @@ def strip_settings(ed: OdfEditor) -> None:
 
 def anonymize(ed: OdfEditor, remove_comments: bool) -> None:
     """Comment authors become "Author" (or the comments are removed), their
-    dates and initials go; tracked change authors become "Author" with the
-    placeholder date; LibreOffice's revision IDs (officeooo:rsid) go."""
-    from metaex.core.ooxml import ANONYMOUS
+    dates and initials go; tracked change authors become "Author" and their
+    dates neutral ones from 2000-01-01T00:00:00 in one-second steps, in the
+    original order; LibreOffice's revision IDs (officeooo:rsid) go."""
+    from metaex.core.ooxml import ANONYMOUS, neutral_dates
 
     pkg = ed.pkg
+    change_dates = []
     for part in pkg.content_names():
         for e in pkg.xml(part).iter():
             if e.local in ("annotation", "annotation-end") and e.uri in ANNOTATION_NAMESPACES:
@@ -740,11 +739,15 @@ def anonymize(ed: OdfEditor, remove_comments: bool) -> None:
                 for child in e.elements():
                     if child.is_(DC_NS, "creator") and child.text() != ANONYMOUS:
                         ed.editor(part).set_content(child, ANONYMOUS)
-                    elif child.is_(DC_NS, "date") and child.text() != PLACEHOLDER_DATE:
-                        ed.editor(part).set_content(child, PLACEHOLDER_DATE)
+                    elif child.is_(DC_NS, "date"):
+                        change_dates.append((part, child))
             for name, _value in e.attrs:
                 if is_rsid_attribute(e, name):
                     ed.editor(part).remove_attr(e, name)
+    neutral = neutral_dates([child.text() for _part, child in change_dates], millis=False)
+    for (part, child), date in zip(change_dates, neutral):
+        if child.text() != date:
+            ed.editor(part).set_content(child, date)
 
 
 def strip_pictures(ed: OdfEditor, keep_orientation: bool, paranoid: bool) -> None:
