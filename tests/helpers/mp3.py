@@ -155,3 +155,82 @@ def stream(n: int = 20, *, info: bool = True, **kw) -> bytes:
         return audio
     first = xing_frame(n + 1, 0, **kw)
     return xing_frame(n + 1, len(first) + len(audio), **kw) + audio
+
+
+# -- whole files -------------------------------------------------------------------------------
+
+
+def kitchen_sink_mp3(cover: bytes | None = None) -> bytes:
+    """Every kind of MP3 metadata metaex reads: an ID3v2.3 tag with every
+    kind of frame (a cover photo with GPS, an e-mail address in POPM, PRIV,
+    UFID, OWNE) and data hidden in its padding, an Info frame with a LAME
+    tag, junk between frames, an appended ID3v2.4 tag, an APEv2 tag (with
+    the cover again), Lyrics3 v2, TAG+ and ID3v1.1."""
+    from helpers import audiotags as at
+    from helpers import id3 as b
+    from helpers.jpeg import sample_photo
+
+    cover = sample_photo() if cover is None else cover
+    return (b.tag(*b.kitchen_sink_frames(cover), version=3, padding=64,
+                  padding_bytes=b"\x00\x00hidden note")
+            + stream(20) + b"hidden between frames" + frames(5)
+            + b.tag(b.text("TIT2", "Floor plan blues (appended)"),
+                    b.text("TPE1", "Jane Doe"), footer=True)
+            + at.ape_kitchen_sink(cover) + at.lyrics3_v2() + at.tag_plus() + at.id3v1())
+
+
+def variants() -> dict[str, bytes]:
+    """MP3 files with every kind of tag, in every position, and every kind of
+    stream; each one well-formed."""
+    from helpers import audiotags as at
+    from helpers import id3 as b
+    from helpers.jpeg import sample_photo
+
+    photo = sample_photo()
+    audio = stream(8)
+    text = b.text("TPE1", "Jane Doe")
+    return {
+        "bare": frames(8),
+        "info_frame": audio,
+        "xing_vbr": xing_frame(9, 0, tag=b"Xing") + frames(4, bitrate=128)
+        + frames(4, bitrate=192),
+        "vbri": vbri_frame(9, 3000) + frames(8),
+        "layer1": frames(8, layer=1, sample_rate=48000, bitrate=384),
+        "layer2": frames(8, layer=2, bitrate=192, mode=MONO),
+        "mpeg2": stream(8, version=2, sample_rate=24000, bitrate=64),
+        "mpeg25": frames(8, version=25, sample_rate=8000, bitrate=8, mode=MONO),
+        "protected": frames(8, protected=True),
+        "id3v22": b.tag(b.frame("TP1", b"\x00Jane Doe", version=2),
+                        b.apic(photo, version=2), version=2) + audio,
+        "id3v23": b.tag(*b.kitchen_sink_frames(photo), version=3) + audio,
+        "id3v24": b.tag(*b.kitchen_sink_frames(photo, version=4), version=4) + audio,
+        "id3v23_unsync": b.tag(b.apic(photo, version=3), text, version=3,
+                               unsynchronise=True) + audio,
+        "id3v24_unsync_frames": b.tag(b.unsync_frame_v24("APIC", b"\x00image/jpeg\x00\x03\x00"
+                                                         + photo)) + audio,
+        "id3v23_extended": b.tag(b.text("TIT2", "x", version=3), version=3,
+                                 extended=b.extended_v3(32), padding=32) + audio,
+        "id3v24_extended_footer": b.tag(text, extended=b.extended_v4(), footer=True) + audio,
+        "compressed_encrypted": b.tag(b.compressed_frame("TPE1", b"\x03Jane Doe" * 10),
+                                      b.encrypted_frame("TCOM", b"\x01\x02secret")) + audio,
+        "itunes_sizes": b.tag(b.frame("TIT2", b"\x03" + b"x" * 200, plain_size=True),
+                              text) + audio,
+        "chapters": b.tag(b.ctoc("toc", ["c1"]), b.chap("c1", 0, 500, b.text("TIT2", "One")))
+        + audio,
+        "two_leading_tags": b.tag(text, version=3) + b.tag(text) + audio,
+        "appended_v24": audio + b.tag(text, footer=True),
+        "id3v1": audio + at.id3v1(),
+        "id3v1_0": audio + at.id3v1(track=None),
+        "tag_plus": audio + at.tag_plus(title=" more") + at.id3v1(title="T" * 30),
+        "apev2": audio + at.ape_kitchen_sink(photo),
+        "apev2_no_header": audio + at.ape([at.ape_item("Artist", b"Jane Doe")], header=False),
+        "apev1": audio + at.ape([at.ape_item("Artist", b"Jane Doe")], version=1000),
+        "lyrics3_v1": audio + at.lyrics3_v1() + at.id3v1(),
+        "lyrics3_v2": audio + at.lyrics3_v2() + at.id3v1(),
+        "end_order_1": audio + at.ape_kitchen_sink(photo) + at.lyrics3_v2() + at.id3v1(),
+        "end_order_2": audio + at.lyrics3_v2() + at.ape([at.ape_item("Artist", b"x")])
+        + b.tag(text, footer=True) + at.id3v1(),
+        "zero_padding_before_audio": b.tag(text) + bytes(300) + audio,
+        "junk": audio + b"hidden" + frames(3) + b"trailing",
+        "kitchen_sink": kitchen_sink_mp3(photo),
+    }
