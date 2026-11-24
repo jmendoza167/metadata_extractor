@@ -140,7 +140,7 @@ What belongs where:
 python -m venv .venv
 # Windows: .venv\Scripts\activate    Linux/macOS: source .venv/bin/activate
 pip install -e ".[dev]"
-pytest
+python -m pytest
 ```
 
 - **Every new feature needs tests.** Bug fixes need a regression test.
@@ -153,6 +153,19 @@ pytest
   Windows, Linux and macOS.
 - Parser tests should include malformed/truncated/oversized inputs, not just
   happy paths.
+- **Run the tests as `python -m pytest`**, not the `pytest` launcher: on
+  Windows machines with antivirus software the `pytest.exe` launcher can be
+  blocked or slowed down, and `python -m pytest` also makes sure the
+  venv's Python is the one that runs.
+- **Never commit after a pytest run whose exit code you didn't see.** Piping
+  the output through `tail`, `head` or `grep` hides pytest's exit code (the
+  pipeline reports the last command's). Save the output to a file and check
+  `$?` (or `$LASTEXITCODE`) of pytest itself before committing.
+- **Never compare compressor output bytes across machines.** zlib, bz2 and
+  lzma output depends on the library build (classic zlib and zlib-ng
+  compress the same data differently). Tests compare decompressed content,
+  or use data whose compressed form is built by hand (stored deflate
+  blocks, uncompressed LZMA2 chunks, a hand-written encoder).
 
 ## Sample files
 
@@ -169,7 +182,7 @@ pytest
   `--check`, which fails on a missing, changed or extra file.
 - `tests/samples/expected/` holds snapshots of `show --json` and
   `risk --json` for every valid sample. They are only ever updated on
-  purpose, with `METAEX_UPDATE_SNAPSHOTS=1 pytest tests/test_samples_snapshots.py`;
+  purpose, with `METAEX_UPDATE_SNAPSHOTS=1 python -m pytest tests/test_samples_snapshots.py`;
   review the diff before committing, and never update them just to make a
   failing test pass without understanding why the output changed.
 - `tests/samples/real/` is the only place for files saved by real software.
@@ -190,7 +203,8 @@ pytest
 - Small, focused commits; only stage the files that belong to the change.
 - Use conventional-style messages (`feat:`, `fix:`, `test:`, `docs:`,
   `chore:`, `ci:`).
-- Run `pytest` before committing; don't commit with failing tests.
+- Run `python -m pytest` before committing and check its exit code; don't commit with
+  failing tests.
 - **Commit messages must not contain `Co-Authored-By` lines or any
   Claude/AI attribution.**
 - **Claude Code commits but NEVER pushes.** Javier pushes himself.
