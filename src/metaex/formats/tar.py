@@ -306,3 +306,96 @@ def kept_warnings(cleaned: bytes) -> list[str]:
     except MetaexError:
         return []
     return user_folder_warnings(members(archive))
+
+
+# -- verification ----------------------------------------------------------------------------
+
+IMAGE_LABEL = "Archive contents"
+
+
+def is_kept_by_design(section_key: str, field) -> bool:
+    """True if a reported field may stay in a cleaned TAR: the contents, the
+    names, and links that stay inside the archive."""
+    if section_key in ("archive_contents", "archive_paths"):
+        return True
+    return section_key == "archive_links" and field.note is None
+
+
+def header_leftovers(archive: tarcore.TarArchive) -> list[tuple[str, str, str]]:
+    """Header values a cleaned archive must not have that the report leaves
+    out: anything but plain ustar headers with metaex's neutral values, pax
+    records other than path and linkpath, a missing end or record padding."""
+    out = []
+    for e in archive.entries:
+        where = f"entry {e.name}"
+        for h in e.aux + [e.header]:
+            if h.format != "ustar":
+                out.append(("TAR structure", where, f"{h.format} header at offset {h.offset}"))
+            if (h.mtime, h.uid, h.gid, h.uname, h.gname) != (NEUTRAL_TIME, 0, 0, b"", b""):
+                out.append(("TAR structure", where, f"header at offset {h.offset} has a time "
+                            "or owner"))
+        for h in e.aux:
+            if h.typeflag != tarcore.PAX or h.name != tarwriter.PAX_NAME:
+                out.append(("TAR structure", where, f"{tarcore.TYPE_NAMES.get(h.typeflag)} "
+                            f"header at offset {h.offset}"))
+        extra_keys = sorted(set(e.pax) - {"path", "linkpath"})
+        if extra_keys:
+            out.append(("TAR structure", where, "pax records " + ", ".join(extra_keys)))
+        m = member(archive, e)
+        if e.header.mode != neutral_mode(m):
+            out.append(("TAR structure", where, f"mode {e.header.mode:o}"))
+        if e.typeflag in (b"\x00", b"7"):
+            out.append(("TAR structure", where, f"type {e.typeflag!r}"))
+    if archive.globals_:
+        out.append(("TAR structure", "global pax headers", str(len(archive.globals_))))
+    if archive.labels:
+        out.append(("TAR structure", "volume labels", str(len(archive.labels))))
+    if archive.end_blocks != 2:
+        out.append(("TAR structure", "end of archive", f"{archive.end_blocks} zero blocks"))
+    if len(archive.data) % tarwriter.RECORD:
+        out.append(("TAR structure", "record padding", f"size {len(archive.data)} is not a "
+                    f"multiple of {tarwriter.RECORD}"))
+    return out
+
+
+def verify_archive(archive: tarcore.TarArchive, original: tarcore.TarArchive | None) -> dict:
+    out: dict = {"leftovers": header_leftovers(archive), "problems": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None,
+                 "image_label": IMAGE_LABEL}
+    out["image_sha256"] = contents_digest(archive, archive.entries)
+    if original is None:
+        return out
+    kept = [e for e, _m in kept_entries(original)]
+    out["original_image_sha256"] = contents_digest(original, kept)
+    mine = [tarcore.normalized(e.name) for e in archive.entries]
+    theirs = [tarcore.normalized(e.name) for e in kept]
+    if mine != theirs:
+        missing = [n for n in theirs if n not in mine]
+        added = [n for n in mine if n not in theirs]
+        out["problems"].append("the entries differ from the original's (operating system "
+                               f"files aside): missing {some(missing) or 'none'}, added "
+                               f"{some(added) or 'none'}")
+    out["image_data_match"] = out["image_sha256"] == out["original_image_sha256"]
+    return out
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """TAR-specific verification, beyond the field-level whitelist: neutral
+    headers only (see header_leftovers), and compared with an original, the
+    same entries (minus operating system junk and replaced copies) with the
+    same names, types, link targets and data (SHA-256)."""
+    try:
+        archive = tarcore.open_tar(cleaned)
+    except MetaexError as exc:
+        return {"leftovers": [], "problems": [f"not a complete, readable TAR archive: {exc}"],
+                "image_label": IMAGE_LABEL}
+    source = None
+    if original is not None:
+        try:
+            source = tarcore.open_tar(original)
+        except MetaexError as exc:
+            out = verify_archive(archive, None)
+            out["problems"].append(f"the original is not a readable TAR archive ({exc}); "
+                                   "contents not compared")
+            return out
+    return verify_archive(archive, source)
