@@ -37,3 +37,17 @@ def strip_warnings(data: bytes, paranoid: bool = False) -> list[str]:
 
 def kept_warnings(cleaned: bytes) -> list[str]:
     return compress.kept_warnings(cleaned)
+
+
+IMAGE_LABEL = compress.IMAGE_LABEL
+
+
+def is_kept_by_design(section_key: str, field) -> bool:
+    return compress.is_kept_by_design(section_key, field)
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """The wrapper must be clean and the contents the original's (a TAR
+    verified as a TAR); see compress.verify_details()."""
+    return compress.verify_details(bytes(cleaned), None if original is None else bytes(original),
+                                   KIND)

@@ -581,3 +581,77 @@ def kept_warnings(cleaned: bytes) -> list[str]:
     except MalformedFileError:
         return []
     return _tar_module().kept_warnings(c.content) if is_tar(c) else []
+
+
+def wrapper_leftovers(c: Compressed) -> list[tuple[str, str, str]]:
+    """What a cleaned wrapper must not have: anything but neutral gzip
+    headers, padding, data after the end."""
+    out = []
+    where = f"{c.name} structure"
+    if c.kind == GZIP:
+        for n, m in enumerate(c.members, 1):
+            if c.data[m.start:m.data_start] != NEUTRAL_GZIP_HEADER:
+                out.append((where, f"member {n} header", "not the neutral header "
+                            "(no flags, time 0, OS unknown)"))
+    if c.padding:
+        out.append((where, "padding after the end", f"{c.padding} bytes"))
+    if c.trailing is not None:
+        out.append((where, "data after the end", f"{c.trailing[1] - c.trailing[0]} bytes"))
+    return out
+
+
+IMAGE_LABEL = "Archive contents"
+KEPT_SECTIONS = ("compress_contents",)
+
+
+def is_kept_by_design(section_key: str, field) -> bool:
+    if section_key in KEPT_SECTIONS:
+        return True
+    return _tar_module().is_kept_by_design(section_key, field)
+
+
+def verify_details(cleaned: bytes, original: bytes | None, kind: str) -> dict:
+    """The wrapper must be clean (neutral gzip headers, nothing after the
+    end) and the content the same as the original's: a cleaned TAR is
+    verified as a TAR against the original TAR; a single file must be
+    byte for byte the original's."""
+    import hashlib
+
+    out: dict = {"leftovers": [], "problems": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None,
+                 "image_label": IMAGE_LABEL}
+    try:
+        c = open_compressed(cleaned)
+    except MalformedFileError as exc:
+        out["problems"].append(f"not a complete, readable {NAMES[kind]} file: {exc}")
+        return out
+    out["leftovers"] += wrapper_leftovers(c)
+    source = None
+    if original is not None:
+        try:
+            source = open_compressed(original)
+        except MalformedFileError as exc:
+            out["problems"].append(f"the original is not a readable {NAMES[kind]} file ({exc}); "
+                                   "contents not compared")
+    if is_tar(c):
+        from metaex.core import tar as tarcore
+
+        tar = _tar_module()
+        try:
+            mine = tarcore.open_tar(c.content)
+            theirs = tarcore.open_tar(source.content) if source is not None else None
+        except MalformedFileError as exc:
+            out["problems"].append(f"the TAR archive inside can't be read: {exc}")
+            return out
+        inner = tar.verify_archive(mine, theirs)
+        out["leftovers"] += inner["leftovers"]
+        out["problems"] += inner["problems"]
+        for key in ("image_sha256", "original_image_sha256", "image_data_match"):
+            out[key] = inner[key]
+        return out
+    out["image_label"] = "Compressed file contents"
+    out["image_sha256"] = hashlib.sha256(c.content).hexdigest()
+    if source is not None:
+        out["original_image_sha256"] = hashlib.sha256(source.content).hexdigest()
+        out["image_data_match"] = out["image_sha256"] == out["original_image_sha256"]
+    return out
