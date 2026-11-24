@@ -65,8 +65,8 @@ def test_malformed_file_is_not_clean():
 
 
 def test_unsupported_type_raises():
-    with pytest.raises(UnsupportedFormatError, match="can't verify FLAC"):
-        verify(b"fLaC" + bytes(20))
+    with pytest.raises(UnsupportedFormatError, match="can't verify ZIP"):
+        verify(b"PK\x05\x06" + bytes(18))  # an empty ZIP
 
 
 def test_image_data_match_is_none_without_original():

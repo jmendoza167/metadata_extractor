@@ -907,3 +907,75 @@ def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
     trailing = data[found.audio_end:found.data_end]
     key = "audio_padding" if trailing.count(0) == len(trailing) else "audio_trailing"
     return {key: len(trailing)}
+
+
+# -- Verification ---------------------------------------------------------------------------------
+
+IMAGE_LABEL = "Audio (STREAMINFO and frames)"
+KEPT_SECTIONS = ("flac_streaminfo", "flac_seektable", "flac_cuesheet")
+
+
+def is_kept_by_design(section_key: str, field) -> bool:
+    """True if a field may stay in a stripped FLAC: the stream's format, the
+    seek table and the cue sheet."""
+    return section_key in KEPT_SECTIONS
+
+
+def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
+    """FLAC-specific verification, beyond the field-level whitelist.
+
+    - The file must be well-formed, from "fLaC" to the end of the last
+      frame: no tags before or after it, nothing after the last frame.
+    - Block whitelist: STREAMINFO, at most one SEEKTABLE and at most one
+      CUESHEET (with its reserved bytes zero); anything else is a leftover.
+    - SHA-256 of STREAMINFO (with the MD5 of the decoded audio) and of
+      every byte from the first frame to the end of the last, compared with
+      the original's if one is given.
+    """
+    out: dict = {"leftovers": [], "problems": [], "image_sha256": None,
+                 "original_image_sha256": None, "image_data_match": None,
+                 "image_label": IMAGE_LABEL}
+    cleaned = bytes(cleaned)
+    try:
+        found = checked_layout(cleaned)
+    except MalformedFileError as exc:
+        out["problems"].append(f"not a complete, well-formed FLAC: {exc}")
+        return out
+    out["image_sha256"] = audio_digest(cleaned, found)
+    for tag in found.leading:
+        out["leftovers"].append(("FLAC structure", f"ID3v2 tag at offset {tag.offset}",
+                                 f"{tag.total_size} bytes"))
+    for kind, start, end in found.end_tags.order:
+        out["leftovers"].append(("FLAC structure", f"{kind} tag at offset {start}",
+                                 f"{end - start} bytes"))
+    if found.audio_end != found.data_end:
+        out["leftovers"].append(("FLAC structure", f"data at offset {found.audio_end}",
+                                 f"{found.data_end - found.audio_end} bytes after the last "
+                                 "frame"))
+    for blk in found.blocks:
+        if blk.type in (STREAMINFO, SEEKTABLE):
+            continue
+        if blk.type == CUESHEET and clean_cuesheet(blk.data) == blk.data:
+            continue
+        what = ("reserved bytes are not zero" if blk.type == CUESHEET
+                else "not allowed in a cleaned FLAC")
+        out["leftovers"].append(("FLAC structure", f"{blk.name} block at offset {blk.offset}",
+                                 f"{what} ({len(blk.data)} bytes)"))
+    if original is None:
+        return out
+    original = bytes(original)
+    try:
+        orig = checked_layout(original)
+    except MalformedFileError as exc:
+        out["problems"].append(f"original is not a complete, well-formed FLAC ({exc}); audio "
+                               "not compared")
+        return out
+    out["original_image_sha256"] = audio_digest(original, orig)
+    match = out["original_image_sha256"] == out["image_sha256"]
+    if orig.blocks[0].data != found.blocks[0].data:
+        out["problems"].append("STREAMINFO differs from the original")
+    if (original[orig.audio_start:orig.audio_end]
+            != cleaned[found.audio_start:found.audio_end]):
+        out["problems"].append("the audio frames differ from the original")
+    out["image_data_match"] = match
+    return out
