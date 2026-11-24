@@ -1,0 +1,852 @@
+{
+  "subject": "zip/kitchen_sink.zip",
+  "warnings": [
+    "CRITICAL: 93 bytes of data are hidden in the ZIP archive outside its entries",
+    "CRITICAL: __MACOSX/plans/._floor plan.jpg records where a file was downloaded from",
+    "CRITICAL: plans/floor plan.jpg: GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: plans/floor plan.jpg: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "data before the start of the ZIP archive",
+    "plans/floor plan.jpg: embedded thumbnail may show the original, uncropped image"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "ZIP",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "application/zip",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".zip"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_contents": {
+      "title": "Archive contents",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "ZIP",
+          "sensitive": false,
+          "note": null
+        },
+        "entries": {
+          "label": "Entries",
+          "value": 11,
+          "sensitive": false,
+          "note": null
+        },
+        "count.folder": {
+          "label": "Folders",
+          "value": 3,
+          "sensitive": false,
+          "note": null
+        },
+        "count.file": {
+          "label": "Files",
+          "value": 8,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Uncompressed size (bytes)",
+          "value": 7877,
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_hidden": {
+      "title": "Hidden data in the archive",
+      "fields": {
+        "range_1": {
+          "label": "Data before the first entry",
+          "value": {
+            "length": 52,
+            "hex_preview": "23212f62696e2f73680a23206d616465206279204a616e6520446f6527732062"
+          },
+          "sensitive": true,
+          "note": "52 bytes at offset 0"
+        },
+        "range_2": {
+          "label": "Data after the end of the archive",
+          "value": {
+            "length": 41,
+            "hex_preview": "0a617070656e646564206e6f74653a2061736b206a616e652e646f6540657861"
+          },
+          "sensitive": true,
+          "note": "41 bytes at offset 9376"
+        }
+      }
+    },
+    "archive_comments": {
+      "title": "Archive comments",
+      "fields": {
+        "archive_comment": {
+          "label": "Archive comment",
+          "value": "Backup of Jane Doe's laptop, 2024-05-01",
+          "sensitive": true,
+          "note": null
+        },
+        "comment.plans/floor plan.jpg": {
+          "label": "Comment on plans/floor plan.jpg",
+          "value": "photo of the plan (sent to jane.doe@example.com)",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_times": {
+      "title": "Entry times",
+      "fields": {
+        "times.plans": {
+          "label": "plans",
+          "value": "modified (local time) 2024-05-01T10:30:00; modified (extended timestamp) 2024-05-01T10:30:00+00:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.plans/floor plan.jpg": {
+          "label": "plans/floor plan.jpg",
+          "value": "modified (local time) 2024-05-01T10:30:00; modified (extended timestamp) 2024-05-01T10:30:00+00:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.plans/letter.docx": {
+          "label": "plans/letter.docx",
+          "value": "modified (local time) 2024-05-01T10:30:00; modified (NTFS) 2024-05-01T10:30:00+00:00; accessed (NTFS) 2024-05-01T10:31:00+00:00; created (NTFS) 2024-05-01T09:40:00+00:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.plans/.DS_Store": {
+          "label": "plans/.DS_Store",
+          "value": "modified (local time) 2024-05-01T10:30:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.plans/Thumbs.db": {
+          "label": "plans/Thumbs.db",
+          "value": "modified (local time) 2024-05-01T10:30:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.plans/desktop.ini": {
+          "label": "plans/desktop.ini",
+          "value": "modified (local time) 2024-05-01T10:30:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.__MACOSX": {
+          "label": "__MACOSX",
+          "value": "modified (local time) 2024-05-01T10:30:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.__MACOSX/plans": {
+          "label": "__MACOSX/plans",
+          "value": "modified (local time) 2024-05-01T10:30:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.__MACOSX/plans/._floor plan.jpg": {
+          "label": "__MACOSX/plans/._floor plan.jpg",
+          "value": "modified (local time) 2024-05-01T10:30:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.Users/jane.doe/Desktop/todo.txt": {
+          "label": "Users/jane.doe/Desktop/todo.txt",
+          "value": "modified (local time) 2024-05-01T10:30:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.run.sh": {
+          "label": "run.sh",
+          "value": "modified (local time) 2024-05-01T10:30:00",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_owners": {
+      "title": "Entry owners",
+      "fields": {
+        "owner_ids": {
+          "label": "Owner user/group IDs",
+          "value": "501/20 (2 entries)",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_system": {
+      "title": "System information",
+      "fields": {
+        "created_by": {
+          "label": "Created on",
+          "value": "Windows NTFS (1 entry)",
+          "sensitive": false,
+          "note": null
+        },
+        "permissions": {
+          "label": "Permissions",
+          "value": "700 (folder) (1 entry), 600 (file) (1 entry)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_junk": {
+      "title": "Operating system files",
+      "fields": {
+        "junk.plans/.DS_Store": {
+          "label": "plans/.DS_Store",
+          "value": "macOS Finder folder settings (.DS_Store; can list files that were in the folder)",
+          "sensitive": true,
+          "note": null
+        },
+        "junk.plans/Thumbs.db": {
+          "label": "plans/Thumbs.db",
+          "value": "Windows thumbnail cache (Thumbs.db; can hold thumbnails of pictures that were in the folder)",
+          "sensitive": true,
+          "note": null
+        },
+        "junk.plans/desktop.ini": {
+          "label": "plans/desktop.ini",
+          "value": "Windows folder settings (desktop.ini)",
+          "sensitive": true,
+          "note": null
+        },
+        "junk.__MACOSX": {
+          "label": "__MACOSX",
+          "value": "macOS AppleDouble data (__MACOSX folder): extended attributes and resource forks of the files",
+          "sensitive": true,
+          "note": null
+        },
+        "junk.__MACOSX/plans": {
+          "label": "__MACOSX/plans",
+          "value": "macOS AppleDouble data (__MACOSX folder): extended attributes and resource forks of the files",
+          "sensitive": true,
+          "note": null
+        },
+        "junk.__MACOSX/plans/._floor plan.jpg": {
+          "label": "__MACOSX/plans/._floor plan.jpg",
+          "value": "macOS AppleDouble file: extended attributes of plans/floor plan.jpg",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_xattrs": {
+      "title": "Extended attributes",
+      "fields": {
+        "xattr.plans/floor plan.jpg.com.apple.quarantine": {
+          "label": "plans/floor plan.jpg: com.apple.quarantine",
+          "value": "downloaded with Safari on 2024-05-01T09:25:20+00:00 (event 3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6) [0083;66320a80;Safari;3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6]",
+          "sensitive": true,
+          "note": null
+        },
+        "xattr.plans/floor plan.jpg.com.apple.metadata:kMDItemWhereFroms": {
+          "label": "plans/floor plan.jpg: com.apple.metadata:kMDItemWhereFroms",
+          "value": "https://downloads.example.com/plans/floor-plan.zip, https://www.example.com/jane.doe/shared",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_paths": {
+      "title": "Names that reveal a user folder",
+      "fields": {
+        "name.Users/jane.doe/Desktop/todo.txt": {
+          "label": "Users/jane.doe/Desktop/todo.txt",
+          "value": "user folder of 'jane.doe'",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_extra": {
+      "title": "Other entry information",
+      "fields": {
+        "extra.plans/letter.docx.0": {
+          "label": "plans/letter.docx: Windows attributes",
+          "value": "hidden",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_files": {
+      "title": "Files inside",
+      "fields": {
+        "file_1": {
+          "label": "plans/floor plan.jpg",
+          "value": "JPEG; 36 metadata field(s)",
+          "sensitive": false,
+          "note": null
+        },
+        "file_2": {
+          "label": "plans/letter.docx",
+          "value": "DOCX; 35 metadata field(s)",
+          "sensitive": false,
+          "note": null
+        },
+        "file_3": {
+          "label": "Users/jane.doe/Desktop/todo.txt",
+          "value": "unrecognized; not examined: type not recognized",
+          "sensitive": false,
+          "note": null
+        },
+        "file_4": {
+          "label": "run.sh",
+          "value": "unrecognized; not examined: type not recognized",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "exif": {
+      "title": "plans/floor plan.jpg: EXIF",
+      "fields": {
+        "byte_order": {
+          "label": "Byte order",
+          "value": "little-endian (II)",
+          "sensitive": false,
+          "note": null
+        },
+        "Make": {
+          "label": "Make",
+          "value": "ExampleCam",
+          "sensitive": true,
+          "note": null
+        },
+        "Model": {
+          "label": "Model",
+          "value": "Model X",
+          "sensitive": true,
+          "note": null
+        },
+        "Orientation": {
+          "label": "Orientation",
+          "value": "Horizontal (normal)",
+          "sensitive": false,
+          "note": null
+        },
+        "Software": {
+          "label": "Software",
+          "value": "Firmware 1.0",
+          "sensitive": true,
+          "note": null
+        },
+        "DateTime": {
+          "label": "DateTime",
+          "value": "2024-05-01T14:30:00",
+          "sensitive": true,
+          "note": "no time zone recorded"
+        },
+        "ExposureTime": {
+          "label": "ExposureTime",
+          "value": "1/250 s",
+          "sensitive": false,
+          "note": null
+        },
+        "FNumber": {
+          "label": "FNumber",
+          "value": "f/1.8",
+          "sensitive": false,
+          "note": null
+        },
+        "ISOSpeedRatings": {
+          "label": "ISOSpeedRatings",
+          "value": 100,
+          "sensitive": false,
+          "note": null
+        },
+        "DateTimeOriginal": {
+          "label": "DateTimeOriginal",
+          "value": "2024-05-01T14:30:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "OffsetTimeOriginal": {
+          "label": "OffsetTimeOriginal",
+          "value": "+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "Flash": {
+          "label": "Flash",
+          "value": "Did not fire, flash suppressed",
+          "sensitive": false,
+          "note": null
+        },
+        "FocalLength": {
+          "label": "FocalLength",
+          "value": "4.2 mm",
+          "sensitive": false,
+          "note": null
+        },
+        "BodySerialNumber": {
+          "label": "BodySerialNumber",
+          "value": "SN-0001",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "gps": {
+      "title": "plans/floor plan.jpg: GPS",
+      "fields": {
+        "coordinates": {
+          "label": "Coordinates",
+          "value": "48.858367, 2.294481",
+          "sensitive": true,
+          "note": "decimal degrees"
+        },
+        "latitude": {
+          "label": "Latitude",
+          "value": "48.858367",
+          "sensitive": true,
+          "note": null
+        },
+        "longitude": {
+          "label": "Longitude",
+          "value": "2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "openstreetmap": {
+          "label": "OpenStreetMap",
+          "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "google_maps": {
+          "label": "Google Maps",
+          "value": "https://www.google.com/maps?q=48.858367,2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "altitude": {
+          "label": "Altitude",
+          "value": "35.0 m above sea level",
+          "sensitive": true,
+          "note": null
+        },
+        "datetime_utc": {
+          "label": "Date/time (UTC)",
+          "value": "2024-05-01T12:30:15Z",
+          "sensitive": true,
+          "note": null
+        },
+        "GPSVersionID": {
+          "label": "GPSVersionID",
+          "value": "2.3.0.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "thumbnail": {
+      "title": "plans/floor plan.jpg: Thumbnail",
+      "fields": {
+        "embedded_thumbnail": {
+          "label": "Embedded thumbnail",
+          "value": "JPEG, 123 bytes",
+          "sensitive": true,
+          "note": "at offset 562 in the EXIF data"
+        },
+        "dimensions": {
+          "label": "Dimensions",
+          "value": "160 x 120 pixels",
+          "sensitive": false,
+          "note": null
+        },
+        "Compression": {
+          "label": "Compression",
+          "value": "JPEG (old-style)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "xmp": {
+      "title": "plans/floor plan.jpg: XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "office_core": {
+      "title": "plans/letter.docx: Document properties",
+      "fields": {
+        "title": {
+          "label": "Title",
+          "value": "Floor plan notes",
+          "sensitive": true,
+          "note": null
+        },
+        "subject": {
+          "label": "Subject",
+          "value": "Flat",
+          "sensitive": true,
+          "note": null
+        },
+        "creator": {
+          "label": "Author",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "keywords": {
+          "label": "Keywords",
+          "value": "plan; flat",
+          "sensitive": true,
+          "note": null
+        },
+        "description": {
+          "label": "Comments (description)",
+          "value": "Second draft for the landlord",
+          "sensitive": true,
+          "note": null
+        },
+        "lastModifiedBy": {
+          "label": "Last modified by",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "revision": {
+          "label": "Revision number",
+          "value": "7",
+          "sensitive": true,
+          "note": null
+        },
+        "lastPrinted": {
+          "label": "Last printed",
+          "value": "2024-05-02T08:00:00Z",
+          "sensitive": true,
+          "note": null
+        },
+        "created": {
+          "label": "Created",
+          "value": "2024-05-01T10:00:00Z",
+          "sensitive": true,
+          "note": null
+        },
+        "modified": {
+          "label": "Modified",
+          "value": "2024-05-02T09:30:00Z",
+          "sensitive": true,
+          "note": null
+        },
+        "category": {
+          "label": "Category",
+          "value": "Private",
+          "sensitive": true,
+          "note": null
+        },
+        "contentStatus": {
+          "label": "Status",
+          "value": "Draft",
+          "sensitive": true,
+          "note": null
+        },
+        "identifier": {
+          "label": "Identifier",
+          "value": "DOC-0001",
+          "sensitive": true,
+          "note": null
+        },
+        "language": {
+          "label": "Language",
+          "value": "en-US",
+          "sensitive": true,
+          "note": null
+        },
+        "version": {
+          "label": "Version",
+          "value": "1.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "office_app": {
+      "title": "plans/letter.docx: Application properties",
+      "fields": {
+        "Template": {
+          "label": "Template",
+          "value": "C:\\Users\\jane.doe\\AppData\\Roaming\\Microsoft\\Templates\\Normal.dotm",
+          "sensitive": true,
+          "note": null
+        },
+        "TotalTime": {
+          "label": "Total editing time (minutes)",
+          "value": "42",
+          "sensitive": false,
+          "note": null
+        },
+        "Pages": {
+          "label": "Pages",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "Words": {
+          "label": "Words",
+          "value": "120",
+          "sensitive": false,
+          "note": null
+        },
+        "Characters": {
+          "label": "Characters",
+          "value": "700",
+          "sensitive": false,
+          "note": null
+        },
+        "Application": {
+          "label": "Application",
+          "value": "Microsoft Office Word",
+          "sensitive": false,
+          "note": null
+        },
+        "DocSecurity": {
+          "label": "Document security",
+          "value": "0",
+          "sensitive": false,
+          "note": null
+        },
+        "Lines": {
+          "label": "Lines",
+          "value": "5",
+          "sensitive": false,
+          "note": null
+        },
+        "Paragraphs": {
+          "label": "Paragraphs",
+          "value": "2",
+          "sensitive": false,
+          "note": null
+        },
+        "ScaleCrop": {
+          "label": "Scale or crop thumbnail",
+          "value": "false",
+          "sensitive": false,
+          "note": null
+        },
+        "Manager": {
+          "label": "Manager",
+          "value": "John Example",
+          "sensitive": true,
+          "note": null
+        },
+        "Company": {
+          "label": "Company",
+          "value": "Example Corp",
+          "sensitive": true,
+          "note": null
+        },
+        "LinksUpToDate": {
+          "label": "Links up to date",
+          "value": "false",
+          "sensitive": false,
+          "note": null
+        },
+        "CharactersWithSpaces": {
+          "label": "Characters (with spaces)",
+          "value": "819",
+          "sensitive": false,
+          "note": null
+        },
+        "SharedDoc": {
+          "label": "Shared document",
+          "value": "false",
+          "sensitive": false,
+          "note": null
+        },
+        "HyperlinkBase": {
+          "label": "Hyperlink base",
+          "value": "https://intranet.example.com/docs/",
+          "sensitive": true,
+          "note": null
+        },
+        "HyperlinksChanged": {
+          "label": "Hyperlinks changed",
+          "value": "false",
+          "sensitive": false,
+          "note": null
+        },
+        "AppVersion": {
+          "label": "Application version",
+          "value": "16.0000",
+          "sensitive": false,
+          "note": null
+        },
+        "HeadingPairs": {
+          "label": "Part types (heading pairs)",
+          "value": [
+            "Title",
+            "1"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "TitlesOfParts": {
+          "label": "Titles of parts",
+          "value": [
+            "Floor plan"
+          ],
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "zip/kitchen_sink.zip",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 9417,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "9.2 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "36350ab9caf9b6235768ab67deb79a4e",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "e7625c39acd8ba1974ba743147f2b88fdf6f1e80",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "3f80918b3643fcb58a153c7c51aedd528176791b4b3ec5d700dd011c3538209a",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

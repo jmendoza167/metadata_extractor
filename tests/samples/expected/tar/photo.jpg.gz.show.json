@@ -1,0 +1,411 @@
+{
+  "subject": "tar/photo.jpg.gz",
+  "warnings": [
+    "CRITICAL: photo.jpg: GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: photo.jpg: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "photo.jpg: embedded thumbnail may show the original, uncropped image"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "gzip",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "application/gzip",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".gz",
+            ".tgz"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "compress_contents": {
+      "title": "gzip contents",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "gzip",
+          "sensitive": false,
+          "note": null
+        },
+        "members": {
+          "label": "Members",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "compressed_size": {
+          "label": "Compressed size (bytes)",
+          "value": 2953,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Uncompressed size (bytes)",
+          "value": 2920,
+          "sensitive": false,
+          "note": null
+        },
+        "inner": {
+          "label": "Contents",
+          "value": "JPEG",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "compress_header": {
+      "title": "gzip header",
+      "fields": {
+        "name": {
+          "label": "Original file name",
+          "value": "photo.jpg",
+          "sensitive": true,
+          "note": null
+        },
+        "mtime": {
+          "label": "Modification time",
+          "value": "2024-05-01T10:30:00+00:00",
+          "sensitive": true,
+          "note": null
+        },
+        "os": {
+          "label": "Operating system",
+          "value": "Unix",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_files": {
+      "title": "Files inside",
+      "fields": {
+        "file_1": {
+          "label": "photo.jpg",
+          "value": "JPEG; 36 metadata field(s)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "exif": {
+      "title": "photo.jpg: EXIF",
+      "fields": {
+        "byte_order": {
+          "label": "Byte order",
+          "value": "little-endian (II)",
+          "sensitive": false,
+          "note": null
+        },
+        "Make": {
+          "label": "Make",
+          "value": "ExampleCam",
+          "sensitive": true,
+          "note": null
+        },
+        "Model": {
+          "label": "Model",
+          "value": "Model X",
+          "sensitive": true,
+          "note": null
+        },
+        "Orientation": {
+          "label": "Orientation",
+          "value": "Horizontal (normal)",
+          "sensitive": false,
+          "note": null
+        },
+        "Software": {
+          "label": "Software",
+          "value": "Firmware 1.0",
+          "sensitive": true,
+          "note": null
+        },
+        "DateTime": {
+          "label": "DateTime",
+          "value": "2024-05-01T14:30:00",
+          "sensitive": true,
+          "note": "no time zone recorded"
+        },
+        "ExposureTime": {
+          "label": "ExposureTime",
+          "value": "1/250 s",
+          "sensitive": false,
+          "note": null
+        },
+        "FNumber": {
+          "label": "FNumber",
+          "value": "f/1.8",
+          "sensitive": false,
+          "note": null
+        },
+        "ISOSpeedRatings": {
+          "label": "ISOSpeedRatings",
+          "value": 100,
+          "sensitive": false,
+          "note": null
+        },
+        "DateTimeOriginal": {
+          "label": "DateTimeOriginal",
+          "value": "2024-05-01T14:30:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "OffsetTimeOriginal": {
+          "label": "OffsetTimeOriginal",
+          "value": "+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "Flash": {
+          "label": "Flash",
+          "value": "Did not fire, flash suppressed",
+          "sensitive": false,
+          "note": null
+        },
+        "FocalLength": {
+          "label": "FocalLength",
+          "value": "4.2 mm",
+          "sensitive": false,
+          "note": null
+        },
+        "BodySerialNumber": {
+          "label": "BodySerialNumber",
+          "value": "SN-0001",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "gps": {
+      "title": "photo.jpg: GPS",
+      "fields": {
+        "coordinates": {
+          "label": "Coordinates",
+          "value": "48.858367, 2.294481",
+          "sensitive": true,
+          "note": "decimal degrees"
+        },
+        "latitude": {
+          "label": "Latitude",
+          "value": "48.858367",
+          "sensitive": true,
+          "note": null
+        },
+        "longitude": {
+          "label": "Longitude",
+          "value": "2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "openstreetmap": {
+          "label": "OpenStreetMap",
+          "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "google_maps": {
+          "label": "Google Maps",
+          "value": "https://www.google.com/maps?q=48.858367,2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "altitude": {
+          "label": "Altitude",
+          "value": "35.0 m above sea level",
+          "sensitive": true,
+          "note": null
+        },
+        "datetime_utc": {
+          "label": "Date/time (UTC)",
+          "value": "2024-05-01T12:30:15Z",
+          "sensitive": true,
+          "note": null
+        },
+        "GPSVersionID": {
+          "label": "GPSVersionID",
+          "value": "2.3.0.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "thumbnail": {
+      "title": "photo.jpg: Thumbnail",
+      "fields": {
+        "embedded_thumbnail": {
+          "label": "Embedded thumbnail",
+          "value": "JPEG, 123 bytes",
+          "sensitive": true,
+          "note": "at offset 562 in the EXIF data"
+        },
+        "dimensions": {
+          "label": "Dimensions",
+          "value": "160 x 120 pixels",
+          "sensitive": false,
+          "note": null
+        },
+        "Compression": {
+          "label": "Compression",
+          "value": "JPEG (old-style)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "xmp": {
+      "title": "photo.jpg: XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "tar/photo.jpg.gz",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 2953,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "2.9 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "43e42d432fb645382749e2ad274fe75a",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "52b45df20ebb419e27ffee19d5d96e8da2a6b87b",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "8909b1632ebe5351d5fe438460e09142430a3c87f734959142292097e7235c86",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

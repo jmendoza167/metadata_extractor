@@ -1,0 +1,263 @@
+{
+  "path": "tar/photo.jpg.gz",
+  "summary": {
+    "critical": 12,
+    "high": 15,
+    "medium": 6,
+    "low": 8
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "photo.jpg: EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "photo.jpg: XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "high",
+      "section": "gzip header",
+      "label": "Modification time",
+      "value": "2024-05-01T10:30:00+00:00"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "photo.jpg: XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "medium",
+      "section": "gzip header",
+      "label": "Operating system",
+      "value": "Unix"
+    },
+    {
+      "level": "medium",
+      "section": "photo.jpg: EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "photo.jpg: EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "photo.jpg: EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "photo.jpg: EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "photo.jpg: EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "low",
+      "section": "gzip header",
+      "label": "Original file name",
+      "value": "photo.jpg"
+    },
+    {
+      "level": "low",
+      "section": "photo.jpg: EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "photo.jpg: EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "photo.jpg: Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "photo.jpg: Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    },
+    {
+      "level": "low",
+      "section": "photo.jpg: XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "photo.jpg: XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "photo.jpg: XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: photo.jpg: GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: photo.jpg: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "photo.jpg: embedded thumbnail may show the original, uncropped image"
+  ],
+  "can_strip": true
+}

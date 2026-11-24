@@ -1,0 +1,199 @@
+{
+  "subject": "tar/notes.tar.xz",
+  "warnings": [],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "xz",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "application/x-xz",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".xz",
+            ".txz"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "compress_contents": {
+      "title": "xz contents",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "xz",
+          "sensitive": false,
+          "note": null
+        },
+        "members": {
+          "label": "Streams",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "compressed_size": {
+          "label": "Compressed size (bytes)",
+          "value": 10296,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Uncompressed size (bytes)",
+          "value": 10240,
+          "sensitive": false,
+          "note": null
+        },
+        "inner": {
+          "label": "Contents",
+          "value": "TAR",
+          "sensitive": false,
+          "note": null
+        },
+        "check": {
+          "label": "Integrity check",
+          "value": "CRC32",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_contents": {
+      "title": "Archive contents",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "TAR",
+          "sensitive": false,
+          "note": null
+        },
+        "entries": {
+          "label": "Entries",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "count.file": {
+          "label": "Files",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Uncompressed size (bytes)",
+          "value": 20,
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_times": {
+      "title": "Entry times",
+      "fields": {
+        "times.notes/plan.txt": {
+          "label": "notes/plan.txt",
+          "value": "modified 2024-05-01T10:30:00+00:00; modified (pax) 2024-05-01T10:30:00.500000+00:00",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_owners": {
+      "title": "Entry owners",
+      "fields": {
+        "owner_names": {
+          "label": "Owner user/group names",
+          "value": "jane.doe/staff (1 entry)",
+          "sensitive": true,
+          "note": null
+        },
+        "owner_ids": {
+          "label": "Owner user/group IDs",
+          "value": "501/20 (1 entry)",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_files": {
+      "title": "Files inside",
+      "fields": {
+        "file_1": {
+          "label": "notes/plan.txt",
+          "value": "unrecognized; not examined: type not recognized",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "tar/notes.tar.xz",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 10296,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "10.1 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "d038dd449d87d22cbb2842f894123b09",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "b570ed9a0ee1a1fdd5d3db6dfa61b0af7819cbde",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "af61519b7d4c150860962e6833d1f2a31d909fa87f893bc74acb5228a3a49657",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

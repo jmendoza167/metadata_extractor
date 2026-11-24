@@ -1,0 +1,12 @@
+{
+  "path": "tar/clean.tar",
+  "summary": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  },
+  "findings": [],
+  "warnings": [],
+  "can_strip": true
+}

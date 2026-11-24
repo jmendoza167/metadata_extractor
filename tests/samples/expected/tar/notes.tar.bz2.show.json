@@ -1,0 +1,200 @@
+{
+  "subject": "tar/notes.tar.bz2",
+  "warnings": [],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "bzip2",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "application/x-bzip2",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".bz2",
+            ".tbz2",
+            ".tbz"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "compress_contents": {
+      "title": "bzip2 contents",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "bzip2",
+          "sensitive": false,
+          "note": null
+        },
+        "members": {
+          "label": "Streams",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "compressed_size": {
+          "label": "Compressed size (bytes)",
+          "value": 233,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Uncompressed size (bytes)",
+          "value": 10240,
+          "sensitive": false,
+          "note": null
+        },
+        "inner": {
+          "label": "Contents",
+          "value": "TAR",
+          "sensitive": false,
+          "note": null
+        },
+        "block_size": {
+          "label": "Block size",
+          "value": "900 kB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_contents": {
+      "title": "Archive contents",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "TAR",
+          "sensitive": false,
+          "note": null
+        },
+        "entries": {
+          "label": "Entries",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "count.file": {
+          "label": "Files",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Uncompressed size (bytes)",
+          "value": 20,
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_times": {
+      "title": "Entry times",
+      "fields": {
+        "times.notes/plan.txt": {
+          "label": "notes/plan.txt",
+          "value": "modified 2024-05-01T10:30:00+00:00; modified (pax) 2024-05-01T10:30:00.500000+00:00",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_owners": {
+      "title": "Entry owners",
+      "fields": {
+        "owner_names": {
+          "label": "Owner user/group names",
+          "value": "jane.doe/staff (1 entry)",
+          "sensitive": true,
+          "note": null
+        },
+        "owner_ids": {
+          "label": "Owner user/group IDs",
+          "value": "501/20 (1 entry)",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_files": {
+      "title": "Files inside",
+      "fields": {
+        "file_1": {
+          "label": "notes/plan.txt",
+          "value": "unrecognized; not examined: type not recognized",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "tar/notes.tar.bz2",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 233,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "233 B",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "fc5fb4361cbdf1528a3fa2ad76a4049b",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "d7595977e18795314fb5d008db26b38fa2d9b729",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "becca8f1cc5f463e1d40774b4e2168f0e25f4af533acd1b71c816c4678b562ab",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

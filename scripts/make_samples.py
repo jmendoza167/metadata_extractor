@@ -8,10 +8,13 @@ Usage (from anywhere inside the repository):
 Every sample is built in code with the test helpers (tests/helpers), never
 with Pillow, and holds made-up metadata only. The output is the same bytes
 on every run and every machine: fixed values, no clock, no randomness,
-PNG data in stored deflate blocks, Office files with STORED ZIP entries
-(zlib's compressed output differs between zlib builds), a hand-written
-deflate stream for the zip bomb, and audio computed with integers only
-(no floating point, whose last digits can differ between machines).
+PNG data in stored deflate blocks, Office files and ZIP archives with
+STORED entries, gzip files with stored deflate blocks (zlib's compressed
+output differs between zlib builds), bzip2 and xz files written by hand
+(tests/helpers/bzip2.py and xz.py, not the bz2 and lzma libraries), a
+hand-written deflate stream for the zip and gzip bombs, and audio computed
+with integers only (no floating point, whose last digits can differ
+between machines).
 
 The generator owns everything in tests/samples/ except SAMPLES.md,
 expected/ (the snapshots, written by the tests) and real/ (files from real
@@ -40,6 +43,7 @@ if str(ROOT / "tests") not in sys.path:
     sys.path.insert(0, str(ROOT / "tests"))
 
 from helpers import flac, gif, id3, jpeg, mp3, odf, ooxml, png, svg, tiff, wav, webp, zip  # noqa: E402
+from helpers import appledouble, bzip2, gz, tar, xz  # noqa: E402
 from helpers.deflate import repeat_deflate  # noqa: E402
 from helpers.jpeg_encoder import jpeg_file  # noqa: E402
 
@@ -289,6 +293,7 @@ def malformed_samples() -> dict[str, bytes]:
                                  b'height="10"><title>&author;</title></svg>\n'),
         **malformed_office(),
         **malformed_audio(),
+        **malformed_archives(),
     }
 
 
@@ -338,6 +343,127 @@ def opendocument_samples() -> dict[str, bytes]:
         out[f"{kind}/clean.{kind}"] = odf.Document(kind).build()
         out[f"{kind}/kitchen_sink.{kind}"] = odf.kitchen_sink(kind)
     return out
+
+
+MAY_2024 = 1714559400
+"""2024-05-01T10:30:00Z, the time of every archive sample's made-up metadata."""
+UNIX = 3 << 8 | 20
+NTFS = 10 << 8 | 20
+
+
+def kitchen_sink_zip() -> bytes:
+    """A ZIP with every kind of archive metadata metaex reads."""
+    date, time = zip.dos_stamp(2024, 5, 1, 10, 30)
+    ut = zip.unix_times(MAY_2024)
+    ntfs = zip.ntfs_times(133590330000000000, 133590330600000000, 133590300000000000)
+    owner = zip.unix_ids(501, 20)
+    stamp = {"date": date, "time": time}
+    return zip.build_zip([
+        zip.Entry("plans/", created_by=UNIX, external_attr=(0o40700 << 16) | 0x10,
+                  local_extra=ut + owner, central_extra=ut, **stamp),
+        zip.Entry("plans/floor plan.jpg", jpeg.sample_photo(), created_by=UNIX,
+                  external_attr=0o100600 << 16, local_extra=ut + owner, central_extra=ut,
+                  comment=b"photo of the plan (sent to jane.doe@example.com)", **stamp),
+        zip.Entry("plans/letter.docx", ooxml.with_properties(ooxml.docx(ooxml.paragraph(
+            "Plans for the flat"))).build(), created_by=NTFS,
+                  external_attr=0x22, local_extra=ntfs, central_extra=ntfs, **stamp),
+        zip.Entry("plans/.DS_Store", b"\x00\x00\x00\x01Bud1" + bytes(26), **stamp),
+        zip.Entry("plans/Thumbs.db", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + bytes(56), **stamp),
+        zip.Entry("plans/desktop.ini", b"[.ShellClassInfo]\r\nIconResource=plans.ico\r\n",
+                  **stamp),
+        zip.Entry("__MACOSX/", **stamp),
+        zip.Entry("__MACOSX/plans/", **stamp),
+        zip.Entry("__MACOSX/plans/._floor plan.jpg", appledouble.sample_appledouble(), **stamp),
+        zip.Entry("Users/jane.doe/Desktop/todo.txt", b"Call the landlord about the stairs.\n",
+                  created_by=UNIX, external_attr=0o100644 << 16, **stamp),
+        zip.Entry("run.sh", b"#!/bin/sh\necho 'printing the plans'\n", created_by=UNIX,
+                  external_attr=0o100755 << 16, **stamp),
+    ], comment=b"Backup of Jane Doe's laptop, 2024-05-01",
+        prefix=b"#!/bin/sh\n# made by Jane Doe's backup script\nexit 0\n",
+        suffix=b"\nappended note: ask jane.doe@example.com\n")
+
+
+def kitchen_sink_tar() -> bytes:
+    """A TAR with every kind of TAR metadata metaex reads: pax times, owners
+    and extended attributes, a global pax header, GNU long names and times,
+    an AppleDouble file, non-zero padding and data after the end."""
+    import base64
+
+    where_froms = appledouble.bplist(appledouble.SAMPLE_WHERE_FROMS)
+    owner = {"uid": 501, "gid": 20, "uname": b"jane.doe", "gname": b"staff", "mtime": MAY_2024}
+    todo = b"Call the landlord about the stairs.\n"
+    return tar.build_tar([
+        tar.pax({"comment": "Nightly backup of jane.doe@example.com", "uname": "jane.doe"},
+                flag=b"g"),
+        tar.folder("home/jane.doe/plans", mode=0o700, **owner),
+        tar.pax({"mtime": "1714559400.123456789", "atime": "1714559401", "ctime": "1714559402",
+                 "SCHILY.xattr.com.apple.quarantine": appledouble.SAMPLE_QUARANTINE,
+                 "LIBARCHIVE.xattr.com.apple.metadata%3AkMDItemWhereFroms":
+                     base64.b64encode(where_froms).rstrip(b"=")}),
+        tar.file("home/jane.doe/plans/floor plan.jpg", jpeg.sample_photo(), mode=0o600,
+                 **owner),
+        tar.file("home/jane.doe/plans/._floor plan.jpg", appledouble.sample_appledouble(),
+                 **owner),
+        tar.gnu_long("home/jane.doe/plans/notes about the kitchen, the dining room and the "
+                     "stairs (second draft).txt"),
+        tar.file("ignored", b"Ask about the stairs.\n", format=tar.GNU, atime=MAY_2024,
+                 ctime=MAY_2024, **owner),
+        tar.symlink("home/jane.doe/plans/latest.jpg", "floor plan.jpg", **owner),
+        tar.file("home/jane.doe/plans/todo.txt", todo, **owner,
+                 padding=b"draft: Jane" + bytes(512 - len(todo) - 11)),
+    ], suffix=b"left over: jane.doe@example.com\n")
+
+
+@sample_set
+def archive_samples() -> dict[str, bytes]:
+    """ZIP entries are stored and gzip data is in stored deflate blocks; bzip2
+    and xz are written by hand (tests/helpers/bzip2.py, xz.py), so every
+    file is the same on every machine."""
+    kitchen = kitchen_sink_tar()
+    # one file owned by Jane Doe, with a pax time: small, so bzip2 and xz
+    # samples don't repeat the kitchen sink
+    notes = tar.build_tar([
+        tar.pax({"mtime": "1714559400.5", "uname": "jane.doe"}),
+        tar.file("notes/plan.txt", b"Plans for the flat.\n", uid=501, gid=20,
+                 uname=b"jane.doe", gname=b"staff", mtime=MAY_2024)])
+    return {
+        # what metaex writes: neutral headers, nothing else
+        "zip/clean.zip": zip.build_zip([
+            zip.Entry("docs/", created_by=UNIX, external_attr=(0o40755 << 16) | 0x10),
+            zip.Entry("docs/readme.txt", b"Plans for the flat.\n", created_by=UNIX,
+                      external_attr=0o100644 << 16)]),
+        "zip/kitchen_sink.zip": kitchen_sink_zip(),
+        "tar/clean.tar": tar.build_tar([tar.folder("docs"),
+                                        tar.file("docs/readme.txt", b"Plans for the flat.\n")]),
+        "tar/kitchen_sink.tar": kitchen,
+        "tar/kitchen_sink.tar.gz": gz.gzip(kitchen, name=b"backup.tar", mtime=MAY_2024, os=3,
+                                           comment=b"Jane Doe's nightly backup",
+                                           extra=gz.subfield(b"JD", b"laptop-jane")),
+        "tar/notes.tar.bz2": bzip2.compress(notes),
+        "tar/notes.tar.xz": xz.xz(notes),
+        "tar/photo.jpg.gz": gz.gzip(jpeg.sample_photo(), name=b"photo.jpg", mtime=MAY_2024,
+                                    os=3),
+    }
+
+
+def malformed_archives() -> dict[str, bytes]:
+    raw, expanded = repeat_deflate(0x00, BOMB_MATCHES)
+    tgz = gz.gzip(kitchen_sink_tar())
+    return {
+        # an entry named ../../evil.txt: extracting it would write outside the folder
+        "malformed/traversal.tar": tar.build_tar([tar.file("docs/readme.txt", b"hello\n"),
+                                                  tar.file("../../evil.txt", b"outside\n")]),
+        # the second header's checksum doesn't match its contents
+        "malformed/bad_checksum.tar": tar.build_tar([
+            tar.file("docs/readme.txt", b"hello\n"),
+            tar.file("docs/notes.txt", b"notes\n", checksum=1234)]),
+        # 2,065 bytes of deflate data that expand to about 2 MiB of zeros
+        "malformed/bomb.gz": gz.gzip(expanded, deflate=raw),
+        # tar/kitchen_sink.tar.gz without its name and comment, cut in half
+        "malformed/truncated.tar.gz": tgz[:len(tgz) // 2],
+        # a complete xz stream followed by bytes that are not one
+        "malformed/trailing_garbage.xz": xz.xz(b"Plans for the flat.\n") + b"Jane Doe!",
+    }
 
 
 BOMB_MATCHES = 8200

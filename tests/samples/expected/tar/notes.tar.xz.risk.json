@@ -1,0 +1,31 @@
+{
+  "path": "tar/notes.tar.xz",
+  "summary": {
+    "critical": 0,
+    "high": 2,
+    "medium": 1,
+    "low": 0
+  },
+  "findings": [
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "notes/plan.txt",
+      "value": "modified 2024-05-01T10:30:00+00:00; modified (pax) 2024-05-01T10:30:00.500000+00:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry owners",
+      "label": "Owner user/group names",
+      "value": "jane.doe/staff (1 entry)"
+    },
+    {
+      "level": "medium",
+      "section": "Entry owners",
+      "label": "Owner user/group IDs",
+      "value": "501/20 (1 entry)"
+    }
+  ],
+  "warnings": [],
+  "can_strip": true
+}

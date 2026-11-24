@@ -10,6 +10,8 @@ metaex risk tests/samples/docx/kitchen_sink.docx
 metaex strip tests/samples/odt/kitchen_sink.odt -o notes_stripped.odt --remove-comments
 metaex risk tests/samples/mp3/kitchen_sink.mp3
 metaex strip tests/samples/flac/kitchen_sink.flac -o song_stripped.flac
+metaex risk tests/samples/zip/kitchen_sink.zip
+metaex strip tests/samples/tar/kitchen_sink.tar.gz --deep -o backup_stripped.tar.gz
 ```
 
 **All metadata in these files is fake.** The person is always "Jane Doe"
@@ -156,6 +158,27 @@ MD5 of the audio, so any FLAC decoder plays them and can check them.
 | `flac/clean.flac` | `helpers.flac.flac()` | None: the tone of `wav/clean.wav` in verbatim (uncompressed) frames | 0 / 0 / 0 / 8 |
 | `flac/kitchen_sink.flac` | `helpers.flac.kitchen_sink_flac()` | An ID3v2.3 tag before the stream; Vorbis comments (artist, date, comment, a contact e-mail address, a location, encoder); a PICTURE block with the cover photo with GPS; an APPLICATION block; a seek table; a cue sheet (kept by strip unless `--paranoid`); PADDING with hidden data; a stereo tone in compressed (fixed predictor) frames | 14 / 20 / 11 / 23 |
 
+## Archives (ZIP, TAR, gzip, bzip2, xz)
+
+Every ZIP entry is stored uncompressed, gzip data is made of stored deflate
+blocks, and the bzip2 and xz files are written by the test helpers
+(`helpers/bzip2.py`, `helpers/xz.py`: uncompressed LZMA2 chunks), never by
+the bz2 and lzma libraries, whose output can differ between machines. The
+"where from" URLs point at `example.com`. The risk counts include the files
+inside (the photo is `jpeg/gps_camera.jpg`); `strip` cleans the archive
+itself, and `strip --deep` the files inside too.
+
+| File | How it was made | Metadata | Risk |
+|---|---|---|---|
+| `zip/clean.zip` | `helpers.zip.build_zip()`, the way metaex writes ZIP files | None | 0 / 0 / 0 / 0 |
+| `zip/kitchen_sink.zip` | `kitchen_sink_zip()` in the generator | Entry times, extended timestamp, NTFS and Unix owner extra fields, Unix permissions and Windows attributes, archive and entry comments (one with an e-mail address), a `__MACOSX/` folder with an AppleDouble file holding a quarantine record and "where from" URLs, `.DS_Store`, `Thumbs.db`, `desktop.ini`, a name in `Users/jane.doe/`, the photo with GPS, a DOCX by Jane Doe, a script in front of the archive and a note after it | 21 / 40 / 10 / 30 |
+| `tar/clean.tar` | `helpers.tar.build_tar()`, the way metaex writes TAR files | None | 0 / 0 / 0 / 0 |
+| `tar/kitchen_sink.tar` | `kitchen_sink_tar()` in the generator | A global pax header with a comment, pax times, owner names and extended attributes (quarantine, "where from" URLs), owner IDs, GNU long name and access and change times, an AppleDouble file, a relative symbolic link, folders in `home/jane.doe/`, the photo with GPS, data in the padding after a file and after the end of the archive | 25 / 22 / 7 / 8 |
+| `tar/kitchen_sink.tar.gz` | `tar/kitchen_sink.tar` in `helpers.gz.gzip()` | Everything in `kitchen_sink.tar`, plus the gzip file name, modification time, operating system, comment and an extra field | 25 / 24 / 8 / 10 |
+| `tar/notes.tar.bz2` | A small TAR in `helpers.bzip2.compress()` | A file owned by `jane.doe` with a pax time | 0 / 2 / 1 / 0 |
+| `tar/notes.tar.xz` | The same TAR in `helpers.xz.xz()` | A file owned by `jane.doe` with a pax time | 0 / 2 / 1 / 0 |
+| `tar/photo.jpg.gz` | `jpeg/gps_camera.jpg` in `helpers.gz.gzip()` | The gzip file name, modification time and operating system, and the photo's metadata | 12 / 15 / 6 / 8 |
+
 ## Damaged files (`malformed/`)
 
 metaex refuses to strip each of these, with an error that says what is
@@ -177,14 +200,21 @@ and show whatever they could read before it.
 | `malformed/bad_id3_size.mp3` | An ID3v2 tag that says it is 1,000,000 bytes long, more than the file |
 | `malformed/wrong_riff_size.wav` | A RIFF header that says the file is 100 bytes longer than it is |
 | `malformed/broken_block_length.flac` | A metadata block that says it is 100,000 bytes long, more than the file |
+| `malformed/traversal.tar` | An entry named `../../evil.txt`, which would be written outside the folder if extracted |
+| `malformed/bad_checksum.tar` | The second header's checksum doesn't match its contents |
+| `malformed/bomb.gz` | 2,082 bytes that expand to about 2 MiB of zeros, over 200 times their size (a small decompression bomb: refused, but harmless if expanded) |
+| `malformed/truncated.tar.gz` | A `.tar.gz` cut in half, like an interrupted download |
+| `malformed/trailing_garbage.xz` | A complete xz stream followed by bytes that are not one (xz allows only zero padding there) |
 
 ## Files from real software (`real/`)
 
 `real/` is for files saved by real programs, because they hold metadata
 that generated files don't. It is empty for now. Only add formats metaex
 supports: JPEG, PNG, GIF, WebP, SVG, DOCX, XLSX, PPTX, ODT, ODS, ODP, MP3,
-WAV and FLAC (for example from a phone camera, GIMP, Inkscape, Word, Excel,
-PowerPoint, LibreOffice, an audio editor or a field recorder). The generator never touches `real/`, but the
+WAV, FLAC, ZIP, TAR, gzip, bzip2 and xz (for example from a phone camera, GIMP,
+Inkscape, Word, Excel, PowerPoint, LibreOffice, an audio editor, a field
+recorder, or an archive made with Finder, Windows Explorer, 7-Zip or `tar`;
+check what an archive holds before adding it). The generator never touches `real/`, but the
 other sample tests include every file in it, so a file added there is
 tested like the others.
 

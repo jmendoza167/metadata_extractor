@@ -1,0 +1,626 @@
+{
+  "path": "zip/kitchen_sink.zip",
+  "summary": {
+    "critical": 21,
+    "high": 40,
+    "medium": 10,
+    "low": 30
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "Hidden data in the archive",
+      "label": "Data before the first entry",
+      "value": "<52 bytes>"
+    },
+    {
+      "level": "critical",
+      "section": "Hidden data in the archive",
+      "label": "Data after the end of the archive",
+      "value": "<41 bytes>"
+    },
+    {
+      "level": "critical",
+      "section": "Archive comments",
+      "label": "Comment on plans/floor plan.jpg",
+      "value": "photo of the plan (sent to jane.doe@example.com)"
+    },
+    {
+      "level": "critical",
+      "section": "Extended attributes",
+      "label": "plans/floor plan.jpg: com.apple.quarantine",
+      "value": "downloaded with Safari on 2024-05-01T09:25:20+00:00 (event 3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6) [0083;66320a80;Safari;3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6]"
+    },
+    {
+      "level": "critical",
+      "section": "Extended attributes",
+      "label": "plans/floor plan.jpg: com.apple.metadata:kMDItemWhereFroms",
+      "value": "https://downloads.example.com/plans/floor-plan.zip, https://www.example.com/jane.doe/shared"
+    },
+    {
+      "level": "critical",
+      "section": "Names that reveal a user folder",
+      "label": "Users/jane.doe/Desktop/todo.txt",
+      "value": "user folder of 'jane.doe'"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "critical",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Author",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "critical",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Last modified by",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "critical",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Template",
+      "value": "C:\\Users\\jane.doe\\AppData\\Roaming\\Microsoft\\Templates\\Normal.dotm"
+    },
+    {
+      "level": "high",
+      "section": "Archive comments",
+      "label": "Archive comment",
+      "value": "Backup of Jane Doe's laptop, 2024-05-01"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "plans",
+      "value": "modified (local time) 2024-05-01T10:30:00; modified (extended timestamp) 2024-05-01T10:30:00+00:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "plans/floor plan.jpg",
+      "value": "modified (local time) 2024-05-01T10:30:00; modified (extended timestamp) 2024-05-01T10:30:00+00:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "plans/letter.docx",
+      "value": "modified (local time) 2024-05-01T10:30:00; modified (NTFS) 2024-05-01T10:30:00+00:00; accessed (NTFS) 2024-05-01T10:31:00+00:00; created (NTFS) 2024-05-01T09:40:00+00:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "plans/.DS_Store",
+      "value": "modified (local time) 2024-05-01T10:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "plans/Thumbs.db",
+      "value": "modified (local time) 2024-05-01T10:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "plans/desktop.ini",
+      "value": "modified (local time) 2024-05-01T10:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "__MACOSX",
+      "value": "modified (local time) 2024-05-01T10:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "__MACOSX/plans",
+      "value": "modified (local time) 2024-05-01T10:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "__MACOSX/plans/._floor plan.jpg",
+      "value": "modified (local time) 2024-05-01T10:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "Users/jane.doe/Desktop/todo.txt",
+      "value": "modified (local time) 2024-05-01T10:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "run.sh",
+      "value": "modified (local time) 2024-05-01T10:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Operating system files",
+      "label": "plans/.DS_Store",
+      "value": "macOS Finder folder settings (.DS_Store; can list files that were in the folder)"
+    },
+    {
+      "level": "high",
+      "section": "Operating system files",
+      "label": "plans/Thumbs.db",
+      "value": "Windows thumbnail cache (Thumbs.db; can hold thumbnails of pictures that were in the folder)"
+    },
+    {
+      "level": "high",
+      "section": "Operating system files",
+      "label": "plans/desktop.ini",
+      "value": "Windows folder settings (desktop.ini)"
+    },
+    {
+      "level": "high",
+      "section": "Operating system files",
+      "label": "__MACOSX",
+      "value": "macOS AppleDouble data (__MACOSX folder): extended attributes and resource forks of the files"
+    },
+    {
+      "level": "high",
+      "section": "Operating system files",
+      "label": "__MACOSX/plans",
+      "value": "macOS AppleDouble data (__MACOSX folder): extended attributes and resource forks of the files"
+    },
+    {
+      "level": "high",
+      "section": "Operating system files",
+      "label": "__MACOSX/plans/._floor plan.jpg",
+      "value": "macOS AppleDouble file: extended attributes of plans/floor plan.jpg"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Last printed",
+      "value": "2024-05-02T08:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Created",
+      "value": "2024-05-01T10:00:00Z"
+    },
+    {
+      "level": "high",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Modified",
+      "value": "2024-05-02T09:30:00Z"
+    },
+    {
+      "level": "high",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Application",
+      "value": "Microsoft Office Word"
+    },
+    {
+      "level": "high",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Manager",
+      "value": "John Example"
+    },
+    {
+      "level": "high",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Company",
+      "value": "Example Corp"
+    },
+    {
+      "level": "high",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Hyperlink base",
+      "value": "https://intranet.example.com/docs/"
+    },
+    {
+      "level": "high",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Application version",
+      "value": "16.0000"
+    },
+    {
+      "level": "medium",
+      "section": "Entry owners",
+      "label": "Owner user/group IDs",
+      "value": "501/20 (2 entries)"
+    },
+    {
+      "level": "medium",
+      "section": "System information",
+      "label": "Created on",
+      "value": "Windows NTFS (1 entry)"
+    },
+    {
+      "level": "medium",
+      "section": "System information",
+      "label": "Permissions",
+      "value": "700 (folder) (1 entry), 600 (file) (1 entry)"
+    },
+    {
+      "level": "medium",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "medium",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Revision number",
+      "value": "7"
+    },
+    {
+      "level": "medium",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Total editing time (minutes)",
+      "value": "42"
+    },
+    {
+      "level": "low",
+      "section": "Other entry information",
+      "label": "plans/letter.docx: Windows attributes",
+      "value": "hidden"
+    },
+    {
+      "level": "low",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "plans/floor plan.jpg: EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "plans/floor plan.jpg: Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "plans/floor plan.jpg: Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    },
+    {
+      "level": "low",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "plans/floor plan.jpg: XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Title",
+      "value": "Floor plan notes"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Subject",
+      "value": "Flat"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Keywords",
+      "value": "plan; flat"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Comments (description)",
+      "value": "Second draft for the landlord"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Category",
+      "value": "Private"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Status",
+      "value": "Draft"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Identifier",
+      "value": "DOC-0001"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Language",
+      "value": "en-US"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Document properties",
+      "label": "Version",
+      "value": "1.0"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Pages",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Words",
+      "value": "120"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Characters",
+      "value": "700"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Document security",
+      "value": "0"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Lines",
+      "value": "5"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Paragraphs",
+      "value": "2"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Scale or crop thumbnail",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Links up to date",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Characters (with spaces)",
+      "value": "819"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Shared document",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Hyperlinks changed",
+      "value": "false"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Part types (heading pairs)",
+      "value": "Title, 1"
+    },
+    {
+      "level": "low",
+      "section": "plans/letter.docx: Application properties",
+      "label": "Titles of parts",
+      "value": "Floor plan"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: 93 bytes of data are hidden in the ZIP archive outside its entries",
+    "CRITICAL: __MACOSX/plans/._floor plan.jpg records where a file was downloaded from",
+    "CRITICAL: plans/floor plan.jpg: GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: plans/floor plan.jpg: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "data before the start of the ZIP archive",
+    "plans/floor plan.jpg: embedded thumbnail may show the original, uncropped image"
+  ],
+  "can_strip": true
+}

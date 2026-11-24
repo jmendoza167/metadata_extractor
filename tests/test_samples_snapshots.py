@@ -37,6 +37,8 @@ UPDATE = os.environ.get("METAEX_UPDATE_SNAPSHOTS") == "1"
 UPDATE_HINT = ("if the change is intended, run METAEX_UPDATE_SNAPSHOTS=1 pytest "
                "tests/test_samples_snapshots.py and review the diff")
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".gif", ".webp")
+ARCHIVE_SUFFIXES = (".zip", ".tar", ".gz", ".bz2", ".xz")
+"""Archives are stripped with --deep here, so the files inside are clean too."""
 FILE_SYSTEM_KEPT = ("path", "size_bytes", "size")
 MACHINE_SECTIONS = ("mark_of_the_web",)
 
@@ -152,9 +154,12 @@ GENERATED = [
     "png/apng_metadata.png", "png/clean.png", "png/exif_time.png", "png/text_chunks.png",
     "pptx/clean.pptx", "pptx/kitchen_sink.pptx",
     "svg/clean.svg", "svg/doctype_svg11.svg", "svg/editor.svg", "svg/embedded_jpeg.svg",
+    "tar/clean.tar", "tar/kitchen_sink.tar", "tar/kitchen_sink.tar.gz", "tar/notes.tar.bz2",
+    "tar/notes.tar.xz", "tar/photo.jpg.gz",
     "wav/clean.wav", "wav/kitchen_sink.wav",
     "webp/animated_metadata.webp", "webp/lossless.webp", "webp/lossy_metadata.webp",
     "xlsx/clean.xlsx", "xlsx/kitchen_sink.xlsx",
+    "zip/clean.zip", "zip/kitchen_sink.zip",
 ]
 
 
@@ -228,7 +233,8 @@ def test_normalizing_keeps_what_the_file_decides():
 def test_strip_then_verify_is_clean(name, paranoid, tmp_path):
     copy = copy_sample(name, tmp_path)
     out = tmp_path / ("stripped" + copy.suffix)
-    r = metaex("strip", copy, "-o", out, *(["--paranoid"] if paranoid else []))
+    deep = ["--deep"] if copy.suffix.lower() in ARCHIVE_SUFFIXES else []
+    r = metaex("strip", copy, "-o", out, *(["--paranoid"] if paranoid else []), *deep)
     assert r.returncode == 0, r.stderr
     v = metaex("verify", out, "--original", copy, "--json")
     assert v.returncode == 0, v.stdout + v.stderr
@@ -239,6 +245,25 @@ def test_strip_then_verify_is_clean(name, paranoid, tmp_path):
     if copy.suffix.lower() in IMAGE_SUFFIXES:
         # a JPEG's MPF extra images are removed by design: compare the main image
         assert_same_image(copy, out, primary_only=copy.suffix.lower() in (".jpg", ".jpeg"))
+
+
+@pytest.mark.parametrize("name", [n for n in SAMPLES if n.endswith(ARCHIVE_SUFFIXES)])
+def test_strip_without_deep_keeps_the_files_inside(name, tmp_path):
+    """Without --deep the archive's own metadata goes, the files inside stay
+    byte for byte, and those that still hold metadata are named."""
+    copy = copy_sample(name, tmp_path)
+    out = tmp_path / ("stripped" + copy.suffix)
+    r = metaex("strip", copy, "-o", out)
+    assert r.returncode == 0, r.stderr
+    v = metaex("verify", out, "--original", copy, "--json")
+    result = json.loads(v.stdout)
+    assert result["problems"] == [] and result["image_data_match"] is True
+    if "kitchen_sink" in name or "photo" in name:  # a photo with GPS inside
+        assert "use --deep" in r.stdout
+        assert v.returncode == 3
+        assert any(f["section"].endswith(": GPS") for f in result["leftovers"])
+    else:
+        assert v.returncode == 0 and result["leftovers"] == []
 
 
 # -- SAMPLES.md ---------------------------------------------------------------------------

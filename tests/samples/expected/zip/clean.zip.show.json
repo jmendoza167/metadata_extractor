@@ -1,0 +1,135 @@
+{
+  "subject": "zip/clean.zip",
+  "warnings": [],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "ZIP",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "application/zip",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".zip"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_contents": {
+      "title": "Archive contents",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "ZIP",
+          "sensitive": false,
+          "note": null
+        },
+        "entries": {
+          "label": "Entries",
+          "value": 2,
+          "sensitive": false,
+          "note": null
+        },
+        "count.folder": {
+          "label": "Folders",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "count.file": {
+          "label": "Files",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Uncompressed size (bytes)",
+          "value": 20,
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_files": {
+      "title": "Files inside",
+      "fields": {
+        "file_1": {
+          "label": "docs/readme.txt",
+          "value": "unrecognized; not examined: type not recognized",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "zip/clean.zip",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 234,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "234 B",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "8af62436b0cac774ecd3b0cb59dae910",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "63773a0c11084d73b014c65a0b255a7b1976feb0",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "e4071dda264e9ac79ef96dff1b14b13ff9608f0cbe455430d769aef31cc942e7",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

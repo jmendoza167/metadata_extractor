@@ -1,0 +1,674 @@
+{
+  "subject": "tar/kitchen_sink.tar.gz",
+  "warnings": [
+    "CRITICAL: 508 bytes of data are hidden in the TAR archive outside its files",
+    "CRITICAL: home/jane.doe/plans/floor plan.jpg records where a file was downloaded from",
+    "CRITICAL: home/jane.doe/plans/._floor plan.jpg records where a file was downloaded from",
+    "CRITICAL: home/jane.doe/plans/floor plan.jpg: GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: home/jane.doe/plans/floor plan.jpg: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "home/jane.doe/plans/floor plan.jpg: embedded thumbnail may show the original, uncropped image"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "gzip",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "application/gzip",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".gz",
+            ".tgz"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "compress_contents": {
+      "title": "gzip contents",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "gzip",
+          "sensitive": false,
+          "note": null
+        },
+        "members": {
+          "label": "Members",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "compressed_size": {
+          "label": "Compressed size (bytes)",
+          "value": 20589,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Uncompressed size (bytes)",
+          "value": 20512,
+          "sensitive": false,
+          "note": null
+        },
+        "inner": {
+          "label": "Contents",
+          "value": "TAR",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "compress_header": {
+      "title": "gzip header",
+      "fields": {
+        "name": {
+          "label": "Original file name",
+          "value": "backup.tar",
+          "sensitive": true,
+          "note": null
+        },
+        "mtime": {
+          "label": "Modification time",
+          "value": "2024-05-01T10:30:00+00:00",
+          "sensitive": true,
+          "note": null
+        },
+        "os": {
+          "label": "Operating system",
+          "value": "Unix",
+          "sensitive": false,
+          "note": null
+        },
+        "comment": {
+          "label": "Comment",
+          "value": "Jane Doe's nightly backup",
+          "sensitive": true,
+          "note": null
+        },
+        "extra": {
+          "label": "Extra field",
+          "value": "'JD': 11 bytes",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_contents": {
+      "title": "Archive contents",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "TAR",
+          "sensitive": false,
+          "note": null
+        },
+        "entries": {
+          "label": "Entries",
+          "value": 6,
+          "sensitive": false,
+          "note": null
+        },
+        "count.folder": {
+          "label": "Folders",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "count.file": {
+          "label": "Files",
+          "value": 4,
+          "sensitive": false,
+          "note": null
+        },
+        "count.symlink": {
+          "label": "Symlinks",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Uncompressed size (bytes)",
+          "value": 3379,
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_hidden": {
+      "title": "Hidden data in the archive",
+      "fields": {
+        "range_1": {
+          "label": "Data in the padding after 'home/jane.doe/plans/todo.txt'",
+          "value": {
+            "length": 476,
+            "hex_preview": "64726166743a204a616e65000000000000000000000000000000000000000000"
+          },
+          "sensitive": true,
+          "note": "476 bytes at offset 10276"
+        },
+        "range_2": {
+          "label": "Data after the end of the archive",
+          "value": {
+            "length": 32,
+            "hex_preview": "6c656674206f7665723a206a616e652e646f65406578616d706c652e636f6d0a"
+          },
+          "sensitive": true,
+          "note": "32 bytes at offset 20480"
+        }
+      }
+    },
+    "archive_comments": {
+      "title": "Archive comments",
+      "fields": {
+        "comment.(global pax header 1)": {
+          "label": "Comment on (global pax header 1)",
+          "value": "Nightly backup of jane.doe@example.com",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_times": {
+      "title": "Entry times",
+      "fields": {
+        "times.home/jane.doe/plans": {
+          "label": "home/jane.doe/plans",
+          "value": "modified 2024-05-01T10:30:00+00:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.home/jane.doe/plans/floor plan.jpg": {
+          "label": "home/jane.doe/plans/floor plan.jpg",
+          "value": "modified 2024-05-01T10:30:00+00:00; modified (pax) 2024-05-01T10:30:00.123457+00:00; accessed (pax) 2024-05-01T10:30:01+00:00; changed (pax) 2024-05-01T10:30:02+00:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.home/jane.doe/plans/._floor plan.jpg": {
+          "label": "home/jane.doe/plans/._floor plan.jpg",
+          "value": "modified 2024-05-01T10:30:00+00:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.home/jane.doe/plans/notes about the kitchen, the dining room and the stairs (second draft).txt": {
+          "label": "home/jane.doe/plans/notes about the kitchen, the dining room and the stairs (second draft).txt",
+          "value": "modified 2024-05-01T10:30:00+00:00; accessed (GNU header) 2024-05-01T10:30:00+00:00; changed (GNU header) 2024-05-01T10:30:00+00:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.home/jane.doe/plans/latest.jpg": {
+          "label": "home/jane.doe/plans/latest.jpg",
+          "value": "modified 2024-05-01T10:30:00+00:00",
+          "sensitive": true,
+          "note": null
+        },
+        "times.home/jane.doe/plans/todo.txt": {
+          "label": "home/jane.doe/plans/todo.txt",
+          "value": "modified 2024-05-01T10:30:00+00:00",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_owners": {
+      "title": "Entry owners",
+      "fields": {
+        "owner_names": {
+          "label": "Owner user/group names",
+          "value": "jane.doe/staff (6 entries), jane.doe/- (1 entry)",
+          "sensitive": true,
+          "note": null
+        },
+        "owner_ids": {
+          "label": "Owner user/group IDs",
+          "value": "501/20 (6 entries)",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_system": {
+      "title": "System information",
+      "fields": {
+        "permissions": {
+          "label": "Permissions",
+          "value": "700 (folder) (1 entry), 600 (file) (1 entry)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "archive_junk": {
+      "title": "Operating system files",
+      "fields": {
+        "junk.home/jane.doe/plans/._floor plan.jpg": {
+          "label": "home/jane.doe/plans/._floor plan.jpg",
+          "value": "macOS AppleDouble file: extended attributes of home/jane.doe/plans/floor plan.jpg",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_xattrs": {
+      "title": "Extended attributes",
+      "fields": {
+        "xattr.home/jane.doe/plans/floor plan.jpg.com.apple.quarantine": {
+          "label": "home/jane.doe/plans/floor plan.jpg: com.apple.quarantine",
+          "value": "downloaded with Safari on 2024-05-01T09:25:20+00:00 (event 3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6) [0083;66320a80;Safari;3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6]",
+          "sensitive": true,
+          "note": null
+        },
+        "xattr.home/jane.doe/plans/floor plan.jpg.com.apple.metadata:kMDItemWhereFroms": {
+          "label": "home/jane.doe/plans/floor plan.jpg: com.apple.metadata:kMDItemWhereFroms",
+          "value": "https://downloads.example.com/plans/floor-plan.zip, https://www.example.com/jane.doe/shared",
+          "sensitive": true,
+          "note": null
+        },
+        "xattr.home/jane.doe/plans/floor plan.jpg.com.apple.quarantine_2": {
+          "label": "home/jane.doe/plans/floor plan.jpg: com.apple.quarantine",
+          "value": "downloaded with Safari on 2024-05-01T09:25:20+00:00 (event 3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6) [0083;66320a80;Safari;3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6]",
+          "sensitive": true,
+          "note": null
+        },
+        "xattr.home/jane.doe/plans/floor plan.jpg.com.apple.metadata:kMDItemWhereFroms_2": {
+          "label": "home/jane.doe/plans/floor plan.jpg: com.apple.metadata:kMDItemWhereFroms",
+          "value": "https://downloads.example.com/plans/floor-plan.zip, https://www.example.com/jane.doe/shared",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_paths": {
+      "title": "Names that reveal a user folder",
+      "fields": {
+        "name.home/jane.doe/plans": {
+          "label": "home/jane.doe/plans",
+          "value": "user folder of 'jane.doe'",
+          "sensitive": true,
+          "note": null
+        },
+        "name.home/jane.doe/plans/floor plan.jpg": {
+          "label": "home/jane.doe/plans/floor plan.jpg",
+          "value": "user folder of 'jane.doe'",
+          "sensitive": true,
+          "note": null
+        },
+        "name.home/jane.doe/plans/._floor plan.jpg": {
+          "label": "home/jane.doe/plans/._floor plan.jpg",
+          "value": "user folder of 'jane.doe'",
+          "sensitive": true,
+          "note": null
+        },
+        "name.home/jane.doe/plans/notes about the kitchen, the dining room and the stairs (second draft).txt": {
+          "label": "home/jane.doe/plans/notes about the kitchen, the dining room and the stairs (second draft).txt",
+          "value": "user folder of 'jane.doe'",
+          "sensitive": true,
+          "note": null
+        },
+        "name.home/jane.doe/plans/latest.jpg": {
+          "label": "home/jane.doe/plans/latest.jpg",
+          "value": "user folder of 'jane.doe'",
+          "sensitive": true,
+          "note": null
+        },
+        "name.home/jane.doe/plans/todo.txt": {
+          "label": "home/jane.doe/plans/todo.txt",
+          "value": "user folder of 'jane.doe'",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_links": {
+      "title": "Link targets",
+      "fields": {
+        "link.home/jane.doe/plans/latest.jpg": {
+          "label": "home/jane.doe/plans/latest.jpg (symlink)",
+          "value": "floor plan.jpg",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "archive_files": {
+      "title": "Files inside",
+      "fields": {
+        "file_1": {
+          "label": "home/jane.doe/plans/floor plan.jpg",
+          "value": "JPEG; 36 metadata field(s)",
+          "sensitive": false,
+          "note": null
+        },
+        "file_2": {
+          "label": "home/jane.doe/plans/notes about the kitchen, the dining room and the stairs (second draft).txt",
+          "value": "unrecognized; not examined: type not recognized",
+          "sensitive": false,
+          "note": null
+        },
+        "file_3": {
+          "label": "home/jane.doe/plans/todo.txt",
+          "value": "unrecognized; not examined: type not recognized",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "exif": {
+      "title": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "fields": {
+        "byte_order": {
+          "label": "Byte order",
+          "value": "little-endian (II)",
+          "sensitive": false,
+          "note": null
+        },
+        "Make": {
+          "label": "Make",
+          "value": "ExampleCam",
+          "sensitive": true,
+          "note": null
+        },
+        "Model": {
+          "label": "Model",
+          "value": "Model X",
+          "sensitive": true,
+          "note": null
+        },
+        "Orientation": {
+          "label": "Orientation",
+          "value": "Horizontal (normal)",
+          "sensitive": false,
+          "note": null
+        },
+        "Software": {
+          "label": "Software",
+          "value": "Firmware 1.0",
+          "sensitive": true,
+          "note": null
+        },
+        "DateTime": {
+          "label": "DateTime",
+          "value": "2024-05-01T14:30:00",
+          "sensitive": true,
+          "note": "no time zone recorded"
+        },
+        "ExposureTime": {
+          "label": "ExposureTime",
+          "value": "1/250 s",
+          "sensitive": false,
+          "note": null
+        },
+        "FNumber": {
+          "label": "FNumber",
+          "value": "f/1.8",
+          "sensitive": false,
+          "note": null
+        },
+        "ISOSpeedRatings": {
+          "label": "ISOSpeedRatings",
+          "value": 100,
+          "sensitive": false,
+          "note": null
+        },
+        "DateTimeOriginal": {
+          "label": "DateTimeOriginal",
+          "value": "2024-05-01T14:30:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "OffsetTimeOriginal": {
+          "label": "OffsetTimeOriginal",
+          "value": "+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "Flash": {
+          "label": "Flash",
+          "value": "Did not fire, flash suppressed",
+          "sensitive": false,
+          "note": null
+        },
+        "FocalLength": {
+          "label": "FocalLength",
+          "value": "4.2 mm",
+          "sensitive": false,
+          "note": null
+        },
+        "BodySerialNumber": {
+          "label": "BodySerialNumber",
+          "value": "SN-0001",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "gps": {
+      "title": "home/jane.doe/plans/floor plan.jpg: GPS",
+      "fields": {
+        "coordinates": {
+          "label": "Coordinates",
+          "value": "48.858367, 2.294481",
+          "sensitive": true,
+          "note": "decimal degrees"
+        },
+        "latitude": {
+          "label": "Latitude",
+          "value": "48.858367",
+          "sensitive": true,
+          "note": null
+        },
+        "longitude": {
+          "label": "Longitude",
+          "value": "2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "openstreetmap": {
+          "label": "OpenStreetMap",
+          "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "google_maps": {
+          "label": "Google Maps",
+          "value": "https://www.google.com/maps?q=48.858367,2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "altitude": {
+          "label": "Altitude",
+          "value": "35.0 m above sea level",
+          "sensitive": true,
+          "note": null
+        },
+        "datetime_utc": {
+          "label": "Date/time (UTC)",
+          "value": "2024-05-01T12:30:15Z",
+          "sensitive": true,
+          "note": null
+        },
+        "GPSVersionID": {
+          "label": "GPSVersionID",
+          "value": "2.3.0.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "thumbnail": {
+      "title": "home/jane.doe/plans/floor plan.jpg: Thumbnail",
+      "fields": {
+        "embedded_thumbnail": {
+          "label": "Embedded thumbnail",
+          "value": "JPEG, 123 bytes",
+          "sensitive": true,
+          "note": "at offset 562 in the EXIF data"
+        },
+        "dimensions": {
+          "label": "Dimensions",
+          "value": "160 x 120 pixels",
+          "sensitive": false,
+          "note": null
+        },
+        "Compression": {
+          "label": "Compression",
+          "value": "JPEG (old-style)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "xmp": {
+      "title": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "tar/kitchen_sink.tar.gz",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 20589,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "20.1 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "bea970190bbb17d77b6c0ac367ce79f6",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "101bfa88e22d90430b10b8ace4a5e07173d5cea1",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "d053636debe8d4a719cbd484ab8d4f45002d246f579b1b3f2a716d8b730380c7",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

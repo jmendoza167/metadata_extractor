@@ -24,6 +24,11 @@ PROBLEMS = {
     "truncated.jpg": "missing end-of-image (EOI) marker",
     "wrong_riff_size.webp": "RIFF size says the file has 134 bytes, but it has 34",
     "zip_bomb.docx": "more than the compression ratio limit (possible zip bomb)",
+    "traversal.tar": "goes up a folder (\"..\"; path traversal)",
+    "bad_checksum.tar": "TAR header at offset 1024 has a bad checksum",
+    "bomb.gz": "compression ratio limit (possible decompression bomb)",
+    "truncated.tar.gz": "gzip member at offset 0 is truncated",
+    "trailing_garbage.xz": "has data after its stream (at offset 72) that is not another stream",
 }
 
 

@@ -1,0 +1,422 @@
+{
+  "path": "tar/kitchen_sink.tar.gz",
+  "summary": {
+    "critical": 25,
+    "high": 24,
+    "medium": 8,
+    "low": 10
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "Hidden data in the archive",
+      "label": "Data in the padding after 'home/jane.doe/plans/todo.txt'",
+      "value": "<476 bytes>"
+    },
+    {
+      "level": "critical",
+      "section": "Hidden data in the archive",
+      "label": "Data after the end of the archive",
+      "value": "<32 bytes>"
+    },
+    {
+      "level": "critical",
+      "section": "Archive comments",
+      "label": "Comment on (global pax header 1)",
+      "value": "Nightly backup of jane.doe@example.com"
+    },
+    {
+      "level": "critical",
+      "section": "Extended attributes",
+      "label": "home/jane.doe/plans/floor plan.jpg: com.apple.quarantine",
+      "value": "downloaded with Safari on 2024-05-01T09:25:20+00:00 (event 3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6) [0083;66320a80;Safari;3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6]"
+    },
+    {
+      "level": "critical",
+      "section": "Extended attributes",
+      "label": "home/jane.doe/plans/floor plan.jpg: com.apple.metadata:kMDItemWhereFroms",
+      "value": "https://downloads.example.com/plans/floor-plan.zip, https://www.example.com/jane.doe/shared"
+    },
+    {
+      "level": "critical",
+      "section": "Extended attributes",
+      "label": "home/jane.doe/plans/floor plan.jpg: com.apple.quarantine",
+      "value": "downloaded with Safari on 2024-05-01T09:25:20+00:00 (event 3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6) [0083;66320a80;Safari;3E2F1A44-5B6C-4D7E-8F90-A1B2C3D4E5F6]"
+    },
+    {
+      "level": "critical",
+      "section": "Extended attributes",
+      "label": "home/jane.doe/plans/floor plan.jpg: com.apple.metadata:kMDItemWhereFroms",
+      "value": "https://downloads.example.com/plans/floor-plan.zip, https://www.example.com/jane.doe/shared"
+    },
+    {
+      "level": "critical",
+      "section": "Names that reveal a user folder",
+      "label": "home/jane.doe/plans",
+      "value": "user folder of 'jane.doe'"
+    },
+    {
+      "level": "critical",
+      "section": "Names that reveal a user folder",
+      "label": "home/jane.doe/plans/floor plan.jpg",
+      "value": "user folder of 'jane.doe'"
+    },
+    {
+      "level": "critical",
+      "section": "Names that reveal a user folder",
+      "label": "home/jane.doe/plans/._floor plan.jpg",
+      "value": "user folder of 'jane.doe'"
+    },
+    {
+      "level": "critical",
+      "section": "Names that reveal a user folder",
+      "label": "home/jane.doe/plans/notes about the kitchen, the dining room and the stairs (second draft).txt",
+      "value": "user folder of 'jane.doe'"
+    },
+    {
+      "level": "critical",
+      "section": "Names that reveal a user folder",
+      "label": "home/jane.doe/plans/latest.jpg",
+      "value": "user folder of 'jane.doe'"
+    },
+    {
+      "level": "critical",
+      "section": "Names that reveal a user folder",
+      "label": "home/jane.doe/plans/todo.txt",
+      "value": "user folder of 'jane.doe'"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "high",
+      "section": "gzip header",
+      "label": "Modification time",
+      "value": "2024-05-01T10:30:00+00:00"
+    },
+    {
+      "level": "high",
+      "section": "gzip header",
+      "label": "Comment",
+      "value": "Jane Doe's nightly backup"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "home/jane.doe/plans",
+      "value": "modified 2024-05-01T10:30:00+00:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "home/jane.doe/plans/floor plan.jpg",
+      "value": "modified 2024-05-01T10:30:00+00:00; modified (pax) 2024-05-01T10:30:00.123457+00:00; accessed (pax) 2024-05-01T10:30:01+00:00; changed (pax) 2024-05-01T10:30:02+00:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "home/jane.doe/plans/._floor plan.jpg",
+      "value": "modified 2024-05-01T10:30:00+00:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "home/jane.doe/plans/notes about the kitchen, the dining room and the stairs (second draft).txt",
+      "value": "modified 2024-05-01T10:30:00+00:00; accessed (GNU header) 2024-05-01T10:30:00+00:00; changed (GNU header) 2024-05-01T10:30:00+00:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "home/jane.doe/plans/latest.jpg",
+      "value": "modified 2024-05-01T10:30:00+00:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry times",
+      "label": "home/jane.doe/plans/todo.txt",
+      "value": "modified 2024-05-01T10:30:00+00:00"
+    },
+    {
+      "level": "high",
+      "section": "Entry owners",
+      "label": "Owner user/group names",
+      "value": "jane.doe/staff (6 entries), jane.doe/- (1 entry)"
+    },
+    {
+      "level": "high",
+      "section": "Operating system files",
+      "label": "home/jane.doe/plans/._floor plan.jpg",
+      "value": "macOS AppleDouble file: extended attributes of home/jane.doe/plans/floor plan.jpg"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "medium",
+      "section": "gzip header",
+      "label": "Operating system",
+      "value": "Unix"
+    },
+    {
+      "level": "medium",
+      "section": "Entry owners",
+      "label": "Owner user/group IDs",
+      "value": "501/20 (6 entries)"
+    },
+    {
+      "level": "medium",
+      "section": "System information",
+      "label": "Permissions",
+      "value": "700 (folder) (1 entry), 600 (file) (1 entry)"
+    },
+    {
+      "level": "medium",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "low",
+      "section": "gzip header",
+      "label": "Original file name",
+      "value": "backup.tar"
+    },
+    {
+      "level": "low",
+      "section": "gzip header",
+      "label": "Extra field",
+      "value": "'JD': 11 bytes"
+    },
+    {
+      "level": "low",
+      "section": "Link targets",
+      "label": "home/jane.doe/plans/latest.jpg (symlink)",
+      "value": "floor plan.jpg"
+    },
+    {
+      "level": "low",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "home/jane.doe/plans/floor plan.jpg: EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "home/jane.doe/plans/floor plan.jpg: Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "home/jane.doe/plans/floor plan.jpg: Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    },
+    {
+      "level": "low",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "home/jane.doe/plans/floor plan.jpg: XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: 508 bytes of data are hidden in the TAR archive outside its files",
+    "CRITICAL: home/jane.doe/plans/floor plan.jpg records where a file was downloaded from",
+    "CRITICAL: home/jane.doe/plans/._floor plan.jpg records where a file was downloaded from",
+    "CRITICAL: home/jane.doe/plans/floor plan.jpg: GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: home/jane.doe/plans/floor plan.jpg: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "home/jane.doe/plans/floor plan.jpg: embedded thumbnail may show the original, uncropped image"
+  ],
+  "can_strip": true
+}

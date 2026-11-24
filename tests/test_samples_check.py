@@ -17,7 +17,9 @@ ALLOWED_USER = "jane.doe"
 ALLOWED_EMAIL_DOMAIN = "example.com"
 
 MAX_FILE_SIZE = 100 * 1024
-MAX_FOLDER_SIZE = 1024 * 1024
+MAX_FOLDER_SIZE = 1536 * 1024
+"""The samples (under 1 MiB, see scripts/make_samples.py) plus their snapshots in
+expected/: an archive sample's snapshots also report the files inside it."""
 
 # -- the generator ------------------------------------------------------------------------
 
