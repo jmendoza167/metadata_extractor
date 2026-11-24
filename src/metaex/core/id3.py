@@ -655,3 +655,105 @@ def padding_section(tags: list[Tag], warnings: list[str]) -> Section | None:
     warnings.append(f"CRITICAL: {total} bytes of data hidden in the padding of ID3v2 tags "
                     "(players ignore them); this can hide anything")
     return section
+
+
+# -- ID3v1 and the extended "TAG+" block -------------------------------------------------------
+
+V1_SIZE = 128
+V1_EXTENDED_SIZE = 227
+
+V1_GENRES = (
+    "Blues", "Classic Rock", "Country", "Dance", "Disco", "Funk", "Grunge", "Hip-Hop", "Jazz",
+    "Metal", "New Age", "Oldies", "Other", "Pop", "R&B", "Rap", "Reggae", "Rock", "Techno",
+    "Industrial", "Alternative", "Ska", "Death Metal", "Pranks", "Soundtrack", "Euro-Techno",
+    "Ambient", "Trip-Hop", "Vocal", "Jazz+Funk", "Fusion", "Trance", "Classical",
+    "Instrumental", "Acid", "House", "Game", "Sound Clip", "Gospel", "Noise",
+    "Alternative Rock", "Bass", "Soul", "Punk", "Space", "Meditative", "Instrumental Pop",
+    "Instrumental Rock", "Ethnic", "Gothic", "Darkwave", "Techno-Industrial", "Electronic",
+    "Pop-Folk", "Eurodance", "Dream", "Southern Rock", "Comedy", "Cult", "Gangsta", "Top 40",
+    "Christian Rap", "Pop/Funk", "Jungle", "Native American", "Cabaret", "New Wave",
+    "Psychedelic", "Rave", "Showtunes", "Trailer", "Lo-Fi", "Tribal", "Acid Punk",
+    "Acid Jazz", "Polka", "Retro", "Musical", "Rock & Roll", "Hard Rock")
+
+
+@dataclass
+class V1Tag:
+    offset: int
+    fields: list[tuple[str, str, str]]
+    """(key, label, value) of the non-empty fields."""
+    hidden: int = 0
+    """Non-zero bytes after the end of a text field (after its first 0x00)."""
+    extended: bool = False
+    """A "TAG+" block before the tag (title, artist and album up to 90 characters)."""
+
+    @property
+    def size(self) -> int:
+        return V1_SIZE + (V1_EXTENDED_SIZE if self.extended else 0)
+
+    @property
+    def start(self) -> int:
+        return self.offset - (V1_EXTENDED_SIZE if self.extended else 0)
+
+
+def _v1_text(raw: bytes) -> tuple[str, int]:
+    """A fixed-size ID3v1 text field and the non-zero bytes after its end."""
+    nul = raw.find(b"\x00")
+    text, rest = (raw, b"") if nul < 0 else (raw[:nul], raw[nul:])
+    return text.decode("latin-1").rstrip(" "), len(rest) - rest.count(0)
+
+
+def v1_tag_at(data: bytes, end: int) -> V1Tag | None:
+    """The ID3v1 (or 1.1) tag that ends at ``end``, with a "TAG+" block
+    before it if there is one; None if there is none."""
+    pos = end - V1_SIZE
+    if pos < 0 or data[pos:pos + 3] != b"TAG":
+        return None
+    raw = data[pos:end]
+    tag = V1Tag(pos, [])
+    ext_pos = pos - V1_EXTENDED_SIZE
+    ext = data[ext_pos:pos] if ext_pos >= 0 and data[ext_pos:ext_pos + 4] == b"TAG+" else b""
+    tag.extended = bool(ext)
+    title, artist, album = raw[3:33], raw[33:63], raw[63:93]
+    if ext:
+        title, artist, album = title + ext[4:64], artist + ext[64:124], album + ext[124:184]
+    comment = raw[97:127]
+    track = None
+    if comment[28] == 0 and comment[29] != 0:  # ID3v1.1: a track number
+        comment, track = comment[:28], comment[29]
+    for key, label, field_raw in (("title", "Title", title), ("artist", "Artist", artist),
+                                  ("album", "Album", album), ("year", "Year", raw[93:97]),
+                                  ("comment", "Comment", comment)):
+        text, hidden = _v1_text(field_raw)
+        tag.hidden += hidden
+        if text.strip():
+            tag.fields.append((key, label, text))
+    if track is not None:
+        tag.fields.append(("track", "Track number", str(track)))
+    genre = raw[127]
+    if genre != 255:
+        name = V1_GENRES[genre] if genre < len(V1_GENRES) else "unknown"
+        tag.fields.append(("genre", "Genre", f"{genre} ({name})"))
+    if ext:
+        text, hidden = _v1_text(ext[185:215])
+        tag.hidden += hidden
+        if text.strip():
+            tag.fields.append(("genre_text", "Genre (TAG+)", text))
+        for key, label, field_raw in (("start_time", "Start time", ext[215:221]),
+                                      ("end_time", "End time", ext[221:227])):
+            text, hidden = _v1_text(field_raw)
+            tag.hidden += hidden
+            if text.strip():
+                tag.fields.append((key, label, text))
+        if ext[184]:
+            tag.fields.append(("speed", "Speed", str(ext[184])))
+    return tag
+
+
+def v1_section(tag: V1Tag) -> Section:
+    title = "ID3v1 tag" + (" with TAG+" if tag.extended else "")
+    section = Section("id3v1", f"{title} (at offset {tag.start})")
+    for key, label, value in tag.fields:
+        section.add(key, label, value, sensitive=key not in ("genre", "speed", "track"))
+    if not tag.fields:
+        section.add("empty", "Fields", "(all empty)")
+    return section

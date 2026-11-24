@@ -34,6 +34,7 @@ import re
 from dataclasses import dataclass, field
 
 from metaex.core import id3
+from metaex.core.audiotags import EndTags, end_tag_sections, find_end_tags
 from metaex.core.crc import crc16_arc
 from metaex.core.embedded import Picture, picture_sections
 from metaex.core.errors import MalformedFileError, UnsupportedFormatError
@@ -518,15 +519,50 @@ def leading_tags(data: bytes, budget: Budget | None = None) -> tuple[list[id3.Ta
     return tags, pos
 
 
-def tag_sections(tags: list[id3.Tag], warnings: list[str]) -> list[Section]:
-    """A section per ID3v2 tag, the pictures in them (through the image
-    parsers) and any data hidden in their padding."""
+@dataclass
+class Layout:
+    """Where the tags and the audio are."""
+    leading: list[id3.Tag]
+    """ID3v2 tags at the start."""
+    audio_start: int
+    end_tags: EndTags
+    """ID3v1, APE, Lyrics3 and appended ID3v2 tags at the end."""
+
+    @property
+    def audio_end(self) -> int:
+        return self.end_tags.audio_end
+
+    @property
+    def id3v2(self) -> list[id3.Tag]:
+        return self.leading + self.end_tags.id3v2
+
+    def tag_ranges(self) -> list[tuple[str, int, int]]:
+        """(kind, start, end) of every tag, in file order."""
+        return ([("ID3v2", t.offset, t.end) for t in self.leading]
+                + list(self.end_tags.order))
+
+
+def layout(data: bytes) -> Layout:
+    """Find the tags before and after the audio. Raises MalformedFileError
+    for a tag that is broken or extends past the file."""
+    budget = Budget(id3.DECOMPRESS_LIMIT)
+    leading, start = leading_tags(data, budget)
+    return Layout(leading, start, find_end_tags(data, start, budget))
+
+
+def tag_sections(tags: list[id3.Tag], warnings: list[str],
+                 end_tags: EndTags | None = None) -> list[Section]:
+    """A section per tag (ID3v2 first, then those at the end in file
+    order), the pictures in them (through the image parsers) and any data
+    hidden in tag padding or ID3v1 fields."""
     sections: list[Section] = []
     pictures: list[Picture] = []
     for n, tag in enumerate(tags):
         where = "appended at the end" if tag.appended else f"at offset {tag.offset}"
         title = f"{tag.version} tag" + (f" {n + 1}" if len(tags) > 1 else "") + f" ({where})"
         sections.append(id3.tag_section(tag, "id3v2", title, warnings, pictures))
+    if end_tags is not None:
+        sections += end_tag_sections(end_tags, warnings, pictures)
     sections += picture_sections(pictures, warnings, "audio_pictures", "Embedded pictures")
     hidden = id3.padding_section(tags, warnings)
     if hidden is not None:
