@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import math
-
 PCM, FLOAT, EXTENSIBLE = 0x0001, 0x0003, 0xFFFE
 SUBFORMAT_TAIL = bytes.fromhex("000000001000800000aa00389b71")
 
@@ -45,15 +43,28 @@ def fmt_extensible(channels: int = 2, rate: int = 8000, bits: int = 24, valid: i
     return chunk("fmt ", payload)
 
 
-def sine(frames: int = 4000, rate: int = 8000, freq: float = 440.0, channels: int = 1,
+def sine_values(count: int, rate: int = 8000, freq: float = 440, bits: int = 16,
+                amplitude: float = 0.3, start: int = 0) -> list[int]:
+    """A sine tone computed with integers only (Bhaskara I's approximation,
+    within 0.2 % of a sine), so the samples are the same on every machine."""
+    peak = int(((1 << (bits - 1)) - 1) * amplitude)
+    freq = int(freq)
+    out = []
+    for n in range(start, start + count):
+        q = 2 * ((n * freq) % rate)  # twice the position in the period, of 2 * rate
+        a, negative = (q, False) if q < rate else (q - rate, True)
+        value = peak * 16 * a * (rate - a) // (5 * rate * rate - 4 * a * (rate - a))
+        out.append(-value if negative else value)
+    return out
+
+
+def sine(frames: int = 4000, rate: int = 8000, freq: float = 440, channels: int = 1,
          bits: int = 16, amplitude: float = 0.3) -> bytes:
-    """A sine tone as little-endian PCM (8-bit unsigned, 16 or 24-bit signed);
-    the same bytes on every machine (each sample is rounded)."""
+    """A sine tone as little-endian PCM (8-bit unsigned, 16 or 24-bit
+    signed), the same samples in every channel."""
     out = bytearray()
     width = (bits + 7) // 8
-    peak = (1 << (bits - 1)) - 1
-    for n in range(frames):
-        value = round(amplitude * peak * math.sin(2 * math.pi * freq * n / rate))
+    for value in sine_values(frames, rate, freq, bits, amplitude):
         for _ in range(channels):
             if bits == 8:
                 out.append(value + 128)

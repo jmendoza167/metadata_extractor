@@ -1,0 +1,142 @@
+{
+  "subject": "flac/clean.flac",
+  "warnings": [],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "FLAC",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "audio/flac",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".flac"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "flac_streaminfo": {
+      "title": "Audio",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "FLAC",
+          "sensitive": false,
+          "note": null
+        },
+        "sample_rate": {
+          "label": "Sample rate",
+          "value": "8000 Hz",
+          "sensitive": false,
+          "note": null
+        },
+        "channels": {
+          "label": "Channels",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "bits": {
+          "label": "Bits per sample",
+          "value": 16,
+          "sensitive": false,
+          "note": null
+        },
+        "duration": {
+          "label": "Duration",
+          "value": "1.000 s",
+          "sensitive": false,
+          "note": null
+        },
+        "samples": {
+          "label": "Samples",
+          "value": 8000,
+          "sensitive": false,
+          "note": null
+        },
+        "block_size": {
+          "label": "Block size",
+          "value": 4096,
+          "sensitive": false,
+          "note": null
+        },
+        "md5": {
+          "label": "MD5 of the audio",
+          "value": "00d7cd98478930e82d43cf1d6ae1a683",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "flac/clean.flac",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 16062,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "15.7 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "c4fa08704a0fed20b6fb5751659fb59a",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "9ff08804c7f2d324001bfd8809dff8888ad3772f",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "b1c39e0d4ee10d719ee378cd7a087055d4776e328f05c0c60b416f2438f062e7",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,426 @@
+{
+  "path": "flac/kitchen_sink.flac",
+  "summary": {
+    "critical": 14,
+    "high": 20,
+    "medium": 11,
+    "low": 23
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "Vorbis comments",
+      "label": "CONTACT",
+      "value": "jane.doe@example.com"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "critical",
+      "section": "Hidden data in metadata blocks",
+      "label": "PADDING block at offset 3924",
+      "value": "17 non-zero bytes in 48 bytes"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag (at offset 0)",
+      "label": "Artist",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Vorbis comments",
+      "label": "ARTIST",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Vorbis comments",
+      "label": "DATE",
+      "value": "2024-05-01"
+    },
+    {
+      "level": "high",
+      "section": "Vorbis comments",
+      "label": "COMMENT",
+      "value": "Recorded on my phone, first take"
+    },
+    {
+      "level": "high",
+      "section": "Vorbis comments",
+      "label": "LOCATION",
+      "value": "12 Example Street"
+    },
+    {
+      "level": "high",
+      "section": "Embedded pictures and objects",
+      "label": "PICTURE block 1",
+      "value": "JPEG, 2920 bytes; front cover, image/jpeg, 'Cover'"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 tag (at offset 0)",
+      "label": "Title",
+      "value": "Floor plan blues"
+    },
+    {
+      "level": "medium",
+      "section": "Vorbis comments",
+      "label": "Vendor (encoder)",
+      "value": "reference libFLAC 1.4.3 20230623"
+    },
+    {
+      "level": "medium",
+      "section": "Vorbis comments",
+      "label": "TITLE",
+      "value": "Floor plan blues"
+    },
+    {
+      "level": "medium",
+      "section": "Vorbis comments",
+      "label": "ALBUM",
+      "value": "Demo tapes"
+    },
+    {
+      "level": "medium",
+      "section": "Vorbis comments",
+      "label": "ENCODER",
+      "value": "Example Encoder 1.0"
+    },
+    {
+      "level": "medium",
+      "section": "Application blocks",
+      "label": "APPLICATION 'riff'",
+      "value": "24 bytes"
+    },
+    {
+      "level": "medium",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Format",
+      "value": "FLAC"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Sample rate",
+      "value": "8000 Hz"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Channels",
+      "value": "2"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Bits per sample",
+      "value": "16"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Duration",
+      "value": "1.000 s"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Samples",
+      "value": "8000"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Block size",
+      "value": "4096"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "MD5 of the audio",
+      "value": "b1d448982b54dd6587300a409bb0d74c"
+    },
+    {
+      "level": "low",
+      "section": "Vorbis comments",
+      "label": "REPLAYGAIN_TRACK_GAIN",
+      "value": "-6.00 dB"
+    },
+    {
+      "level": "low",
+      "section": "Seek table",
+      "label": "Seek points",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Seek table",
+      "label": "Placeholders",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Cue sheet",
+      "label": "Media catalog number",
+      "value": "1234567890123"
+    },
+    {
+      "level": "low",
+      "section": "Cue sheet",
+      "label": "CD-DA",
+      "value": "yes"
+    },
+    {
+      "level": "low",
+      "section": "Cue sheet",
+      "label": "Tracks",
+      "value": "2"
+    },
+    {
+      "level": "low",
+      "section": "Cue sheet",
+      "label": "Track 1",
+      "value": "sample 0, ISRC FRXXX2400001"
+    },
+    {
+      "level": "low",
+      "section": "Cue sheet",
+      "label": "Track 170",
+      "value": "sample 8000"
+    },
+    {
+      "level": "low",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "PICTURE block 1 (JPEG): EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "PICTURE block 1 (JPEG): Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "PICTURE block 1 (JPEG): Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    },
+    {
+      "level": "low",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "PICTURE block 1 (JPEG): XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: PICTURE block 1 (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: PICTURE block 1 (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: 17 bytes of data hidden in FLAC metadata blocks",
+    "PICTURE block 1 (JPEG): embedded thumbnail may show the original, uncropped image"
+  ],
+  "can_strip": true
+}

@@ -1,0 +1,115 @@
+{
+  "path": "mp3/clean.mp3",
+  "summary": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 17
+  },
+  "findings": [
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Format",
+      "value": "MPEG-1 Layer III"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Sample rate",
+      "value": "44100 Hz"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Channels",
+      "value": "joint stereo"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Bitrate",
+      "value": "128 kbit/s (constant)"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Duration",
+      "value": "1.985 s"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Audio frames",
+      "value": "76"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Header flags",
+      "value": "original"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Information frame",
+      "value": "Info (constant bitrate)"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Frame count",
+      "value": "77"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Byte count",
+      "value": "32181"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Seek table",
+      "value": "yes"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Quality",
+      "value": "0"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Encoder",
+      "value": "LAME3.100"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Encoder delay",
+      "value": "576 samples"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Encoder padding",
+      "value": "1152 samples"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Lowpass filter",
+      "value": "17000 Hz"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "LAME tag CRC",
+      "value": "valid"
+    }
+  ],
+  "warnings": [],
+  "can_strip": true
+}

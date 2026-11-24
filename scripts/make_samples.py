@@ -9,8 +9,9 @@ Every sample is built in code with the test helpers (tests/helpers), never
 with Pillow, and holds made-up metadata only. The output is the same bytes
 on every run and every machine: fixed values, no clock, no randomness,
 PNG data in stored deflate blocks, Office files with STORED ZIP entries
-(zlib's compressed output differs between zlib builds), and a hand-written
-deflate stream for the zip bomb.
+(zlib's compressed output differs between zlib builds), a hand-written
+deflate stream for the zip bomb, and audio computed with integers only
+(no floating point, whose last digits can differ between machines).
 
 The generator owns everything in tests/samples/ except SAMPLES.md,
 expected/ (the snapshots, written by the tests) and real/ (files from real
@@ -38,7 +39,7 @@ MAX_TOTAL_SIZE = 1024 * 1024
 if str(ROOT / "tests") not in sys.path:
     sys.path.insert(0, str(ROOT / "tests"))
 
-from helpers import gif, jpeg, odf, ooxml, png, svg, tiff, webp, zip  # noqa: E402
+from helpers import flac, gif, id3, jpeg, mp3, odf, ooxml, png, svg, tiff, wav, webp, zip  # noqa: E402
 from helpers.deflate import repeat_deflate  # noqa: E402
 from helpers.jpeg_encoder import jpeg_file  # noqa: E402
 
@@ -240,6 +241,25 @@ def svg_samples() -> dict[str, bytes]:
     }
 
 
+MP3_FRAMES = 76
+"""About 2 seconds of MPEG-1 Layer III frames (silence) in every MP3 sample."""
+
+
+@sample_set
+def audio_samples() -> dict[str, bytes]:
+    return {
+        # silent frames after an Info frame with a LAME tag (what an encoder writes)
+        "mp3/clean.mp3": mp3.stream(MP3_FRAMES),
+        "mp3/kitchen_sink.mp3": mp3.kitchen_sink_mp3(junk=False, count=MP3_FRAMES),
+        # one second of a 440 Hz tone, 8 kHz, mono, 16-bit
+        "wav/clean.wav": wav.wav(samples=wav.sine(8000)),
+        "wav/kitchen_sink.wav": wav.kitchen_sink_wav(),
+        # the same tone in verbatim (uncompressed) FLAC frames
+        "flac/clean.flac": flac.flac(),
+        "flac/kitchen_sink.flac": flac.kitchen_sink_flac(),
+    }
+
+
 @sample_set
 def malformed_samples() -> dict[str, bytes]:
     """Damaged files: metaex must refuse to strip them, and write nothing."""
@@ -268,6 +288,30 @@ def malformed_samples() -> dict[str, bytes]:
                                  b'<svg xmlns="http://www.w3.org/2000/svg" width="10" '
                                  b'height="10"><title>&author;</title></svg>\n'),
         **malformed_office(),
+        **malformed_audio(),
+    }
+
+
+def malformed_audio() -> dict[str, bytes]:
+    tagged = id3.tag(id3.text("TPE1", "Jane Doe"), version=3) + mp3.stream(20)
+    bad_tag = bytearray(tagged)
+    bad_tag[6:10] = id3.synchsafe(1_000_000)
+    good_wav = wav.wav(wav.info(("IART", "Jane Doe")))
+    riff_size = int.from_bytes(good_wav[4:8], "little")
+    good_flac = flac.flac((flac.VORBIS_COMMENT, flac.vorbis_comment(fields=[("ARTIST",
+                                                                          "Jane Doe")])))
+    bad_block = bytearray(good_flac)
+    bad_block[43:46] = (100_000).to_bytes(3, "big")  # the VORBIS_COMMENT block at 42
+    return {
+        # cut off in the middle of the last MPEG frame, like an interrupted download
+        "malformed/truncated.mp3": tagged[:-200],
+        # the ID3v2 tag says it is 1,000,000 bytes long, more than the file
+        "malformed/bad_id3_size.mp3": bytes(bad_tag),
+        # the RIFF header says the file is 100 bytes longer than it is
+        "malformed/wrong_riff_size.wav": (good_wav[:4] + (riff_size + 100).to_bytes(4, "little")
+                                          + good_wav[8:]),
+        # a metadata block says it is 100,000 bytes long, more than the file
+        "malformed/broken_block_length.flac": bytes(bad_block),
     }
 
 

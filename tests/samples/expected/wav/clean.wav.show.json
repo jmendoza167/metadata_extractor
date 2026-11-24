@@ -1,0 +1,137 @@
+{
+  "subject": "wav/clean.wav",
+  "warnings": [],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "WAV",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "audio/wav",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".wav",
+            ".wave"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "wav_format": {
+      "title": "Audio",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "PCM",
+          "sensitive": false,
+          "note": null
+        },
+        "channels": {
+          "label": "Channels",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "sample_rate": {
+          "label": "Sample rate",
+          "value": "8000 Hz",
+          "sensitive": false,
+          "note": null
+        },
+        "bits": {
+          "label": "Bits per sample",
+          "value": 16,
+          "sensitive": false,
+          "note": null
+        },
+        "byte_rate": {
+          "label": "Byte rate",
+          "value": "16000 bytes/s",
+          "sensitive": false,
+          "note": null
+        },
+        "duration": {
+          "label": "Duration",
+          "value": "1.000 s",
+          "sensitive": false,
+          "note": null
+        },
+        "data_size": {
+          "label": "Audio data",
+          "value": "16000 bytes",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "wav/clean.wav",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 16044,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "15.7 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "c7295105a4a56dfaffe9136560461433",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "4e3ad6708631fa07f25c45a871855b33d4f2a71d",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "eccaa84cf9fc8450be0f4aba94a3661a4df896bb17862071d3659d418d95e881",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

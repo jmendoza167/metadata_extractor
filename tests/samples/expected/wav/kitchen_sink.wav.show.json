@@ -1,0 +1,805 @@
+{
+  "subject": "wav/kitchen_sink.wav",
+  "warnings": [
+    "CRITICAL: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: ID3v2.3 APIC 1 (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: ID3v2.3 APIC 1 (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: 14 bytes of data hidden in padding chunks",
+    "ID3v2.3 APIC 1 (JPEG): embedded thumbnail may show the original, uncropped image"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "WAV",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "audio/wav",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".wav",
+            ".wave"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "wav_format": {
+      "title": "Audio",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "PCM",
+          "sensitive": false,
+          "note": null
+        },
+        "channels": {
+          "label": "Channels",
+          "value": 2,
+          "sensitive": false,
+          "note": null
+        },
+        "sample_rate": {
+          "label": "Sample rate",
+          "value": "8000 Hz",
+          "sensitive": false,
+          "note": null
+        },
+        "bits": {
+          "label": "Bits per sample",
+          "value": 16,
+          "sensitive": false,
+          "note": null
+        },
+        "byte_rate": {
+          "label": "Byte rate",
+          "value": "32000 bytes/s",
+          "sensitive": false,
+          "note": null
+        },
+        "duration": {
+          "label": "Duration",
+          "value": "0.500 s",
+          "sensitive": false,
+          "note": null
+        },
+        "data_size": {
+          "label": "Audio data",
+          "value": "16000 bytes",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "wav_info": {
+      "title": "RIFF INFO",
+      "fields": {
+        "INAM": {
+          "label": "Title",
+          "value": "Flat hunt, take 3",
+          "sensitive": true,
+          "note": null
+        },
+        "IART": {
+          "label": "Artist",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "ICMT": {
+          "label": "Comments",
+          "value": "Recorded at home",
+          "sensitive": true,
+          "note": null
+        },
+        "ICRD": {
+          "label": "Creation date",
+          "value": "2024-05-01",
+          "sensitive": true,
+          "note": null
+        },
+        "ISFT": {
+          "label": "Software",
+          "value": "Example Recorder 2.1",
+          "sensitive": true,
+          "note": null
+        },
+        "IENG": {
+          "label": "Engineer",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "wav_bext": {
+      "title": "Broadcast WAV (bext)",
+      "fields": {
+        "description": {
+          "label": "Description",
+          "value": "Interview, take 3",
+          "sensitive": true,
+          "note": null
+        },
+        "originator": {
+          "label": "Originator",
+          "value": "ZOOM H5",
+          "sensitive": true,
+          "note": null
+        },
+        "originator_reference": {
+          "label": "Originator reference",
+          "value": "FRZOOM0001234567890",
+          "sensitive": true,
+          "note": null
+        },
+        "origination_date": {
+          "label": "Origination date",
+          "value": "2024-05-01",
+          "sensitive": true,
+          "note": null
+        },
+        "origination_time": {
+          "label": "Origination time",
+          "value": "14:30:00",
+          "sensitive": true,
+          "note": null
+        },
+        "time_reference": {
+          "label": "Time reference",
+          "value": "sample 0",
+          "sensitive": false,
+          "note": null
+        },
+        "version": {
+          "label": "Version",
+          "value": 2,
+          "sensitive": false,
+          "note": null
+        },
+        "umid": {
+          "label": "UMID",
+          "value": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+          "sensitive": true,
+          "note": "unique material identifier"
+        },
+        "loudness_value": {
+          "label": "Integrated loudness",
+          "value": "-23.00",
+          "sensitive": false,
+          "note": null
+        },
+        "loudness_range": {
+          "label": "Loudness range",
+          "value": "5.00",
+          "sensitive": false,
+          "note": null
+        },
+        "max_true_peak_level": {
+          "label": "Maximum true peak",
+          "value": "-1.00",
+          "sensitive": false,
+          "note": null
+        },
+        "max_momentary_loudness": {
+          "label": "Maximum momentary loudness",
+          "value": "-18.00",
+          "sensitive": false,
+          "note": null
+        },
+        "max_short_term_loudness": {
+          "label": "Maximum short-term loudness",
+          "value": "-20.00",
+          "sensitive": false,
+          "note": null
+        },
+        "coding_history": {
+          "label": "Coding history",
+          "value": "A=PCM,F=8000,W=16,M=mono,T=ZOOM H5",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "wav_ixml": {
+      "title": "iXML",
+      "fields": {
+        "BWFXML/IXML_VERSION": {
+          "label": "BWFXML/IXML_VERSION",
+          "value": "2.10",
+          "sensitive": true,
+          "note": null
+        },
+        "BWFXML/PROJECT": {
+          "label": "BWFXML/PROJECT",
+          "value": "Flat hunt",
+          "sensitive": true,
+          "note": null
+        },
+        "BWFXML/SCENE": {
+          "label": "BWFXML/SCENE",
+          "value": "Kitchen",
+          "sensitive": true,
+          "note": null
+        },
+        "BWFXML/TAKE": {
+          "label": "BWFXML/TAKE",
+          "value": "3",
+          "sensitive": true,
+          "note": null
+        },
+        "BWFXML/NOTE": {
+          "label": "BWFXML/NOTE",
+          "value": "Jane Doe talking to the landlord",
+          "sensitive": true,
+          "note": null
+        },
+        "BWFXML/LOCATION/LOCATION_NAME": {
+          "label": "BWFXML/LOCATION/LOCATION_NAME",
+          "value": "12 Example Street",
+          "sensitive": true,
+          "note": null
+        },
+        "BWFXML/LOCATION/LOCATION_GPS": {
+          "label": "BWFXML/LOCATION/LOCATION_GPS",
+          "value": "48.8584, 2.2945",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "wav_axml": {
+      "title": "axml",
+      "fields": {
+        "ebuCoreMain/coreMetadata/title": {
+          "label": "ebuCoreMain/coreMetadata/title",
+          "value": "Flat hunt, take 3",
+          "sensitive": true,
+          "note": null
+        },
+        "ebuCoreMain/coreMetadata/creator": {
+          "label": "ebuCoreMain/coreMetadata/creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "ebuCoreMain/coreMetadata/date": {
+          "label": "ebuCoreMain/coreMetadata/date",
+          "value": "2024-05-01",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "xmp": {
+      "title": "XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "id3v2": {
+      "title": "ID3v2.3 tag in the id3 chunk at offset 2610",
+      "fields": {
+        "TPE1": {
+          "label": "Artist",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "APIC:front cover": {
+          "label": "Picture (front cover)",
+          "value": "front cover, image/jpeg, 2920 bytes",
+          "sensitive": true,
+          "note": null
+        },
+        "POPM:jane.doe@example.com": {
+          "label": "Popularimeter (rating by e-mail): jane.doe@example.com",
+          "value": "rating 196/255, play count 42",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "wav_adtl": {
+      "title": "Cue point labels",
+      "fields": {
+        "labl_1": {
+          "label": "Label of cue point 1",
+          "value": "Verse",
+          "sensitive": true,
+          "note": null
+        },
+        "labl_2": {
+          "label": "Label of cue point 2",
+          "value": "Chorus: Jane's part",
+          "sensitive": true,
+          "note": null
+        },
+        "note_1": {
+          "label": "Note of cue point 1",
+          "value": "call jane.doe@example.com",
+          "sensitive": true,
+          "note": null
+        },
+        "ltxt_2": {
+          "label": "Text of cue point 2",
+          "value": "landlord speaking",
+          "sensitive": true,
+          "note": "region of 1000 samples"
+        }
+      }
+    },
+    "wav_cue": {
+      "title": "Cue points",
+      "fields": {
+        "cue_1": {
+          "label": "Cue point 1",
+          "value": "sample 0",
+          "sensitive": false,
+          "note": null
+        },
+        "cue_2": {
+          "label": "Cue point 2",
+          "value": "sample 2000",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "wav_smpl": {
+      "title": "Sampler loops (smpl)",
+      "fields": {
+        "manufacturer": {
+          "label": "Manufacturer (MIDI ID)",
+          "value": 71,
+          "sensitive": false,
+          "note": null
+        },
+        "product": {
+          "label": "Product",
+          "value": 4660,
+          "sensitive": false,
+          "note": null
+        },
+        "loops": {
+          "label": "Loops",
+          "value": 1,
+          "sensitive": false,
+          "note": null
+        },
+        "sampler_data": {
+          "label": "Sampler-specific data",
+          "value": "6 bytes",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "audio_pictures": {
+      "title": "Embedded pictures and objects",
+      "fields": {
+        "picture_1": {
+          "label": "ID3v2.3 APIC 1",
+          "value": "JPEG, 2920 bytes; front cover",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "exif": {
+      "title": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "fields": {
+        "byte_order": {
+          "label": "Byte order",
+          "value": "little-endian (II)",
+          "sensitive": false,
+          "note": null
+        },
+        "Make": {
+          "label": "Make",
+          "value": "ExampleCam",
+          "sensitive": true,
+          "note": null
+        },
+        "Model": {
+          "label": "Model",
+          "value": "Model X",
+          "sensitive": true,
+          "note": null
+        },
+        "Orientation": {
+          "label": "Orientation",
+          "value": "Horizontal (normal)",
+          "sensitive": false,
+          "note": null
+        },
+        "Software": {
+          "label": "Software",
+          "value": "Firmware 1.0",
+          "sensitive": true,
+          "note": null
+        },
+        "DateTime": {
+          "label": "DateTime",
+          "value": "2024-05-01T14:30:00",
+          "sensitive": true,
+          "note": "no time zone recorded"
+        },
+        "ExposureTime": {
+          "label": "ExposureTime",
+          "value": "1/250 s",
+          "sensitive": false,
+          "note": null
+        },
+        "FNumber": {
+          "label": "FNumber",
+          "value": "f/1.8",
+          "sensitive": false,
+          "note": null
+        },
+        "ISOSpeedRatings": {
+          "label": "ISOSpeedRatings",
+          "value": 100,
+          "sensitive": false,
+          "note": null
+        },
+        "DateTimeOriginal": {
+          "label": "DateTimeOriginal",
+          "value": "2024-05-01T14:30:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "OffsetTimeOriginal": {
+          "label": "OffsetTimeOriginal",
+          "value": "+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "Flash": {
+          "label": "Flash",
+          "value": "Did not fire, flash suppressed",
+          "sensitive": false,
+          "note": null
+        },
+        "FocalLength": {
+          "label": "FocalLength",
+          "value": "4.2 mm",
+          "sensitive": false,
+          "note": null
+        },
+        "BodySerialNumber": {
+          "label": "BodySerialNumber",
+          "value": "SN-0001",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "gps": {
+      "title": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "fields": {
+        "coordinates": {
+          "label": "Coordinates",
+          "value": "48.858367, 2.294481",
+          "sensitive": true,
+          "note": "decimal degrees"
+        },
+        "latitude": {
+          "label": "Latitude",
+          "value": "48.858367",
+          "sensitive": true,
+          "note": null
+        },
+        "longitude": {
+          "label": "Longitude",
+          "value": "2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "openstreetmap": {
+          "label": "OpenStreetMap",
+          "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "google_maps": {
+          "label": "Google Maps",
+          "value": "https://www.google.com/maps?q=48.858367,2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "altitude": {
+          "label": "Altitude",
+          "value": "35.0 m above sea level",
+          "sensitive": true,
+          "note": null
+        },
+        "datetime_utc": {
+          "label": "Date/time (UTC)",
+          "value": "2024-05-01T12:30:15Z",
+          "sensitive": true,
+          "note": null
+        },
+        "GPSVersionID": {
+          "label": "GPSVersionID",
+          "value": "2.3.0.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "thumbnail": {
+      "title": "ID3v2.3 APIC 1 (JPEG): Thumbnail",
+      "fields": {
+        "embedded_thumbnail": {
+          "label": "Embedded thumbnail",
+          "value": "JPEG, 123 bytes",
+          "sensitive": true,
+          "note": "at offset 562 in the EXIF data"
+        },
+        "dimensions": {
+          "label": "Dimensions",
+          "value": "160 x 120 pixels",
+          "sensitive": false,
+          "note": null
+        },
+        "Compression": {
+          "label": "Compression",
+          "value": "JPEG (old-style)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "xmp_2": {
+      "title": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "hidden_chunk_data": {
+      "title": "Hidden data in padding chunks",
+      "fields": {
+        "JUNK_682": {
+          "label": "JUNK chunk at offset 682",
+          "value": "14 non-zero bytes in 28 bytes",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "unknown": {
+      "title": "Other chunks",
+      "fields": {
+        "PEAK@21932": {
+          "label": "PEAK",
+          "value": "24 bytes at offset 21932",
+          "sensitive": true,
+          "note": "peak levels, with a time stamp"
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "wav/kitchen_sink.wav",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 21964,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "21.4 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "6b09096ffe816e1924b168e1751a4e9f",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "93377f12646153c3b6021c6df1a3b3f57d42fa1a",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "60a27c09167934ef34c92bbaa0471c96d285d1b3e30d49a2523e61d3f4d18e0c",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

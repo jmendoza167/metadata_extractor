@@ -160,20 +160,22 @@ def stream(n: int = 20, *, info: bool = True, **kw) -> bytes:
 # -- whole files -------------------------------------------------------------------------------
 
 
-def kitchen_sink_mp3(cover: bytes | None = None) -> bytes:
+def kitchen_sink_mp3(cover: bytes | None = None, junk: bool = True, count: int = 20) -> bytes:
     """Every kind of MP3 metadata metaex reads: an ID3v2.3 tag with every
     kind of frame (a cover photo with GPS, an e-mail address in POPM, PRIV,
     UFID, OWNE) and data hidden in its padding, an Info frame with a LAME
-    tag, junk between frames, an appended ID3v2.4 tag, an APEv2 tag (with
-    the cover again), Lyrics3 v2, TAG+ and ID3v1.1."""
+    tag, ``count`` silent frames, junk between frames (unless ``junk`` is
+    False), an appended ID3v2.4 tag, an APEv2 tag (with the cover again),
+    Lyrics3 v2, TAG+ and ID3v1.1."""
     from helpers import audiotags as at
     from helpers import id3 as b
     from helpers.jpeg import sample_photo
 
     cover = sample_photo() if cover is None else cover
+    audio = stream(count) + (b"hidden between frames" + frames(5) if junk else b"")
     return (b.tag(*b.kitchen_sink_frames(cover), version=3, padding=64,
                   padding_bytes=b"\x00\x00hidden note")
-            + stream(20) + b"hidden between frames" + frames(5)
+            + audio
             + b.tag(b.text("TIT2", "Floor plan blues (appended)"),
                     b.text("TPE1", "Jane Doe"), footer=True)
             + at.ape_kitchen_sink(cover) + at.lyrics3_v2() + at.tag_plus() + at.id3v1())

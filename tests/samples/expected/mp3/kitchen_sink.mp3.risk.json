@@ -1,0 +1,813 @@
+{
+  "path": "mp3/kitchen_sink.mp3",
+  "summary": {
+    "critical": 30,
+    "high": 46,
+    "medium": 21,
+    "low": 35
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "User text: Contact",
+      "value": "jane.doe@example.com"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Private data: WM/UniqueFileIdentifier",
+      "value": "AMGa_id=R 123456;AMGp_id=P 7890"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Unique file identifier: http://musicbrainz.org",
+      "value": "0f9b6c4e-0000-1111-2222-333333333333"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Popularimeter (rating by e-mail): jane.doe@example.com",
+      "value": "rating 196/255, play count 42"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Ownership (purchase)",
+      "value": "price paid 'EUR0.99', purchased 20240501, seller 'Example Music Store'"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 tag (at offset 36104)",
+      "label": "Comment",
+      "value": "Write to jane.doe@example.com"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "Comment",
+      "value": "jane.doe@example.com"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 Cover Art (Front) (JPEG): GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 Cover Art (Front) (JPEG): GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 Cover Art (Front) (JPEG): GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 Cover Art (Front) (JPEG): GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 Cover Art (Front) (JPEG): GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 Cover Art (Front) (JPEG): GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 Cover Art (Front) (JPEG): GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 Cover Art (Front) (JPEG): GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "APEv2 Cover Art (Front) (JPEG): Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "Hidden data in tag padding",
+      "label": "ID3v2.3 tag at offset 0",
+      "value": "11 non-zero bytes in 64 bytes of padding"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Artist",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Composer",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Encoded by",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Copyright",
+      "value": "2024 Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Year",
+      "value": "2024"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "User URL: Homepage",
+      "value": "https://example.com/jane"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Artist URL",
+      "value": "https://example.com/jane/music"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Comment",
+      "value": "Recorded on my phone, first take"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Lyrics",
+      "value": "La la la, the kitchen is small"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Synchronized lyrics",
+      "value": "La la / the kitchen"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Picture (front cover)",
+      "value": "front cover, image/jpeg, 2920 bytes, description 'Cover'"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Embedded object",
+      "value": "26 bytes, text/plain, file name 'notes.txt', description 'notes'"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.4 tag 2 (appended at the end)",
+      "label": "Artist",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 tag (at offset 36104)",
+      "label": "Artist",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 tag (at offset 36104)",
+      "label": "Year",
+      "value": "2024"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 tag (at offset 36104)",
+      "label": "Record Location",
+      "value": "12 Example Street"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 tag (at offset 36104)",
+      "label": "Related",
+      "value": "https://example.com/jane"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 tag (at offset 36104)",
+      "label": "Cover Art (Front)",
+      "value": "binary, 2930 bytes, file name 'cover.jpg'"
+    },
+    {
+      "level": "high",
+      "section": "Lyrics3 v2 tag (at offset 39356)",
+      "label": "Lyrics",
+      "value": "[00:01]La la la\\r\\n[00:02]the kitchen is small"
+    },
+    {
+      "level": "high",
+      "section": "Lyrics3 v2 tag (at offset 39356)",
+      "label": "Lyrics author",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Lyrics3 v2 tag (at offset 39356)",
+      "label": "Artist",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "Artist",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "Year",
+      "value": "2024"
+    },
+    {
+      "level": "high",
+      "section": "Embedded pictures and objects",
+      "label": "ID3v2.3 APIC 1",
+      "value": "JPEG, 2920 bytes; front cover, 'Cover'"
+    },
+    {
+      "level": "high",
+      "section": "Embedded pictures and objects",
+      "label": "ID3v2.3 GEOB 1",
+      "value": "unrecognized data, 26 bytes; embedded object text/plain (not examined: not an image metaex reads)"
+    },
+    {
+      "level": "high",
+      "section": "Embedded pictures and objects",
+      "label": "APEv2 Cover Art (Front)",
+      "value": "JPEG, 2920 bytes; Cover Art (Front)"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Title",
+      "value": "Floor plan blues"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Album",
+      "value": "Demo tapes"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Encoder software and settings",
+      "value": "LAME 3.100 -V2"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "User text: Recorded at",
+      "value": "Home studio, 12 Example Street"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 tag 1 (at offset 0)",
+      "label": "Play counter",
+      "value": "7"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.4 tag 2 (appended at the end)",
+      "label": "Title",
+      "value": "Floor plan blues (appended)"
+    },
+    {
+      "level": "medium",
+      "section": "APEv2 tag (at offset 36104)",
+      "label": "Title",
+      "value": "Floor plan blues"
+    },
+    {
+      "level": "medium",
+      "section": "APEv2 tag (at offset 36104)",
+      "label": "Tool Name",
+      "value": "Example Tagger 1.0"
+    },
+    {
+      "level": "medium",
+      "section": "Lyrics3 v2 tag (at offset 39356)",
+      "label": "Title",
+      "value": "Floor plan blues"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "Title",
+      "value": "Floor plan blues"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "Album",
+      "value": "Demo tapes"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "medium",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Format",
+      "value": "MPEG-1 Layer III"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Sample rate",
+      "value": "44100 Hz"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Channels",
+      "value": "joint stereo"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Bitrate",
+      "value": "128 kbit/s (constant)"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Duration",
+      "value": "1.985 s"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Audio frames",
+      "value": "76"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Header flags",
+      "value": "original"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Information frame",
+      "value": "Info (constant bitrate)"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Frame count",
+      "value": "77"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Byte count",
+      "value": "32181"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Seek table",
+      "value": "yes"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Quality",
+      "value": "0"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Encoder",
+      "value": "LAME3.100"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Encoder delay",
+      "value": "576 samples"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Encoder padding",
+      "value": "1152 samples"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "Lowpass filter",
+      "value": "17000 Hz"
+    },
+    {
+      "level": "low",
+      "section": "Info frame",
+      "label": "LAME tag CRC",
+      "value": "valid"
+    },
+    {
+      "level": "low",
+      "section": "Lyrics3 v2 tag (at offset 39356)",
+      "label": "Indications",
+      "value": "10"
+    },
+    {
+      "level": "low",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "Track number",
+      "value": "3"
+    },
+    {
+      "level": "low",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "Genre",
+      "value": "13 (Pop)"
+    },
+    {
+      "level": "low",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "Genre (TAG+)",
+      "value": "Bedroom pop"
+    },
+    {
+      "level": "low",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "Start time",
+      "value": "000:05"
+    },
+    {
+      "level": "low",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "End time",
+      "value": "003:10"
+    },
+    {
+      "level": "low",
+      "section": "ID3v1 tag with TAG+ (at offset 39500)",
+      "label": "Speed",
+      "value": "2"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    },
+    {
+      "level": "low",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "APEv2 Cover Art (Front) (JPEG): Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "APEv2 Cover Art (Front) (JPEG): Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: ID3v2.3 APIC 1 (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: ID3v2.3 APIC 1 (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: APEv2 Cover Art (Front) (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: APEv2 Cover Art (Front) (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: 11 bytes of data hidden in the padding of ID3v2 tags (players ignore them); this can hide anything",
+    "ID3v2.3 APIC 1 (JPEG): embedded thumbnail may show the original, uncropped image",
+    "APEv2 Cover Art (Front) (JPEG): embedded thumbnail may show the original, uncropped image"
+  ],
+  "can_strip": true
+}

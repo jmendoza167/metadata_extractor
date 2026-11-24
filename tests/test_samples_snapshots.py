@@ -142,14 +142,17 @@ def run_json(command: str, copy: Path) -> dict:
 
 GENERATED = [
     "docx/clean.docx", "docx/kitchen_sink.docx", "docx/macro.docm",
+    "flac/clean.flac", "flac/kitchen_sink.flac",
     "gif/animated_metadata.gif", "gif/clean.gif",
     "jpeg/clean.jpg", "jpeg/gps_camera.jpg", "jpeg/kitchen_sink.jpg",
     "jpeg/orientation_6.jpg",
+    "mp3/clean.mp3", "mp3/kitchen_sink.mp3",
     "odp/clean.odp", "odp/kitchen_sink.odp", "ods/clean.ods", "ods/kitchen_sink.ods",
     "odt/clean.odt", "odt/kitchen_sink.odt",
     "png/apng_metadata.png", "png/clean.png", "png/exif_time.png", "png/text_chunks.png",
     "pptx/clean.pptx", "pptx/kitchen_sink.pptx",
     "svg/clean.svg", "svg/doctype_svg11.svg", "svg/editor.svg", "svg/embedded_jpeg.svg",
+    "wav/clean.wav", "wav/kitchen_sink.wav",
     "webp/animated_metadata.webp", "webp/lossless.webp", "webp/lossy_metadata.webp",
     "xlsx/clean.xlsx", "xlsx/kitchen_sink.xlsx",
 ]

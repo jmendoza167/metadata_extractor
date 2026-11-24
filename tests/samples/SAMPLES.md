@@ -8,6 +8,8 @@ metaex show tests/samples/svg/editor.svg
 metaex strip tests/samples/jpeg/kitchen_sink.jpg -o kitchen_sink_stripped.jpg
 metaex risk tests/samples/docx/kitchen_sink.docx
 metaex strip tests/samples/odt/kitchen_sink.odt -o notes_stripped.odt --remove-comments
+metaex risk tests/samples/mp3/kitchen_sink.mp3
+metaex strip tests/samples/flac/kitchen_sink.flac -o song_stripped.flac
 ```
 
 **All metadata in these files is fake.** The person is always "Jane Doe"
@@ -122,6 +124,38 @@ thumbnail, a photo with GPS, user interface settings and a Basic macro
 | `odp/clean.odp` | `helpers.odf.Document("odp")`, one slide | None | 0 / 0 / 0 / 0 |
 | `odp/kitchen_sink.odp` | `helpers.odf.kitchen_sink("odp")` | Everything listed above, plus a hidden slide and speaker notes | 16 / 25 / 15 / 19 |
 
+## MP3
+
+Both hold about 2 seconds of MPEG-1 Layer III audio at 44.1 kHz, after an
+Info frame with a LAME tag, the way an encoder writes it. The audio is
+silence: every frame's data is zero, which every player decodes as
+silence. The kitchen sink's cover photo is `jpeg/gps_camera.jpg`. Its tags
+at the end are all standard, but some players don't know Lyrics3 and
+appended ID3v2.4 tags and log a warning about them (they still play the
+file).
+
+| File | How it was made | Metadata | Risk |
+|---|---|---|---|
+| `mp3/clean.mp3` | `helpers.mp3.stream()` | None; the Info frame with its LAME tag (encoder name, delay and padding for gapless playback) is technical data that strip keeps | 0 / 0 / 0 / 17 |
+| `mp3/kitchen_sink.mp3` | `helpers.mp3.kitchen_sink_mp3()` | An ID3v2.3 tag with every kind of frame (artist, composer, encoded by, dates, comment, lyrics, synchronized lyrics, user text and URLs, an embedded object, the cover photo with GPS, PRIV, UFID, a POPM rating with an e-mail address, an OWNE purchase) and data hidden in its padding; an appended ID3v2.4 tag; an APEv2 tag with the cover again; Lyrics3 v2; TAG+ and ID3v1.1 | 30 / 46 / 21 / 35 |
+
+## WAV
+
+| File | How it was made | Metadata | Risk |
+|---|---|---|---|
+| `wav/clean.wav` | `helpers.wav.wav()` | None: one second of a 440 Hz tone, 8 kHz, mono, 16-bit | 0 / 0 / 0 / 7 |
+| `wav/kitchen_sink.wav` | `helpers.wav.kitchen_sink_wav()` | LIST INFO (title, artist, comments, date, software, engineer), bext (description, originator "ZOOM H5", reference, date and time, UMID, coding history), iXML (project, scene, a note, a location with GPS), axml, XMP in `_PMX`, an ID3v2.3 tag in an `id3 ` chunk (POPM with an e-mail address, the cover photo with GPS), cue points with labels and notes (one with an e-mail address), sampler loops with the sampler's identity, a JUNK chunk with hidden data and a PEAK chunk; a stereo tone | 16 / 32 / 18 / 25 |
+
+## FLAC
+
+The frames are real FLAC frames with valid CRCs, and STREAMINFO holds the
+MD5 of the audio, so any FLAC decoder plays them and can check them.
+
+| File | How it was made | Metadata | Risk |
+|---|---|---|---|
+| `flac/clean.flac` | `helpers.flac.flac()` | None: the tone of `wav/clean.wav` in verbatim (uncompressed) frames | 0 / 0 / 0 / 8 |
+| `flac/kitchen_sink.flac` | `helpers.flac.kitchen_sink_flac()` | An ID3v2.3 tag before the stream; Vorbis comments (artist, date, comment, a contact e-mail address, a location, encoder); a PICTURE block with the cover photo with GPS; an APPLICATION block; a seek table; a cue sheet (kept by strip unless `--paranoid`); PADDING with hidden data; a stereo tone in compressed (fixed predictor) frames | 14 / 20 / 11 / 23 |
+
 ## Damaged files (`malformed/`)
 
 metaex refuses to strip each of these, with an error that says what is
@@ -139,14 +173,18 @@ and show whatever they could read before it.
 | `malformed/path_traversal.docx` | An entry named `word/../../evil.txt`, which would be written outside the folder if extracted |
 | `malformed/encrypted_entry.docx` | `word/document.xml` is marked as encrypted |
 | `malformed/truncated.docx` | `docx/kitchen_sink.docx` cut in half, like an interrupted download |
+| `malformed/truncated.mp3` | An MP3 cut off in the middle of its last frame, like an interrupted download |
+| `malformed/bad_id3_size.mp3` | An ID3v2 tag that says it is 1,000,000 bytes long, more than the file |
+| `malformed/wrong_riff_size.wav` | A RIFF header that says the file is 100 bytes longer than it is |
+| `malformed/broken_block_length.flac` | A metadata block that says it is 100,000 bytes long, more than the file |
 
 ## Files from real software (`real/`)
 
 `real/` is for files saved by real programs, because they hold metadata
 that generated files don't. It is empty for now. Only add formats metaex
-supports: JPEG, PNG, GIF, WebP, SVG, DOCX, XLSX, PPTX, ODT, ODS and ODP
-(for example from a phone camera, GIMP, Inkscape, Word, Excel,
-PowerPoint or LibreOffice). The generator never touches `real/`, but the
+supports: JPEG, PNG, GIF, WebP, SVG, DOCX, XLSX, PPTX, ODT, ODS, ODP, MP3,
+WAV and FLAC (for example from a phone camera, GIMP, Inkscape, Word, Excel,
+PowerPoint, LibreOffice, an audio editor or a field recorder). The generator never touches `real/`, but the
 other sample tests include every file in it, so a file added there is
 tested like the others.
 
@@ -173,7 +211,11 @@ you commit one:
   screens, documents or number plates).
 - [ ] **Device:** a camera or phone writes its model, and often a serial
   number, into EXIF, and you can't turn that off. If you don't want your
-  device made public, don't add a photo.
+  device made public, don't add a photo. Field recorders do the same in
+  bext and iXML (and some write a location there too).
+- [ ] **Audio:** record something neutral (a tone, silence, a noise), never
+  voices or a room you can be recognized by, and leave the tags empty
+  except for "Jane Doe" values.
 - [ ] **Paths:** save from a neutral folder such as `C:\samples\`, not from
   your user folder, because some programs store the save path in the file.
 - [ ] **Times:** creation and edit times, and the time zone, end up in the

@@ -1,0 +1,1052 @@
+{
+  "subject": "mp3/kitchen_sink.mp3",
+  "warnings": [
+    "CRITICAL: ID3v2.3 APIC 1 (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: ID3v2.3 APIC 1 (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: APEv2 Cover Art (Front) (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: APEv2 Cover Art (Front) (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: 11 bytes of data hidden in the padding of ID3v2 tags (players ignore them); this can hide anything",
+    "ID3v2.3 APIC 1 (JPEG): embedded thumbnail may show the original, uncropped image",
+    "APEv2 Cover Art (Front) (JPEG): embedded thumbnail may show the original, uncropped image"
+  ],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "MP3",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "audio/mpeg",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".mp3"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "audio": {
+      "title": "Audio",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "MPEG-1 Layer III",
+          "sensitive": false,
+          "note": null
+        },
+        "sample_rate": {
+          "label": "Sample rate",
+          "value": "44100 Hz",
+          "sensitive": false,
+          "note": null
+        },
+        "channels": {
+          "label": "Channels",
+          "value": "joint stereo",
+          "sensitive": false,
+          "note": null
+        },
+        "bitrate": {
+          "label": "Bitrate",
+          "value": "128 kbit/s (constant)",
+          "sensitive": false,
+          "note": null
+        },
+        "duration": {
+          "label": "Duration",
+          "value": "1.985 s",
+          "sensitive": false,
+          "note": null
+        },
+        "frames": {
+          "label": "Audio frames",
+          "value": 76,
+          "sensitive": false,
+          "note": null
+        },
+        "flags": {
+          "label": "Header flags",
+          "value": "original",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "encoder_info": {
+      "title": "Info frame",
+      "fields": {
+        "kind": {
+          "label": "Information frame",
+          "value": "Info (constant bitrate)",
+          "sensitive": false,
+          "note": "offset 3846, 417 bytes"
+        },
+        "frames": {
+          "label": "Frame count",
+          "value": 77,
+          "sensitive": false,
+          "note": null
+        },
+        "bytes": {
+          "label": "Byte count",
+          "value": 32181,
+          "sensitive": false,
+          "note": null
+        },
+        "toc": {
+          "label": "Seek table",
+          "value": "yes",
+          "sensitive": false,
+          "note": null
+        },
+        "quality": {
+          "label": "Quality",
+          "value": 0,
+          "sensitive": false,
+          "note": null
+        },
+        "encoder": {
+          "label": "Encoder",
+          "value": "LAME3.100",
+          "sensitive": false,
+          "note": "LAME tag"
+        },
+        "encoder_delay": {
+          "label": "Encoder delay",
+          "value": "576 samples",
+          "sensitive": false,
+          "note": null
+        },
+        "encoder_padding": {
+          "label": "Encoder padding",
+          "value": "1152 samples",
+          "sensitive": false,
+          "note": null
+        },
+        "lowpass": {
+          "label": "Lowpass filter",
+          "value": "17000 Hz",
+          "sensitive": false,
+          "note": null
+        },
+        "tag_crc": {
+          "label": "LAME tag CRC",
+          "value": "valid",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "id3v2": {
+      "title": "ID3v2.3 tag 1 (at offset 0)",
+      "fields": {
+        "TIT2": {
+          "label": "Title",
+          "value": "Floor plan blues",
+          "sensitive": true,
+          "note": null
+        },
+        "TPE1": {
+          "label": "Artist",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "TALB": {
+          "label": "Album",
+          "value": "Demo tapes",
+          "sensitive": true,
+          "note": null
+        },
+        "TCOM": {
+          "label": "Composer",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "TENC": {
+          "label": "Encoded by",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "TSSE": {
+          "label": "Encoder software and settings",
+          "value": "LAME 3.100 -V2",
+          "sensitive": true,
+          "note": null
+        },
+        "TCOP": {
+          "label": "Copyright",
+          "value": "2024 Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "TYER": {
+          "label": "Year",
+          "value": "2024",
+          "sensitive": true,
+          "note": null
+        },
+        "TXXX:Contact": {
+          "label": "User text: Contact",
+          "value": "jane.doe@example.com",
+          "sensitive": true,
+          "note": null
+        },
+        "TXXX:Recorded at": {
+          "label": "User text: Recorded at",
+          "value": "Home studio, 12 Example Street",
+          "sensitive": true,
+          "note": null
+        },
+        "WXXX:Homepage": {
+          "label": "User URL: Homepage",
+          "value": "https://example.com/jane",
+          "sensitive": true,
+          "note": null
+        },
+        "WOAR": {
+          "label": "Artist URL",
+          "value": "https://example.com/jane/music",
+          "sensitive": true,
+          "note": null
+        },
+        "COMM:eng:": {
+          "label": "Comment",
+          "value": "Recorded on my phone, first take",
+          "sensitive": true,
+          "note": "language eng"
+        },
+        "USLT:eng:": {
+          "label": "Lyrics",
+          "value": "La la la, the kitchen is small",
+          "sensitive": true,
+          "note": "language eng"
+        },
+        "SYLT:eng:": {
+          "label": "Synchronized lyrics",
+          "value": "La la / the kitchen",
+          "sensitive": true,
+          "note": "language eng, 2 lines"
+        },
+        "APIC:front cover": {
+          "label": "Picture (front cover)",
+          "value": "front cover, image/jpeg, 2920 bytes, description 'Cover'",
+          "sensitive": true,
+          "note": null
+        },
+        "GEOB:notes": {
+          "label": "Embedded object",
+          "value": "26 bytes, text/plain, file name 'notes.txt', description 'notes'",
+          "sensitive": true,
+          "note": null
+        },
+        "PRIV:WM/UniqueFileIdentifier": {
+          "label": "Private data: WM/UniqueFileIdentifier",
+          "value": "AMGa_id=R 123456;AMGp_id=P 7890",
+          "sensitive": true,
+          "note": null
+        },
+        "UFID:http://musicbrainz.org": {
+          "label": "Unique file identifier: http://musicbrainz.org",
+          "value": "0f9b6c4e-0000-1111-2222-333333333333",
+          "sensitive": true,
+          "note": null
+        },
+        "POPM:jane.doe@example.com": {
+          "label": "Popularimeter (rating by e-mail): jane.doe@example.com",
+          "value": "rating 196/255, play count 42",
+          "sensitive": true,
+          "note": null
+        },
+        "OWNE": {
+          "label": "Ownership (purchase)",
+          "value": "price paid 'EUR0.99', purchased 20240501, seller 'Example Music Store'",
+          "sensitive": true,
+          "note": null
+        },
+        "PCNT": {
+          "label": "Play counter",
+          "value": 7,
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "id3v2_2": {
+      "title": "ID3v2.4 tag 2 (appended at the end)",
+      "fields": {
+        "TIT2": {
+          "label": "Title",
+          "value": "Floor plan blues (appended)",
+          "sensitive": true,
+          "note": null
+        },
+        "TPE1": {
+          "label": "Artist",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "ape": {
+      "title": "APEv2 tag (at offset 36104)",
+      "fields": {
+        "Title": {
+          "label": "Title",
+          "value": "Floor plan blues",
+          "sensitive": true,
+          "note": null
+        },
+        "Artist": {
+          "label": "Artist",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "Comment": {
+          "label": "Comment",
+          "value": "Write to jane.doe@example.com",
+          "sensitive": true,
+          "note": null
+        },
+        "Year": {
+          "label": "Year",
+          "value": "2024",
+          "sensitive": true,
+          "note": null
+        },
+        "Tool Name": {
+          "label": "Tool Name",
+          "value": "Example Tagger 1.0",
+          "sensitive": true,
+          "note": null
+        },
+        "Record Location": {
+          "label": "Record Location",
+          "value": "12 Example Street",
+          "sensitive": true,
+          "note": null
+        },
+        "Related": {
+          "label": "Related",
+          "value": "https://example.com/jane",
+          "sensitive": true,
+          "note": "link"
+        },
+        "Cover Art (Front)": {
+          "label": "Cover Art (Front)",
+          "value": "binary, 2930 bytes, file name 'cover.jpg'",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "lyrics3": {
+      "title": "Lyrics3 v2 tag (at offset 39356)",
+      "fields": {
+        "IND": {
+          "label": "Indications",
+          "value": "10",
+          "sensitive": false,
+          "note": null
+        },
+        "LYR": {
+          "label": "Lyrics",
+          "value": "[00:01]La la la\r\n[00:02]the kitchen is small",
+          "sensitive": true,
+          "note": null
+        },
+        "AUT": {
+          "label": "Lyrics author",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "EAR": {
+          "label": "Artist",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "ETT": {
+          "label": "Title",
+          "value": "Floor plan blues",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "id3v1": {
+      "title": "ID3v1 tag with TAG+ (at offset 39500)",
+      "fields": {
+        "title": {
+          "label": "Title",
+          "value": "Floor plan blues",
+          "sensitive": true,
+          "note": null
+        },
+        "artist": {
+          "label": "Artist",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "album": {
+          "label": "Album",
+          "value": "Demo tapes",
+          "sensitive": true,
+          "note": null
+        },
+        "year": {
+          "label": "Year",
+          "value": "2024",
+          "sensitive": true,
+          "note": null
+        },
+        "comment": {
+          "label": "Comment",
+          "value": "jane.doe@example.com",
+          "sensitive": true,
+          "note": null
+        },
+        "track": {
+          "label": "Track number",
+          "value": "3",
+          "sensitive": false,
+          "note": null
+        },
+        "genre": {
+          "label": "Genre",
+          "value": "13 (Pop)",
+          "sensitive": false,
+          "note": null
+        },
+        "genre_text": {
+          "label": "Genre (TAG+)",
+          "value": "Bedroom pop",
+          "sensitive": true,
+          "note": null
+        },
+        "start_time": {
+          "label": "Start time",
+          "value": "000:05",
+          "sensitive": true,
+          "note": null
+        },
+        "end_time": {
+          "label": "End time",
+          "value": "003:10",
+          "sensitive": true,
+          "note": null
+        },
+        "speed": {
+          "label": "Speed",
+          "value": "2",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "audio_pictures": {
+      "title": "Embedded pictures and objects",
+      "fields": {
+        "picture_1": {
+          "label": "ID3v2.3 APIC 1",
+          "value": "JPEG, 2920 bytes; front cover, 'Cover'",
+          "sensitive": true,
+          "note": null
+        },
+        "picture_2": {
+          "label": "ID3v2.3 GEOB 1",
+          "value": "unrecognized data, 26 bytes; embedded object text/plain (not examined: not an image metaex reads)",
+          "sensitive": true,
+          "note": null
+        },
+        "picture_3": {
+          "label": "APEv2 Cover Art (Front)",
+          "value": "JPEG, 2920 bytes; Cover Art (Front)",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "exif": {
+      "title": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "fields": {
+        "byte_order": {
+          "label": "Byte order",
+          "value": "little-endian (II)",
+          "sensitive": false,
+          "note": null
+        },
+        "Make": {
+          "label": "Make",
+          "value": "ExampleCam",
+          "sensitive": true,
+          "note": null
+        },
+        "Model": {
+          "label": "Model",
+          "value": "Model X",
+          "sensitive": true,
+          "note": null
+        },
+        "Orientation": {
+          "label": "Orientation",
+          "value": "Horizontal (normal)",
+          "sensitive": false,
+          "note": null
+        },
+        "Software": {
+          "label": "Software",
+          "value": "Firmware 1.0",
+          "sensitive": true,
+          "note": null
+        },
+        "DateTime": {
+          "label": "DateTime",
+          "value": "2024-05-01T14:30:00",
+          "sensitive": true,
+          "note": "no time zone recorded"
+        },
+        "ExposureTime": {
+          "label": "ExposureTime",
+          "value": "1/250 s",
+          "sensitive": false,
+          "note": null
+        },
+        "FNumber": {
+          "label": "FNumber",
+          "value": "f/1.8",
+          "sensitive": false,
+          "note": null
+        },
+        "ISOSpeedRatings": {
+          "label": "ISOSpeedRatings",
+          "value": 100,
+          "sensitive": false,
+          "note": null
+        },
+        "DateTimeOriginal": {
+          "label": "DateTimeOriginal",
+          "value": "2024-05-01T14:30:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "OffsetTimeOriginal": {
+          "label": "OffsetTimeOriginal",
+          "value": "+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "Flash": {
+          "label": "Flash",
+          "value": "Did not fire, flash suppressed",
+          "sensitive": false,
+          "note": null
+        },
+        "FocalLength": {
+          "label": "FocalLength",
+          "value": "4.2 mm",
+          "sensitive": false,
+          "note": null
+        },
+        "BodySerialNumber": {
+          "label": "BodySerialNumber",
+          "value": "SN-0001",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "gps": {
+      "title": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "fields": {
+        "coordinates": {
+          "label": "Coordinates",
+          "value": "48.858367, 2.294481",
+          "sensitive": true,
+          "note": "decimal degrees"
+        },
+        "latitude": {
+          "label": "Latitude",
+          "value": "48.858367",
+          "sensitive": true,
+          "note": null
+        },
+        "longitude": {
+          "label": "Longitude",
+          "value": "2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "openstreetmap": {
+          "label": "OpenStreetMap",
+          "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "google_maps": {
+          "label": "Google Maps",
+          "value": "https://www.google.com/maps?q=48.858367,2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "altitude": {
+          "label": "Altitude",
+          "value": "35.0 m above sea level",
+          "sensitive": true,
+          "note": null
+        },
+        "datetime_utc": {
+          "label": "Date/time (UTC)",
+          "value": "2024-05-01T12:30:15Z",
+          "sensitive": true,
+          "note": null
+        },
+        "GPSVersionID": {
+          "label": "GPSVersionID",
+          "value": "2.3.0.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "thumbnail": {
+      "title": "ID3v2.3 APIC 1 (JPEG): Thumbnail",
+      "fields": {
+        "embedded_thumbnail": {
+          "label": "Embedded thumbnail",
+          "value": "JPEG, 123 bytes",
+          "sensitive": true,
+          "note": "at offset 562 in the EXIF data"
+        },
+        "dimensions": {
+          "label": "Dimensions",
+          "value": "160 x 120 pixels",
+          "sensitive": false,
+          "note": null
+        },
+        "Compression": {
+          "label": "Compression",
+          "value": "JPEG (old-style)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "xmp": {
+      "title": "ID3v2.3 APIC 1 (JPEG): XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "exif_2": {
+      "title": "APEv2 Cover Art (Front) (JPEG): EXIF",
+      "fields": {
+        "byte_order": {
+          "label": "Byte order",
+          "value": "little-endian (II)",
+          "sensitive": false,
+          "note": null
+        },
+        "Make": {
+          "label": "Make",
+          "value": "ExampleCam",
+          "sensitive": true,
+          "note": null
+        },
+        "Model": {
+          "label": "Model",
+          "value": "Model X",
+          "sensitive": true,
+          "note": null
+        },
+        "Orientation": {
+          "label": "Orientation",
+          "value": "Horizontal (normal)",
+          "sensitive": false,
+          "note": null
+        },
+        "Software": {
+          "label": "Software",
+          "value": "Firmware 1.0",
+          "sensitive": true,
+          "note": null
+        },
+        "DateTime": {
+          "label": "DateTime",
+          "value": "2024-05-01T14:30:00",
+          "sensitive": true,
+          "note": "no time zone recorded"
+        },
+        "ExposureTime": {
+          "label": "ExposureTime",
+          "value": "1/250 s",
+          "sensitive": false,
+          "note": null
+        },
+        "FNumber": {
+          "label": "FNumber",
+          "value": "f/1.8",
+          "sensitive": false,
+          "note": null
+        },
+        "ISOSpeedRatings": {
+          "label": "ISOSpeedRatings",
+          "value": 100,
+          "sensitive": false,
+          "note": null
+        },
+        "DateTimeOriginal": {
+          "label": "DateTimeOriginal",
+          "value": "2024-05-01T14:30:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "OffsetTimeOriginal": {
+          "label": "OffsetTimeOriginal",
+          "value": "+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "Flash": {
+          "label": "Flash",
+          "value": "Did not fire, flash suppressed",
+          "sensitive": false,
+          "note": null
+        },
+        "FocalLength": {
+          "label": "FocalLength",
+          "value": "4.2 mm",
+          "sensitive": false,
+          "note": null
+        },
+        "BodySerialNumber": {
+          "label": "BodySerialNumber",
+          "value": "SN-0001",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "gps_2": {
+      "title": "APEv2 Cover Art (Front) (JPEG): GPS",
+      "fields": {
+        "coordinates": {
+          "label": "Coordinates",
+          "value": "48.858367, 2.294481",
+          "sensitive": true,
+          "note": "decimal degrees"
+        },
+        "latitude": {
+          "label": "Latitude",
+          "value": "48.858367",
+          "sensitive": true,
+          "note": null
+        },
+        "longitude": {
+          "label": "Longitude",
+          "value": "2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "openstreetmap": {
+          "label": "OpenStreetMap",
+          "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "google_maps": {
+          "label": "Google Maps",
+          "value": "https://www.google.com/maps?q=48.858367,2.294481",
+          "sensitive": true,
+          "note": null
+        },
+        "altitude": {
+          "label": "Altitude",
+          "value": "35.0 m above sea level",
+          "sensitive": true,
+          "note": null
+        },
+        "datetime_utc": {
+          "label": "Date/time (UTC)",
+          "value": "2024-05-01T12:30:15Z",
+          "sensitive": true,
+          "note": null
+        },
+        "GPSVersionID": {
+          "label": "GPSVersionID",
+          "value": "2.3.0.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "thumbnail_2": {
+      "title": "APEv2 Cover Art (Front) (JPEG): Thumbnail",
+      "fields": {
+        "embedded_thumbnail": {
+          "label": "Embedded thumbnail",
+          "value": "JPEG, 123 bytes",
+          "sensitive": true,
+          "note": "at offset 562 in the EXIF data"
+        },
+        "dimensions": {
+          "label": "Dimensions",
+          "value": "160 x 120 pixels",
+          "sensitive": false,
+          "note": null
+        },
+        "Compression": {
+          "label": "Compression",
+          "value": "JPEG (old-style)",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "xmp_2": {
+      "title": "APEv2 Cover Art (Front) (JPEG): XMP",
+      "fields": {
+        "XMP packet.size": {
+          "label": "XMP packet",
+          "value": "1230 bytes",
+          "sensitive": false,
+          "note": null
+        },
+        "xmp:CreatorTool": {
+          "label": "xmp:CreatorTool",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:DocumentID": {
+          "label": "xmpMM:DocumentID",
+          "value": "xmp.did:1234",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:OriginalDocumentID": {
+          "label": "xmpMM:OriginalDocumentID",
+          "value": "xmp.did:abcd",
+          "sensitive": true,
+          "note": null
+        },
+        "tiff:Orientation": {
+          "label": "tiff:Orientation",
+          "value": "1",
+          "sensitive": false,
+          "note": null
+        },
+        "exif:GPSLatitude": {
+          "label": "exif:GPSLatitude",
+          "value": "48,51.502N",
+          "sensitive": true,
+          "note": null
+        },
+        "exif:GPSLongitude": {
+          "label": "exif:GPSLongitude",
+          "value": "2,17.669E",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:creator": {
+          "label": "dc:creator",
+          "value": "Jane Doe",
+          "sensitive": true,
+          "note": null
+        },
+        "dc:subject": {
+          "label": "dc:subject",
+          "value": "holiday; beach",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:action": {
+          "label": "xmpMM:History[1]/stEvt:action",
+          "value": "created",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[1]/stEvt:when": {
+          "label": "xmpMM:History[1]/stEvt:when",
+          "value": "2024-05-01T10:00:00+02:00",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:action": {
+          "label": "xmpMM:History[2]/stEvt:action",
+          "value": "saved",
+          "sensitive": true,
+          "note": null
+        },
+        "xmpMM:History[2]/stEvt:softwareAgent": {
+          "label": "xmpMM:History[2]/stEvt:softwareAgent",
+          "value": "Editor 2.0",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "hidden_tag_data": {
+      "title": "Hidden data in tag padding",
+      "fields": {
+        "id3v2_0": {
+          "label": "ID3v2.3 tag at offset 0",
+          "value": "11 non-zero bytes in 64 bytes of padding",
+          "sensitive": true,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "mp3/kitchen_sink.mp3",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 39855,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "38.9 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "d9e8af313f31425366561d94fe70b940",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "84e58d52c40906df5a3e3b422a654f76984e2d0e",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "8f78dc8e4bae7007004a9129ae28a13480263420d3946d482709fe99ac3e51a2",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

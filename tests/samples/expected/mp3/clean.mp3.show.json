@@ -1,0 +1,201 @@
+{
+  "subject": "mp3/clean.mp3",
+  "warnings": [],
+  "sections": {
+    "file_type": {
+      "title": "File type",
+      "fields": {
+        "name": {
+          "label": "Detected type",
+          "value": "MP3",
+          "sensitive": false,
+          "note": null
+        },
+        "mime": {
+          "label": "MIME type",
+          "value": "audio/mpeg",
+          "sensitive": false,
+          "note": null
+        },
+        "extensions": {
+          "label": "Usual extensions",
+          "value": [
+            ".mp3"
+          ],
+          "sensitive": false,
+          "note": null
+        },
+        "support": {
+          "label": "metaex support",
+          "value": "supported",
+          "sensitive": false,
+          "note": null
+        },
+        "embedded_metadata": {
+          "label": "Embedded metadata",
+          "value": "examined",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "audio": {
+      "title": "Audio",
+      "fields": {
+        "format": {
+          "label": "Format",
+          "value": "MPEG-1 Layer III",
+          "sensitive": false,
+          "note": null
+        },
+        "sample_rate": {
+          "label": "Sample rate",
+          "value": "44100 Hz",
+          "sensitive": false,
+          "note": null
+        },
+        "channels": {
+          "label": "Channels",
+          "value": "joint stereo",
+          "sensitive": false,
+          "note": null
+        },
+        "bitrate": {
+          "label": "Bitrate",
+          "value": "128 kbit/s (constant)",
+          "sensitive": false,
+          "note": null
+        },
+        "duration": {
+          "label": "Duration",
+          "value": "1.985 s",
+          "sensitive": false,
+          "note": null
+        },
+        "frames": {
+          "label": "Audio frames",
+          "value": 76,
+          "sensitive": false,
+          "note": null
+        },
+        "flags": {
+          "label": "Header flags",
+          "value": "original",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "encoder_info": {
+      "title": "Info frame",
+      "fields": {
+        "kind": {
+          "label": "Information frame",
+          "value": "Info (constant bitrate)",
+          "sensitive": false,
+          "note": "offset 0, 417 bytes"
+        },
+        "frames": {
+          "label": "Frame count",
+          "value": 77,
+          "sensitive": false,
+          "note": null
+        },
+        "bytes": {
+          "label": "Byte count",
+          "value": 32181,
+          "sensitive": false,
+          "note": null
+        },
+        "toc": {
+          "label": "Seek table",
+          "value": "yes",
+          "sensitive": false,
+          "note": null
+        },
+        "quality": {
+          "label": "Quality",
+          "value": 0,
+          "sensitive": false,
+          "note": null
+        },
+        "encoder": {
+          "label": "Encoder",
+          "value": "LAME3.100",
+          "sensitive": false,
+          "note": "LAME tag"
+        },
+        "encoder_delay": {
+          "label": "Encoder delay",
+          "value": "576 samples",
+          "sensitive": false,
+          "note": null
+        },
+        "encoder_padding": {
+          "label": "Encoder padding",
+          "value": "1152 samples",
+          "sensitive": false,
+          "note": null
+        },
+        "lowpass": {
+          "label": "Lowpass filter",
+          "value": "17000 Hz",
+          "sensitive": false,
+          "note": null
+        },
+        "tag_crc": {
+          "label": "LAME tag CRC",
+          "value": "valid",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "file_system": {
+      "title": "File system",
+      "fields": {
+        "path": {
+          "label": "Path",
+          "value": "mp3/clean.mp3",
+          "sensitive": false,
+          "note": null
+        },
+        "size_bytes": {
+          "label": "Size (bytes)",
+          "value": 32181,
+          "sensitive": false,
+          "note": null
+        },
+        "size": {
+          "label": "Size",
+          "value": "31.4 KiB",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    },
+    "hashes": {
+      "title": "Hashes",
+      "fields": {
+        "md5": {
+          "label": "MD5",
+          "value": "fefdfe0075570dd66090a27024d47e46",
+          "sensitive": false,
+          "note": null
+        },
+        "sha1": {
+          "label": "SHA-1",
+          "value": "0123962bf19a24d388690ff39ffa85373c408e02",
+          "sensitive": false,
+          "note": null
+        },
+        "sha256": {
+          "label": "SHA-256",
+          "value": "0ddfc37aed08287573f74cd47617b5c6bf0876dad6ff5b1ae2a28fa54a4bb9a7",
+          "sensitive": false,
+          "note": null
+        }
+      }
+    }
+  }
+}

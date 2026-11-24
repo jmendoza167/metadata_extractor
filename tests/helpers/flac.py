@@ -14,7 +14,6 @@ All metadata is made up (Jane Doe, jane.doe@example.com, the Eiffel Tower).
 from __future__ import annotations
 
 import hashlib
-import math
 
 STREAMINFO, PADDING, APPLICATION, SEEKTABLE, VORBIS_COMMENT, CUESHEET, PICTURE = range(7)
 
@@ -99,8 +98,8 @@ def _rice(bits: Bits, residual: list[int], order: int, partition_order: int = 0,
             for e in chunk:
                 bits.signed(e, width) if width else None
             continue
-        mean = sum(folded) / len(folded) if folded else 0
-        k = max(0, min(14, int(math.log2(mean)) if mean >= 1 else 0))
+        mean = sum(folded) // len(folded) if folded else 0
+        k = max(0, min(14, mean.bit_length() - 1))  # integers only: the same everywhere
         bits.put(k, 4)
         for u in folded:
             bits.unary(u >> k)
@@ -251,11 +250,12 @@ def cuesheet(tracks: list[tuple[int, int, str]] = ((1, 0, "FRXXX2400001"),),
     return bytes(out)
 
 
-def sine(samples: int = 8000, rate: int = 8000, freq: float = 440.0, bits: int = 16,
-         amplitude: float = 0.3, phase: float = 0.0) -> list[int]:
-    peak = (1 << (bits - 1)) - 1
-    return [round(amplitude * peak * math.sin(2 * math.pi * freq * n / rate + phase))
-            for n in range(samples)]
+def sine(samples: int = 8000, rate: int = 8000, freq: float = 440, bits: int = 16,
+         amplitude: float = 0.3, start: int = 0) -> list[int]:
+    """A sine tone in integer arithmetic (the same samples on every machine)."""
+    from helpers.wav import sine_values
+
+    return sine_values(samples, rate, freq, bits, amplitude, start)
 
 
 def md5_of(channels: list[list[int]], bits: int = 16) -> bytes:
@@ -303,7 +303,7 @@ def kitchen_sink_flac(cover: bytes | None = None) -> bytes:
     from helpers.jpeg import sample_photo
 
     cover = sample_photo() if cover is None else cover
-    tone = sine(8000, phase=0.0)
+    tone = sine(8000)
     info, frames = encode([tone, sine(8000, freq=660.0)], kind="fixed", assignment=10)
     return flac(
         (SEEKTABLE, seektable((0, 0, 4096), placeholders=1)),

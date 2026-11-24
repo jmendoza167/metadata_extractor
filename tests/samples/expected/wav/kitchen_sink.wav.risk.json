@@ -1,0 +1,565 @@
+{
+  "path": "wav/kitchen_sink.wav",
+  "summary": {
+    "critical": 16,
+    "high": 32,
+    "medium": 18,
+    "low": 25
+  },
+  "findings": [
+    {
+      "level": "critical",
+      "section": "iXML",
+      "label": "BWFXML/LOCATION/LOCATION_GPS",
+      "value": "48.8584, 2.2945"
+    },
+    {
+      "level": "critical",
+      "section": "XMP",
+      "label": "exif:GPSLatitude",
+      "value": "48,51.502N"
+    },
+    {
+      "level": "critical",
+      "section": "XMP",
+      "label": "exif:GPSLongitude",
+      "value": "2,17.669E"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 tag in the id3 chunk at offset 2610",
+      "label": "Popularimeter (rating by e-mail): jane.doe@example.com",
+      "value": "rating 196/255, play count 42"
+    },
+    {
+      "level": "critical",
+      "section": "Cue point labels",
+      "label": "Note of cue point 1",
+      "value": "call jane.doe@example.com"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "BodySerialNumber",
+      "value": "SN-0001"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Coordinates",
+      "value": "48.858367, 2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Latitude",
+      "value": "48.858367"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Longitude",
+      "value": "2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "OpenStreetMap",
+      "value": "https://www.openstreetmap.org/?mlat=48.858367&mlon=2.294481#map=16/48.858367/2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Google Maps",
+      "value": "https://www.google.com/maps?q=48.858367,2.294481"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Altitude",
+      "value": "35.0 m above sea level"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "Date/time (UTC)",
+      "value": "2024-05-01T12:30:15Z"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): GPS",
+      "label": "GPSVersionID",
+      "value": "2.3.0.0"
+    },
+    {
+      "level": "critical",
+      "section": "ID3v2.3 APIC 1 (JPEG): Thumbnail",
+      "label": "Embedded thumbnail",
+      "value": "JPEG, 123 bytes"
+    },
+    {
+      "level": "critical",
+      "section": "Hidden data in padding chunks",
+      "label": "JUNK chunk at offset 682",
+      "value": "14 non-zero bytes in 28 bytes"
+    },
+    {
+      "level": "high",
+      "section": "RIFF INFO",
+      "label": "Artist",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "RIFF INFO",
+      "label": "Comments",
+      "value": "Recorded at home"
+    },
+    {
+      "level": "high",
+      "section": "RIFF INFO",
+      "label": "Creation date",
+      "value": "2024-05-01"
+    },
+    {
+      "level": "high",
+      "section": "RIFF INFO",
+      "label": "Engineer",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "Broadcast WAV (bext)",
+      "label": "Description",
+      "value": "Interview, take 3"
+    },
+    {
+      "level": "high",
+      "section": "Broadcast WAV (bext)",
+      "label": "Originator",
+      "value": "ZOOM H5"
+    },
+    {
+      "level": "high",
+      "section": "Broadcast WAV (bext)",
+      "label": "Originator reference",
+      "value": "FRZOOM0001234567890"
+    },
+    {
+      "level": "high",
+      "section": "Broadcast WAV (bext)",
+      "label": "Origination date",
+      "value": "2024-05-01"
+    },
+    {
+      "level": "high",
+      "section": "Broadcast WAV (bext)",
+      "label": "Origination time",
+      "value": "14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "Broadcast WAV (bext)",
+      "label": "UMID",
+      "value": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+    },
+    {
+      "level": "high",
+      "section": "iXML",
+      "label": "BWFXML/NOTE",
+      "value": "Jane Doe talking to the landlord"
+    },
+    {
+      "level": "high",
+      "section": "iXML",
+      "label": "BWFXML/LOCATION/LOCATION_NAME",
+      "value": "12 Example Street"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmp:CreatorTool",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:DocumentID",
+      "value": "xmp.did:1234"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:OriginalDocumentID",
+      "value": "xmp.did:abcd"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "dc:creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[1]/stEvt:action",
+      "value": "created"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[1]/stEvt:when",
+      "value": "2024-05-01T10:00:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[2]/stEvt:action",
+      "value": "saved"
+    },
+    {
+      "level": "high",
+      "section": "XMP",
+      "label": "xmpMM:History[2]/stEvt:softwareAgent",
+      "value": "Editor 2.0"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag in the id3 chunk at offset 2610",
+      "label": "Artist",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 tag in the id3 chunk at offset 2610",
+      "label": "Picture (front cover)",
+      "value": "front cover, image/jpeg, 2920 bytes"
+    },
+    {
+      "level": "high",
+      "section": "Cue point labels",
+      "label": "Label of cue point 1",
+      "value": "Verse"
+    },
+    {
+      "level": "high",
+      "section": "Cue point labels",
+      "label": "Label of cue point 2",
+      "value": "Chorus: Jane's part"
+    },
+    {
+      "level": "high",
+      "section": "Cue point labels",
+      "label": "Text of cue point 2",
+      "value": "landlord speaking"
+    },
+    {
+      "level": "high",
+      "section": "Embedded pictures and objects",
+      "label": "ID3v2.3 APIC 1",
+      "value": "JPEG, 2920 bytes; front cover"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Make",
+      "value": "ExampleCam"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Model",
+      "value": "Model X"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Software",
+      "value": "Firmware 1.0"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "DateTime",
+      "value": "2024-05-01T14:30:00"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "DateTimeOriginal",
+      "value": "2024-05-01T14:30:00+02:00"
+    },
+    {
+      "level": "high",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "OffsetTimeOriginal",
+      "value": "+02:00"
+    },
+    {
+      "level": "medium",
+      "section": "RIFF INFO",
+      "label": "Title",
+      "value": "Flat hunt, take 3"
+    },
+    {
+      "level": "medium",
+      "section": "RIFF INFO",
+      "label": "Software",
+      "value": "Example Recorder 2.1"
+    },
+    {
+      "level": "medium",
+      "section": "Broadcast WAV (bext)",
+      "label": "Coding history",
+      "value": "A=PCM,F=8000,W=16,M=mono,T=ZOOM H5"
+    },
+    {
+      "level": "medium",
+      "section": "iXML",
+      "label": "BWFXML/IXML_VERSION",
+      "value": "2.10"
+    },
+    {
+      "level": "medium",
+      "section": "iXML",
+      "label": "BWFXML/PROJECT",
+      "value": "Flat hunt"
+    },
+    {
+      "level": "medium",
+      "section": "iXML",
+      "label": "BWFXML/SCENE",
+      "value": "Kitchen"
+    },
+    {
+      "level": "medium",
+      "section": "iXML",
+      "label": "BWFXML/TAKE",
+      "value": "3"
+    },
+    {
+      "level": "medium",
+      "section": "axml",
+      "label": "ebuCoreMain/coreMetadata/title",
+      "value": "Flat hunt, take 3"
+    },
+    {
+      "level": "medium",
+      "section": "axml",
+      "label": "ebuCoreMain/coreMetadata/creator",
+      "value": "Jane Doe"
+    },
+    {
+      "level": "medium",
+      "section": "axml",
+      "label": "ebuCoreMain/coreMetadata/date",
+      "value": "2024-05-01"
+    },
+    {
+      "level": "medium",
+      "section": "Sampler loops (smpl)",
+      "label": "Manufacturer (MIDI ID)",
+      "value": "71"
+    },
+    {
+      "level": "medium",
+      "section": "Sampler loops (smpl)",
+      "label": "Product",
+      "value": "4660"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "ExposureTime",
+      "value": "1/250 s"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "FNumber",
+      "value": "f/1.8"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "ISOSpeedRatings",
+      "value": "100"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Flash",
+      "value": "Did not fire, flash suppressed"
+    },
+    {
+      "level": "medium",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "FocalLength",
+      "value": "4.2 mm"
+    },
+    {
+      "level": "medium",
+      "section": "Other chunks",
+      "label": "PEAK",
+      "value": "24 bytes at offset 21932"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Format",
+      "value": "PCM"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Channels",
+      "value": "2"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Sample rate",
+      "value": "8000 Hz"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Bits per sample",
+      "value": "16"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Byte rate",
+      "value": "32000 bytes/s"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Duration",
+      "value": "0.500 s"
+    },
+    {
+      "level": "low",
+      "section": "Audio",
+      "label": "Audio data",
+      "value": "16000 bytes"
+    },
+    {
+      "level": "low",
+      "section": "Broadcast WAV (bext)",
+      "label": "Time reference",
+      "value": "sample 0"
+    },
+    {
+      "level": "low",
+      "section": "Broadcast WAV (bext)",
+      "label": "Version",
+      "value": "2"
+    },
+    {
+      "level": "low",
+      "section": "Broadcast WAV (bext)",
+      "label": "Integrated loudness",
+      "value": "-23.00"
+    },
+    {
+      "level": "low",
+      "section": "Broadcast WAV (bext)",
+      "label": "Loudness range",
+      "value": "5.00"
+    },
+    {
+      "level": "low",
+      "section": "Broadcast WAV (bext)",
+      "label": "Maximum true peak",
+      "value": "-1.00"
+    },
+    {
+      "level": "low",
+      "section": "Broadcast WAV (bext)",
+      "label": "Maximum momentary loudness",
+      "value": "-18.00"
+    },
+    {
+      "level": "low",
+      "section": "Broadcast WAV (bext)",
+      "label": "Maximum short-term loudness",
+      "value": "-20.00"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "XMP packet",
+      "value": "1230 bytes"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "tiff:Orientation",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "XMP",
+      "label": "dc:subject",
+      "value": "holiday; beach"
+    },
+    {
+      "level": "low",
+      "section": "Cue points",
+      "label": "Cue point 1",
+      "value": "sample 0"
+    },
+    {
+      "level": "low",
+      "section": "Cue points",
+      "label": "Cue point 2",
+      "value": "sample 2000"
+    },
+    {
+      "level": "low",
+      "section": "Sampler loops (smpl)",
+      "label": "Loops",
+      "value": "1"
+    },
+    {
+      "level": "low",
+      "section": "Sampler loops (smpl)",
+      "label": "Sampler-specific data",
+      "value": "6 bytes"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Byte order",
+      "value": "little-endian (II)"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): EXIF",
+      "label": "Orientation",
+      "value": "Horizontal (normal)"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): Thumbnail",
+      "label": "Dimensions",
+      "value": "160 x 120 pixels"
+    },
+    {
+      "level": "low",
+      "section": "ID3v2.3 APIC 1 (JPEG): Thumbnail",
+      "label": "Compression",
+      "value": "JPEG (old-style)"
+    }
+  ],
+  "warnings": [
+    "CRITICAL: XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: ID3v2.3 APIC 1 (JPEG): GPS coordinates found (48.858367, 2.294481): they reveal where the photo was taken",
+    "CRITICAL: ID3v2.3 APIC 1 (JPEG): XMP contains GPS data (exif:GPSLatitude, exif:GPSLongitude)",
+    "CRITICAL: 14 bytes of data hidden in padding chunks",
+    "ID3v2.3 APIC 1 (JPEG): embedded thumbnail may show the original, uncropped image"
+  ],
+  "can_strip": true
+}

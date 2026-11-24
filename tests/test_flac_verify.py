@@ -68,7 +68,7 @@ def test_changed_streaminfo_md5_is_detected():
 
 def test_changed_frames_are_detected():
     original = f.flac()
-    info, frames = f.encode([f.sine(phase=0.5)])
+    info, frames = f.encode([f.sine(start=1)])
     other = f.flac(info=flac.layout(original).blocks[0].data, frames=frames)
     result = verify(other, original)
     assert result.image_data_match is False

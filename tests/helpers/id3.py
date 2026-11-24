@@ -55,9 +55,10 @@ def text(frame_id: str, *values: str, encoding: int = UTF8, version: int = 4) ->
 
 
 def txxx(desc: str, value: str, encoding: int = UTF8, version: int = 4) -> bytes:
+    """A user text frame; the value ends with a terminator, as many taggers write it."""
     return frame("TXX" if version == 2 else "TXXX",
-                 bytes([encoding]) + encode(desc, encoding, True) + encode(value, encoding),
-                 version)
+                 bytes([encoding]) + encode(desc, encoding, True)
+                 + encode(value, encoding, True), version)
 
 
 def url(frame_id: str, address: str, version: int = 4) -> bytes:

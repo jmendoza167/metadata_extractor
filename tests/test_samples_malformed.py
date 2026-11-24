@@ -12,6 +12,10 @@ from helpers.samples import SAMPLES_DIR
 
 PROBLEMS = {
     "bad_crc.png": "tEXt chunk at offset 644 has a bad CRC",
+    "bad_id3_size.mp3": "the ID3v2 tag at offset 0 is truncated: it needs 1000010 bytes",
+    "broken_block_length.flac": "metadata block at offset 42 is truncated: needs 100000 bytes",
+    "truncated.mp3": "the MPEG frame at offset 8387 is truncated: needs 418 bytes",
+    "wrong_riff_size.wav": "RIFF size says the file has 8174 bytes, but it has 8074",
     "broken_subblock.gif": "a sub-block needs 255 bytes, 46 available",
     "encrypted_entry.docx": "'word/document.xml' is encrypted (password-protected)",
     "entity.svg": "ENTITY declaration (possible XML entity attack)",
