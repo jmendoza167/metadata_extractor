@@ -21,11 +21,15 @@ entries become core/archive.py members:
 
 from __future__ import annotations
 
-from metaex.core import appledouble
+import hashlib
+
+from metaex.core import appledouble, tarwriter
 from metaex.core import tar as tarcore
 from metaex.core.archive import (DEVICE, DIR, FIFO, FILE, HARDLINK, NEUTRAL_TIME, SYMLINK,
-                                 Member, contents_section, junk_reason, link_problem,
-                                 member_sections)
+                                 Member, contents_section, junk_reason, junk_warnings,
+                                 link_problem, member_sections, neutral_mode, some,
+                                 user_folder_warnings)
+from metaex.core.errors import CannotCleanError, MalformedFileError, MetaexError
 from metaex.core.result import Section
 
 MAX_SPECIAL_READ = 1024 * 1024
@@ -182,3 +186,123 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     """What a TAR archive reveals besides its files (see the module docstring).
     Raises MalformedFileError if the archive is damaged or unsafe."""
     return report_archive(tarcore.open_tar(data))
+
+
+# -- stripping -------------------------------------------------------------------------------
+
+_OUT_TYPES = {FILE: b"0", DIR: tarcore.DIRECTORY, SYMLINK: tarcore.SYMLINK,
+              HARDLINK: tarcore.HARDLINK, FIFO: tarcore.FIFO}
+
+
+def kept_entries(archive: tarcore.TarArchive) -> list[tuple[tarcore.TarEntry, Member]]:
+    """(entry, member) of what a cleaned archive keeps: every entry but
+    operating system junk and earlier copies replaced by a later entry."""
+    replaced = {id(e) for e in archive.replaced()}
+    return [(e, m) for e, m in zip(archive.entries, members(archive))
+            if not m.junk and id(e) not in replaced]
+
+
+def check_strippable(kept: list[tuple[tarcore.TarEntry, Member]]) -> None:
+    """Raise CannotCleanError for links metaex must not keep."""
+    seen: set[str] = set()
+    for entry, m in kept:
+        if m.link is not None:
+            problem = link_problem(m)
+            if problem is not None:
+                raise CannotCleanError(f"the TAR archive holds a {problem}; this reveals where "
+                                       "the files came from, but removing the link would "
+                                       "change the archive; refused")
+            if m.kind == HARDLINK and tarcore.normalized(m.link) not in seen:
+                raise CannotCleanError(f"the hard link {m.name!r} points to {m.link!r}, which "
+                                       "is not an earlier file in the cleaned archive; refused")
+        seen.add(tarcore.normalized(entry.name))
+
+
+def out_member(archive: tarcore.TarArchive, entry: tarcore.TarEntry, m: Member
+               ) -> tarwriter.OutMember:
+    name = entry.raw_name
+    if m.kind == DIR and not name.endswith(b"/"):
+        name += b"/"
+    typeflag = _OUT_TYPES.get(m.kind, entry.typeflag)
+    data = archive.read(entry) if m.kind == FILE else b""
+    link = entry.raw_linkname if m.kind in (SYMLINK, HARDLINK) else b""
+    return tarwriter.OutMember(name, typeflag, neutral_mode(m), data, link,
+                               entry.header.devmajor, entry.header.devminor)
+
+
+def contents_digest(archive: tarcore.TarArchive, entries: list[tarcore.TarEntry]) -> str:
+    """SHA-256 over every entry's name, type, link target and data."""
+    h = hashlib.sha256()
+    for e in entries:
+        kind = kind_of(e)
+        h.update(tarcore.encode(e.name.rstrip("/") or e.name) + b"\x00"
+                 + kind.encode("ascii") + b"\x00" + e.raw_linkname * (kind in (SYMLINK,
+                                                                               HARDLINK))
+                 + b"\x00" + hashlib.sha256(archive.read(e)).digest())
+    return h.hexdigest()
+
+
+def strip_archive(archive: tarcore.TarArchive) -> bytes:
+    kept = kept_entries(archive)
+    check_strippable(kept)
+    try:
+        cleaned = tarwriter.write_tar([out_member(archive, e, m) for e, m in kept])
+    except ValueError as exc:
+        raise MalformedFileError(f"the cleaned TAR archive can't be written: {exc}") from None
+    result = tarcore.open_tar(cleaned)
+    if contents_digest(result, result.entries) != contents_digest(archive,
+                                                                   [e for e, _m in kept]):
+        raise MalformedFileError("internal check failed: the archive's contents changed while "
+                                 "stripping")
+    return cleaned
+
+
+def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True,
+          paranoid: bool = False) -> bytes:
+    """Return a cleaned copy of a TAR archive (whitelist).
+
+    Kept, in order: every file, folder, link, device and fifo entry, with
+    its name, link target and data byte for byte. Each gets a new plain
+    ustar header: time 1980-01-01 00:00 UTC, owner and group 0 with empty
+    names, permissions 644 (755 for folders and executables, 777 for
+    symbolic links). A pax header is written only for names or link
+    targets too long for ustar, with nothing but the name. Removed: pax
+    times, owners, extended attributes and comments, global pax headers,
+    GNU volume labels and long-name headers, every unused header byte,
+    data in padding and after the end, earlier copies of files replaced by
+    a later entry, and operating system junk (AppleDouble "._" files,
+    __MACOSX/, .DS_Store, Thumbs.db, desktop.ini). ``keep_orientation``
+    and ``paranoid`` apply to files inside, which are not cleaned here.
+
+    Raises MalformedFileError for damaged or unsafe archives,
+    UnsupportedFormatError for sparse files and unknown entry types, and
+    CannotCleanError for links to absolute paths, outside the archive or
+    into a user folder.
+    """
+    return strip_archive(tarcore.open_tar(data))
+
+
+def removed_sizes(data: bytes | bytearray | memoryview) -> dict[str, int]:
+    """Bytes of hidden data a cleaned archive drops."""
+    try:
+        archive = tarcore.open_tar(data)
+    except MetaexError:
+        return {}
+    total = sum(len(d) for _w, d, _n in hidden_ranges(archive))
+    return {"archive_hidden": total} if total else {}
+
+
+def strip_warnings(data: bytes, paranoid: bool = False) -> list[str]:
+    try:
+        archive = tarcore.open_tar(data)
+    except MetaexError:
+        return []
+    return junk_warnings(members(archive))
+
+
+def kept_warnings(cleaned: bytes) -> list[str]:
+    try:
+        archive = tarcore.open_tar(cleaned)
+    except MetaexError:
+        return []
+    return user_folder_warnings(members(archive))
