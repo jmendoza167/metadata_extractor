@@ -16,7 +16,14 @@ def _load():
         spec = importlib.util.spec_from_file_location("make_samples", SCRIPT)
         module = importlib.util.module_from_spec(spec)
         sys.modules["make_samples"] = module
-        spec.loader.exec_module(module)
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            # Don't leave a half-loaded module behind: the next test file
+            # would get it and fail with a misleading AttributeError instead
+            # of the real error.
+            del sys.modules["make_samples"]
+            raise
     return module
 
 

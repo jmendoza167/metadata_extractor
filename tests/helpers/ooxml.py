@@ -747,8 +747,8 @@ def notes_slide(text: str = "Mention the deadline: 2024-06-01") -> str:
     image = ('<p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image"/><p:cNvSpPr><a:spLocks '
              'noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg"/>'
              "</p:nvPr></p:nvSpPr><p:spPr/></p:sp>")
-    return (f"{DECL}<p:notes {PPT_DECLS}><p:cSld><p:spTree>{GROUP}{image}"
-            f'{text_shape(3, text, placeholder="<p:ph type=\"body\" idx=\"1\"/>")}'
+    body = text_shape(3, text, placeholder='<p:ph type="body" idx="1"/>')
+    return (f"{DECL}<p:notes {PPT_DECLS}><p:cSld><p:spTree>{GROUP}{image}{body}"
             "</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>")
 
 

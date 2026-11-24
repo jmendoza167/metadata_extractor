@@ -27,21 +27,40 @@ def labels(archive, key):
     return [f.label for s in report_sections(archive) if s.key == key for f in s.fields]
 
 
+def stdlib_zip(compression: int, *, create_system: int = 0, external_attr: int = 0) -> bytes:
+    """An archive written by zipfile. ZipInfo marks entries as made on MS-DOS
+    (0) on Windows but on Unix (3) elsewhere, with permission bits in
+    external_attr, so both are set here: the result is the same on every OS."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression) as z:
+        for name, text in (("a.txt", "hello " * 100), ("dir/b.xml", "<b/>")):
+            info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+            info.create_system = create_system
+            info.external_attr = external_attr
+            z.writestr(info, text)
+    return buf.getvalue()
+
+
 # -- reading ------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("compression", [zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED])
 def test_reads_an_archive_made_by_the_standard_library(compression):
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", compression) as z:
-        z.writestr(zipfile.ZipInfo("a.txt", (1980, 1, 1, 0, 0, 0)), "hello " * 100)
-        z.writestr(zipfile.ZipInfo("dir/b.xml", (1980, 1, 1, 0, 0, 0)), "<b/>")
-    archive = open_archive(buf.getvalue())
+    archive = open_archive(stdlib_zip(compression))
     assert archive.names() == ["a.txt", "dir/b.xml"]
     assert archive.read("a.txt") == b"hello " * 100
     assert archive.read(archive.get("dir/b.xml")) == b"<b/>"
     assert archive.hidden == [] and not archive.zip64
     assert report_sections(archive) == []
+
+
+def test_an_archive_made_on_unix_by_the_standard_library_says_so():
+    archive = open_archive(stdlib_zip(zipfile.ZIP_DEFLATED, create_system=3,
+                                      external_attr=0o100644 << 16))
+    assert archive.read("a.txt") == b"hello " * 100
+    sections = report_sections(archive)
+    assert [s.key for s in sections] == ["zip_entries"]
+    assert {f.key: f.value for f in sections[0].fields} == {"created_by_os": ["Unix"]}
 
 
 def test_reads_stored_and_deflated_entries_and_keeps_order():
