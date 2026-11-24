@@ -33,8 +33,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from metaex.core import id3
 from metaex.core.crc import crc16_arc
+from metaex.core.embedded import Picture, picture_sections
 from metaex.core.errors import MalformedFileError, UnsupportedFormatError
+from metaex.core.inflate import Budget
 from metaex.core.result import Section
 
 MAX_JUNK_REGIONS = 10_000
@@ -492,6 +495,43 @@ def _refuse_other_streams(data: bytes, start: int, end: int, sync: int | None) -
         raise UnsupportedFormatError("this is AAC audio (ADTS), not MP3; AAC is not supported")
     if sync is None:
         raise MalformedFileError("no MPEG audio frames found")
+
+
+# -- ID3v2 tags before the audio ----------------------------------------------------------
+
+MAX_LEADING_TAGS = 16
+
+
+def leading_tags(data: bytes, budget: Budget | None = None) -> tuple[list[id3.Tag], int]:
+    """The ID3v2 tags at the start of the file (some files have several, one
+    after the other) and the offset where the audio starts. Raises
+    MalformedFileError for a tag that extends past the end of the file."""
+    budget = budget or Budget(id3.DECOMPRESS_LIMIT)
+    tags: list[id3.Tag] = []
+    pos = 0
+    while id3.header_size(data, pos) is not None:
+        if len(tags) >= MAX_LEADING_TAGS:
+            raise MalformedFileError(f"more than {MAX_LEADING_TAGS} ID3v2 tags")
+        tag = id3.parse_tag(data, pos, budget)
+        tags.append(tag)
+        pos = tag.end
+    return tags, pos
+
+
+def tag_sections(tags: list[id3.Tag], warnings: list[str]) -> list[Section]:
+    """A section per ID3v2 tag, the pictures in them (through the image
+    parsers) and any data hidden in their padding."""
+    sections: list[Section] = []
+    pictures: list[Picture] = []
+    for n, tag in enumerate(tags):
+        where = "appended at the end" if tag.appended else f"at offset {tag.offset}"
+        title = f"{tag.version} tag" + (f" {n + 1}" if len(tags) > 1 else "") + f" ({where})"
+        sections.append(id3.tag_section(tag, "id3v2", title, warnings, pictures))
+    sections += picture_sections(pictures, warnings, "audio_pictures", "Embedded pictures")
+    hidden = id3.padding_section(tags, warnings)
+    if hidden is not None:
+        sections.append(hidden)
+    return sections
 
 
 # -- report sections ----------------------------------------------------------------------
