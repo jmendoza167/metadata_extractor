@@ -82,7 +82,7 @@ def test_pax_only_for_names_that_need_it():
 def test_report_of_the_cleaned_archive():
     found = tarformat.parse(tarformat.strip(kitchen_sink()))
     assert [s.key for s in found["sections"]] == ["archive_contents", "archive_paths",
-                                                  "archive_links"]
+                                                  "archive_links", "archive_files"]
 
 
 def test_strip_is_deterministic_and_idempotent():

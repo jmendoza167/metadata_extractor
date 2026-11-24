@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -24,6 +25,9 @@ class Section:
     key: str
     title: str
     fields: list[Field] = field(default_factory=list)
+    kept: Callable[[Field], bool] | None = field(default=None, repr=False, compare=False)
+    """For sections of a file inside another (archives): which of its fields
+    may stay in a cleaned file, by the inner file's own format rules."""
 
     def add(self, key: str, label: str, value: Any, *, sensitive: bool = False,
             note: str | None = None) -> Field:

@@ -7,12 +7,14 @@ not on the format's "kept by design" whitelist is reported as a leftover.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from metaex.core.errors import UnsupportedFormatError
 from metaex.core.filetype import FileType, detect
 from metaex.core.registry import can_strip, format_module
 from metaex.core.report import format_value
+from metaex.core.result import Field
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,23 @@ class VerifyResult:
     then image_data_match compares the decompressed data: identical pixels."""
 
 
+def kept_rule(module) -> Callable[[str, Field], bool]:
+    """(section key, field) -> True if a cleaned file of this format may keep
+    the field: the format's is_kept_by_design(), which can decide by value
+    (Office: authors may stay as "Author"), else its KEPT_BY_DESIGN
+    whitelist (None for a section means all of its fields)."""
+    hook = getattr(module, "is_kept_by_design", None)
+    if callable(hook):
+        return hook
+    whitelist: dict[str, set[str] | None] = getattr(module, "KEPT_BY_DESIGN", {})
+
+    def kept(section_key: str, f: Field) -> bool:
+        allowed = whitelist.get(section_key, set())
+        return allowed is None or f.key in allowed
+
+    return kept
+
+
 def verify(cleaned: bytes, original: bytes | None = None,
            filename: str | None = None) -> VerifyResult:
     """Re-detect and re-parse ``cleaned`` and classify everything still in it.
@@ -64,17 +83,12 @@ def verify(cleaned: bytes, original: bytes | None = None,
     result = VerifyResult(filetype=detected)
     result.notes.extend(detected.warnings)
     parsed = module.parse(cleaned)
-    whitelist: dict[str, set[str] | None] = getattr(module, "KEPT_BY_DESIGN", {})
-    # A format can decide by value too (Office: authors may stay as "Author").
-    kept_hook = getattr(module, "is_kept_by_design", None)
+    rule = kept_rule(module)
     for section in parsed.get("sections", []):
-        allowed = whitelist.get(section.key, set())
         for f in section.fields:
             finding = Finding(section.title, f.label, format_value(f.value))
-            if callable(kept_hook):
-                kept = kept_hook(section.key, f)
-            else:
-                kept = allowed is None or f.key in allowed
+            # Files inside an archive are judged by their own format's rules.
+            kept = section.kept(f) if section.kept is not None else rule(section.key, f)
             if kept:
                 result.kept_by_design.append(finding)
             else:

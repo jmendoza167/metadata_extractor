@@ -34,7 +34,8 @@ def test_cleaned_archive_verifies():
     result = verify(tarformat.strip(data), data)
     assert result.clean, (result.leftovers, result.problems)
     assert result.image_data_match is True
-    assert {f.section for f in result.kept_by_design} == {"Archive contents", "Link targets"}
+    assert {f.section for f in result.kept_by_design} == {"Archive contents", "Link targets",
+                                                          "Files inside"}
 
 
 def test_original_is_not_clean():

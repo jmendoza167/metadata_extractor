@@ -26,6 +26,9 @@ from __future__ import annotations
 
 import posixpath
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 
 from metaex.core import appledouble
@@ -327,3 +330,211 @@ def member_sections(members: list[Member], *, comment: str = "",
     sections.append(s)
 
     return [s for s in sections if s.fields]
+
+
+# -- files inside archives ---------------------------------------------------------------------
+
+MAX_NESTING = 3
+"""Archives inside archives are read up to this depth (the file itself is 0)."""
+MAX_INNER_FILES = 1000
+"""Files inside examined at most, counting every level of nesting."""
+ARCHIVE_KEYS = ("zip", "tar", "gzip", "bzip2", "xz")
+NOT_REPEATED = {"archive_contents", "compress_contents", "structure"}
+"""Sections of an inner file that describe it, not its metadata."""
+
+
+@dataclass
+class _Counter:
+    left: int
+
+
+@dataclass(frozen=True)
+class Scan:
+    depth: int = 0
+    inner: bool = True
+    """Whether files inside archives are read at all."""
+    counter: _Counter = field(default_factory=lambda: _Counter(MAX_INNER_FILES))
+    prefix: str = ""
+    """Path of the archive being read inside the outer one ("a.zip > ")."""
+
+
+_SCAN: ContextVar[Scan | None] = ContextVar("metaex_archive_scan", default=None)
+
+
+def scan_state() -> Scan:
+    state = _SCAN.get()
+    return state if state is not None else Scan()
+
+
+@contextmanager
+def scan_inner(enabled: bool) -> Iterator[None]:
+    """Read the files inside archives (show, risk, verify) or not (strip's
+    check of the archive it just wrote: files it didn't clean are warned
+    about instead)."""
+    state = scan_state()
+    token = _SCAN.set(Scan(state.depth, enabled, state.counter, state.prefix))
+    try:
+        yield
+    finally:
+        _SCAN.reset(token)
+
+
+@contextmanager
+def inside(path: str) -> Iterator[Scan]:
+    """Read (or clean) the file ``path`` one level deeper."""
+    state = scan_state()
+    token = _SCAN.set(Scan(state.depth + 1, state.inner, state.counter,
+                           f"{state.prefix}{path} > "))
+    try:
+        yield _SCAN.get()
+    finally:
+        _SCAN.reset(token)
+
+
+@contextmanager
+def own_budget() -> Iterator[None]:
+    """Read or clean one file inside on a decompression budget of its own,
+    cut from the shared one: a bomb inside uses up only its own budget (the
+    file is then reported, or copied as it is), and only what was really
+    produced is charged to the shared budget."""
+    from metaex.core.inflate import Budget, shared_budget, sharing
+
+    shared = shared_budget()
+    if shared is None:
+        yield
+        return
+    child = Budget(shared.remaining)
+    try:
+        with sharing(child):
+            yield
+    finally:
+        shared.remaining = max(0, shared.remaining - child.spent)
+
+
+@contextmanager
+def root_scan() -> Iterator[None]:
+    """Start counting the files inside (MAX_INNER_FILES) here, unless an
+    outer archive already does."""
+    if _SCAN.get() is not None:
+        yield
+        return
+    token = _SCAN.set(Scan())
+    try:
+        yield
+    finally:
+        _SCAN.reset(token)
+
+
+@dataclass
+class InnerFile:
+    path: str
+    kind: str
+    """The detected type's name."""
+    status: str
+    """"examined", "partly examined" or why it was not examined."""
+    leftovers: int = 0
+    """Metadata fields a cleaned file of its type must not have."""
+
+
+def _not_examined(state: Scan, detected) -> str | None:
+    from metaex.core import filetype
+
+    if detected.key == filetype.UNKNOWN.key:
+        return "not examined: type not recognized"
+    if detected.key in ARCHIVE_KEYS and state.depth + 1 > MAX_NESTING:
+        return f"not examined: archives are read only {MAX_NESTING} levels deep"
+    if state.counter.left <= 0:
+        return f"not examined: more than {MAX_INNER_FILES} files inside"
+    return None
+
+
+def inner_sections(files: list[tuple[str, bytes]], warnings: list[str]
+                   ) -> tuple[list[Section], list[InnerFile]]:
+    """The metadata of the files inside an archive, read with their own
+    format's parser: their sections (titles start with the file's path;
+    each keeps its key, so its risk level, and the rule of what a cleaned
+    file of its type may keep), and what was found for each file. Nothing
+    if reading inside archives is turned off (see scan_inner())."""
+    from metaex.core import filetype
+    from metaex.core.errors import MetaexError
+    from metaex.core.registry import format_module
+    from metaex.core.verify import kept_rule
+
+    state = scan_state()
+    if not state.inner:
+        return [], []
+    sections: list[Section] = []
+    found: list[InnerFile] = []
+    for path, data in files:
+        detected = filetype.detect(data)
+        kind = detected.name if detected.key != filetype.UNKNOWN.key else "unrecognized"
+        module = format_module(detected)
+        reason = _not_examined(state, detected)
+        if reason is None and module is None:
+            reason = f"not examined: metaex doesn't read {detected.name} files"
+        if reason is not None:
+            found.append(InnerFile(path, kind, reason))
+            continue
+        state.counter.left -= 1
+        try:
+            with inside(path), own_budget():
+                parsed = module.parse(data)
+        except MetaexError as exc:
+            found.append(InnerFile(path, kind, f"not examined: {exc}"))
+            warnings.append(f"{path} ({kind}) inside the archive could not be examined: {exc}")
+            continue
+        rule = kept_rule(module)
+        count = 0
+        for s in parsed.get("sections", []):
+            if s.key in NOT_REPEATED:
+                continue
+            kept = s.kept if s.kept is not None else (
+                lambda f, key=s.key, rule=rule: rule(key, f))
+            sections.append(Section(s.key, f"{path}: {s.title}", s.fields, kept=kept))
+            count += sum(1 for f in s.fields if not kept(f))
+        for w in parsed.get("warnings", []):
+            if w.startswith("CRITICAL: "):
+                warnings.append(f"CRITICAL: {path}: {w[len('CRITICAL: '):]}")
+            else:
+                warnings.append(f"{path}: {w}")
+        status = "examined" if parsed.get("complete", True) else "partly examined"
+        found.append(InnerFile(path, kind, status, count))
+    return sections, found
+
+
+def files_section(found: list[InnerFile]) -> Section | None:
+    """What was found inside: not metadata itself (risk leaves it out, and a
+    cleaned archive may keep it)."""
+    if not found:
+        return None
+    s = Section("archive_files", "Files inside", kept=lambda f: True)
+    for n, item in enumerate(found[:MAX_LISTED]):
+        if item.status.startswith("not examined"):
+            text = f"{item.kind}; {item.status}"
+        elif item.leftovers:
+            text = f"{item.kind}; {item.leftovers} metadata field(s)"
+        else:
+            text = f"{item.kind}; no metadata"
+        s.add(f"file_{n + 1}", item.path, text)
+    _limited(s, len(found))
+    return s
+
+
+def scan_files(files: list[tuple[str, bytes]], warnings: list[str]
+               ) -> tuple[list[Section], list[InnerFile]]:
+    """inner_sections() plus the "Files inside" overview, first."""
+    sections, found = inner_sections(files, warnings)
+    overview = files_section(found)
+    return ([overview] if overview is not None else []) + sections, found
+
+
+def inner_warnings(found: list[InnerFile]) -> list[str]:
+    """For strip: files inside that still hold metadata (not cleaned without
+    --deep, or files --deep had to copy as they were)."""
+    left = [f for f in found if f.leftovers]
+    if not left:
+        return []
+    listed = some([f"{f.path} ({f.kind})" for f in left])
+    return [f"CRITICAL: {len(left)} file(s) inside the archive still contain metadata: "
+            f"{listed}. They were NOT cleaned; use --deep to clean the files inside the "
+            "archive too"]

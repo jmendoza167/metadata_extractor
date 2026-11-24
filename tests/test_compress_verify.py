@@ -10,6 +10,7 @@ import pytest
 from helpers import bzip2, gz, xz
 from helpers.jpeg import sample_photo
 from helpers.tar import JAN_2024, build_tar, file, pax
+from metaex.core.archive import scan_inner
 from metaex.core.verify import verify
 from metaex.formats import gzip as gzipformat
 
@@ -56,6 +57,10 @@ def test_single_file_must_be_unchanged():
     photo = sample_photo()
     original = gz.gzip(photo, name=b"photo.jpg")
     result = verify(gzipformat.strip(original), original)
+    assert result.image_data_match  # the same photo ...
+    assert not result.clean  # ... with its GPS: without --deep the file inside is not cleaned
+    with scan_inner(False):  # the wrapper itself is clean
+        result = verify(gzipformat.strip(original), original)
     assert result.clean and result.image_data_match
     assert result.image_label == "Compressed file contents"
     other = gz.gzip(photo[:-1] + b"\x00")

@@ -26,10 +26,12 @@ import hashlib
 from metaex.core import appledouble, tarwriter
 from metaex.core import tar as tarcore
 from metaex.core.archive import (DEVICE, DIR, FIFO, FILE, HARDLINK, NEUTRAL_TIME, SYMLINK,
-                                 Member, contents_section, junk_reason, junk_warnings,
-                                 link_problem, member_sections, neutral_mode, some,
-                                 user_folder_warnings)
+                                 Member, contents_section, inner_warnings, junk_reason,
+                                 junk_warnings, link_problem, member_sections, neutral_mode,
+                                 scan_files, scan_inner, scan_state, some, user_folder_warnings)
 from metaex.core.errors import CannotCleanError, MalformedFileError, MetaexError
+from metaex.core.inflate import Budget, shared_budget, sharing
+from metaex.core.ziparchive import DEFAULT_LIMITS
 from metaex.core.result import Section
 
 MAX_SPECIAL_READ = 1024 * 1024
@@ -178,8 +180,22 @@ def report_archive(archive: tarcore.TarArchive) -> dict:
             warnings.append(f"CRITICAL: {m.name} records where a file was downloaded from")
     sections = [contents_section(found, "TAR")]
     sections += member_sections(found + global_members(archive), hidden=hidden)
+    with sharing(shared_budget() or Budget(DEFAULT_LIMITS.max_total_size)):
+        inner, files = scan_files(inner_files(archive, found), warnings)
+    sections += inner
     return {"sections": sections, "warnings": warnings, "complete": True,
-            "structure": structure_section(archive)}
+            "structure": structure_section(archive), "inner": files}
+
+
+def inner_files(archive: tarcore.TarArchive, found: list[Member]) -> list[tuple[str, bytes]]:
+    """(name, contents) of the files inside to examine: every non-empty file
+    but operating system junk and replaced copies (nothing if files inside
+    are not read)."""
+    if not scan_state().inner:
+        return []
+    replaced = {id(e) for e in archive.replaced()}
+    return [(m.name, archive.read(e)) for e, m in zip(archive.entries, found)
+            if m.kind == FILE and not m.junk and e.size and id(e) not in replaced]
 
 
 def parse(data: bytes | bytearray | memoryview) -> dict:
@@ -301,11 +317,15 @@ def strip_warnings(data: bytes, paranoid: bool = False) -> list[str]:
 
 
 def kept_warnings(cleaned: bytes) -> list[str]:
+    """What a cleaned archive still reveals: names of user folders (kept by
+    design), and files inside that still hold metadata."""
     try:
         archive = tarcore.open_tar(cleaned)
+        with scan_inner(True):
+            found = report_archive(archive)["inner"]
     except MetaexError:
         return []
-    return user_folder_warnings(members(archive))
+    return user_folder_warnings(members(archive)) + inner_warnings(found)
 
 
 # -- verification ----------------------------------------------------------------------------

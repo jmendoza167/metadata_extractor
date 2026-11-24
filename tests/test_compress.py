@@ -71,7 +71,9 @@ def test_gzip_header_fields():
 
 def test_neutral_gzip_header_reveals_nothing():
     found = sections(gzipformat.parse(gz.gzip(b"hello")))
-    assert set(found) == {"compress_contents"}
+    assert set(found) == {"compress_contents", "archive_files"}  # the overview of what's inside
+    assert found["archive_files"] == {
+        "file_1": "unrecognized; not examined: type not recognized"}
 
 
 def test_gzip_members_are_read_in_order():

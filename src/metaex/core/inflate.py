@@ -10,7 +10,9 @@ from one file, so many small bombs can't add up either.
 from __future__ import annotations
 
 import zlib
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 
 from metaex.core.errors import MalformedFileError, MetaexError
@@ -30,6 +32,39 @@ class Budget:
             raise ValueError("limit must not be negative")
         self.limit = limit
         self.remaining = limit
+        self.exhausted_at: int | None = None
+
+    @property
+    def spent(self) -> int:
+        """Bytes really produced (a limit error uses the budget up without
+        producing what was left)."""
+        return self.limit - self.remaining if self.exhausted_at is None else self.exhausted_at
+
+    def exhaust(self) -> None:
+        """Use the budget up after a limit error, so further reads fail fast."""
+        if self.exhausted_at is None:
+            self.exhausted_at = self.limit - self.remaining
+        self.remaining = 0
+
+
+_SHARED: ContextVar[Budget | None] = ContextVar("metaex_shared_budget", default=None)
+
+
+def shared_budget() -> Budget | None:
+    """The budget of the archive whose files are being read, if any: ZIP
+    archives and compressed files opened without a budget of their own
+    (an Office document or an archive inside an archive) draw from it."""
+    return _SHARED.get()
+
+
+@contextmanager
+def sharing(budget: Budget) -> Iterator[Budget]:
+    """Make ``budget`` the shared budget while reading what an archive holds."""
+    token = _SHARED.set(budget)
+    try:
+        yield budget
+    finally:
+        _SHARED.reset(token)
 
 
 @dataclass(frozen=True)
@@ -56,7 +91,7 @@ def inflate(data: bytes | bytearray | memoryview, budget: Budget | None = None) 
     except zlib.error as exc:
         raise MalformedFileError(f"compressed data is invalid ({exc})") from None
     if len(out) > budget.remaining:
-        budget.remaining = 0
+        budget.exhaust()
         raise DecompressionLimitError(
             f"decompressed data is larger than the {budget.limit // (1024 * 1024)} MiB limit "
             "(possible decompression bomb)")

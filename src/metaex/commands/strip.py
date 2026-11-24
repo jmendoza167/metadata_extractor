@@ -11,6 +11,7 @@ from typing import Any
 
 from metaex.core import filetype as ft
 from metaex.core import icc
+from metaex.core.archive import scan_inner
 from metaex.core.errors import (CannotCleanError, MalformedFileError, MetaexError,
                                 UnsupportedFormatError)
 from metaex.core.generic import mark_of_the_web_section
@@ -183,7 +184,10 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
         raise type(exc)(f"{source}: {exc}; no file written") from None
 
     def check(on_disk: bytes) -> VerifyResult:
-        result = verify(on_disk, data, filename=target)
+        # An archive is checked as a container here: files inside that were
+        # not cleaned are listed in a warning (see kept_warnings), not refused.
+        with scan_inner(False):
+            result = verify(on_disk, data, filename=target)
         if not result.clean or result.image_data_match is not True:
             reasons = result.problems + [str(f) for f in result.leftovers]
             raise MetaexError("verification of the cleaned file failed ("
@@ -198,7 +202,8 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
         result = write_verified(target, cleaned, check, times=times)
     outcome = StripOutcome(source, target, detected, len(data), len(cleaned),
                            kept_by_design=result.kept_by_design, verify=result)
-    outcome.removed = removed_groups(module.parse(data), result.kept_by_design)
+    with scan_inner(False):
+        outcome.removed = removed_groups(module.parse(data), result.kept_by_design)
     sizes_hook = getattr(module, "removed_sizes", None)
     if callable(sizes_hook):
         outcome.removed_sizes = {_SECTION_GROUPS.get(key, key): n
@@ -338,7 +343,7 @@ _CAMERA = {"Make", "Model", "BodySerialNumber", "LensMake", "LensModel", "LensSe
            "CameraFirmware", "ImageUniqueID"}
 _AUTHOR = {"Artist", "Copyright", "ImageDescription", "UserComment", "ImageTitle",
            "Photographer", "ImageEditor", "DocumentName"}
-_NOT_METADATA = {"archive_contents", "compress_contents"}
+_NOT_METADATA = {"archive_contents", "compress_contents", "archive_files"}
 """What an archive contains (entry counts, sizes): not metadata, and it
 changes when junk files are removed."""
 _THUMBNAIL_FIELDS = {("jfif", "thumbnail"), ("jfif", "jfxx_thumbnail"),

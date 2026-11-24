@@ -27,7 +27,7 @@ def values(section) -> dict:
 def test_plain_archive_reveals_nothing():
     found = zipformat.report(build_zip([Entry("a.txt", b"hello"), Entry("dir/")]))
     keys = [s.key for s in found["sections"]]
-    assert keys == ["archive_contents"]
+    assert keys == ["archive_contents", "archive_files"]  # a.txt: not examined (plain text)
     contents = values(found["sections"][0])
     assert contents["entries"] == 2 and contents["format"] == "ZIP"
     assert contents["count.file"] == 1 and contents["count.folder"] == 1

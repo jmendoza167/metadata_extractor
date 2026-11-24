@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from metaex.core.errors import MalformedFileError
-from metaex.core.inflate import Budget
+from metaex.core.inflate import Budget, shared_budget, sharing
 from metaex.core.result import Section
 from metaex.core.ziparchive import DEFAULT_LIMITS, MIB, ArchiveLimitError, ZipLimits
 
@@ -96,6 +96,8 @@ class Compressed:
     """Zero bytes after the last member."""
     trailing: tuple[int, int] | None = None
     """(start, end) of non-zero data after the last member."""
+    budget: Budget | None = None
+    """What is left of the decompression budget (shared with what the file holds)."""
     warnings: list[str] = field(default_factory=list)
 
     @property
@@ -153,7 +155,7 @@ class _Output:
     def add(self, piece: bytes) -> None:
         self.size += len(piece)
         if self.size > self.cap:
-            self.budget.remaining = 0  # further reads fail fast
+            self.budget.exhaust()  # further reads fail fast
             raise ArchiveLimitError(f"the {NAMES[self.kind]} data expands to {self.reason} "
                                     "(possible decompression bomb); refused")
         if piece:
@@ -316,11 +318,11 @@ def open_compressed(data: bytes | bytearray | memoryview, limits: ZipLimits = DE
     if kind is None:
         raise MalformedFileError("not a gzip, bzip2 or xz file")
     if budget is None:
-        budget = Budget(limits.max_total_size)
+        budget = shared_budget() or Budget(limits.max_total_size)
     out = _Output(kind, len(data), limits, budget)
     members: list[Member] = []
     pos = 0
-    result = Compressed(kind, data, members, b"")
+    result = Compressed(kind, data, members, b"", budget=budget)
     while True:
         if len(members) >= MAX_MEMBERS:
             raise MalformedFileError(f"the {NAMES[kind]} file has more than {MAX_MEMBERS} "
@@ -491,14 +493,36 @@ def parse(data: bytes | bytearray | memoryview, kind: str) -> dict:
     if c.kind != kind:
         raise MalformedFileError(f"not a {NAMES[kind]} file")
     out = report(c)
-    if is_tar(c):
-        from metaex.core import tar as tarcore
+    with sharing(c.budget):
+        if is_tar(c):
+            from metaex.core import tar as tarcore
 
-        inner = _tar_module().report_archive(tarcore.open_tar(c.content))
-        out["sections"] += inner["sections"]
-        out["warnings"] += inner["warnings"]
-        out["structure"] = inner.get("structure")
+            inner = _tar_module().report_archive(tarcore.open_tar(c.content))
+            out["sections"] += inner["sections"]
+            out["warnings"] += inner["warnings"]
+            out["structure"] = inner.get("structure")
+            out["inner"] = inner.get("inner", [])
+        else:
+            from metaex.core.archive import scan_files
+
+            files = [(inner_name(c), c.content)] if c.content and scan_state().inner else []
+            sections, out["inner"] = scan_files(files, out["warnings"])
+            out["sections"] += sections
     return out
+
+
+def inner_name(c: Compressed) -> str:
+    """What to call the compressed file: its gzip name, else a description."""
+    for m in c.members:
+        if m.name:
+            return text(m.name).replace("/", "_").replace("\\", "_")
+    return f"(the {c.name} file's contents)"
+
+
+def scan_state():
+    from metaex.core.archive import scan_state as state
+
+    return state()
 
 
 # -- writing -----------------------------------------------------------------------------------
@@ -576,11 +600,19 @@ def strip_warnings(data: bytes) -> list[str]:
 
 
 def kept_warnings(cleaned: bytes) -> list[str]:
+    """What a cleaned file still reveals: see the TAR's kept_warnings(), or
+    the metadata of the single file inside."""
+    from metaex.core.archive import inner_warnings, scan_inner
+
     try:
         c = open_compressed(cleaned)
+        with sharing(c.budget):
+            if is_tar(c):
+                return _tar_module().kept_warnings(c.content)
+            with scan_inner(True):
+                return inner_warnings(parse(cleaned, c.kind).get("inner", []))
     except MalformedFileError:
         return []
-    return _tar_module().kept_warnings(c.content) if is_tar(c) else []
 
 
 def wrapper_leftovers(c: Compressed) -> list[tuple[str, str, str]]:

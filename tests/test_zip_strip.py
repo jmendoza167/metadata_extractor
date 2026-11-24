@@ -66,7 +66,7 @@ def test_strip_keeps_files_and_removes_metadata():
 def test_report_of_the_cleaned_archive_is_empty():
     cleaned = zipformat.strip(kitchen_sink())
     keys = [s.key for s in zipformat.parse(cleaned)["sections"]]
-    assert keys == ["archive_contents", "archive_links"]
+    assert keys == ["archive_contents", "archive_links", "archive_files"]
 
 
 def test_strip_is_deterministic():

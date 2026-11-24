@@ -95,7 +95,7 @@ def test_xz_keeps_the_check_and_drops_padding():
 def test_report_of_the_cleaned_file():
     data = gz.gzip(TAR, name=b"backup.tar", mtime=JAN_2024, comment=b"c") + b"x"
     keys = [s.key for s in gzipformat.parse(gzipformat.strip(data))["sections"]]
-    assert keys == ["compress_contents", "archive_contents"]
+    assert keys == ["compress_contents", "archive_contents", "archive_files"]
 
 
 def test_removed_sizes_and_warnings():

@@ -36,7 +36,7 @@ def test_cleaned_archive_verifies():
     assert result.image_data_match is True
     assert result.image_label == "Archive contents"
     kept = {f.section for f in result.kept_by_design}
-    assert kept == {"Archive contents", "Link targets"}
+    assert kept == {"Archive contents", "Link targets", "Files inside"}
 
 
 def test_original_is_not_clean():

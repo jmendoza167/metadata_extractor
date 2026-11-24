@@ -78,7 +78,7 @@ LEVELS = (CRITICAL, HIGH, MEDIUM, LOW)
 
 # Sections that describe the file itself rather than embedded metadata.
 NOT_METADATA_SECTIONS = {"file_type", "file_system", "hashes", "structure", "archive_contents",
-                         "compress_contents"}
+                         "compress_contents", "archive_files"}
 
 # -- critical --------------------------------------------------------------------------
 CRITICAL_SECTIONS = {"gps", "mpf", "trailing",

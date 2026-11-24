@@ -27,14 +27,15 @@ from datetime import datetime, timedelta, timezone
 
 from metaex.core import appledouble, zipwriter
 from metaex.core.archive import (DEVICE, DIR, FIFO, FILE, SYMLINK, Member, contents_section,
-                                 junk_reason, junk_warnings, link_problem, member_sections,
-                                 some,
-                                 neutral_mode, user_folder_warnings)
+                                 inner_warnings, junk_reason, junk_warnings, link_problem,
+                                 member_sections, neutral_mode, scan_files, scan_inner,
+                                 scan_state, some, user_folder_warnings)
 from metaex.core.errors import CannotCleanError, MalformedFileError
+from metaex.core.inflate import sharing
 from metaex.core.reader import ByteReader
 from metaex.core.result import Section
-from metaex.core.ziparchive import (NO_TIME, OS_NAMES, ZipArchive, ZipEntry, check_entry_name,
-                                    entry_refusal, open_archive)
+from metaex.core.ziparchive import (NO_TIME, OS_NAMES, ArchiveLimitError, ZipArchive, ZipEntry,
+                                    check_entry_name, entry_refusal, open_archive)
 
 UNIX_SYSTEMS = (3, 19)
 """ZIP "made by" systems whose external attributes hold a Unix mode: Unix and macOS."""
@@ -282,9 +283,30 @@ def report(data: bytes | bytearray | memoryview) -> dict:
     sections = [contents_section(found, "ZIP")]
     sections += member_sections(found, comment=text(archive.comment),
                                 hidden=hidden_ranges(archive))
+    with sharing(archive.budget):
+        inner, files = scan_files(inner_files(archive, found, warnings), warnings)
+    sections += inner
     return {"sections": sections, "warnings": warnings, "complete": True,
-            "structure": structure_section(archive)}
+            "structure": structure_section(archive), "inner": files}
 
+
+def inner_files(archive: ZipArchive, found: list[Member], warnings: list[str]
+                ) -> list[tuple[str, bytes]]:
+    """(name, contents) of the files inside to examine: every non-empty file
+    but operating system junk (nothing if files inside are not read)."""
+    if not scan_state().inner:
+        return []
+    out = []
+    for e, m in zip(archive.entries, found):
+        if m.kind != FILE or m.junk or not e.size or entry_refusal(e) is not None:
+            continue
+        try:
+            out.append((m.name, archive.read(e)))
+        except ArchiveLimitError:
+            raise  # a bomb inside: the archive is not examined at all
+        except MalformedFileError as exc:
+            warnings.append(f"{m.name} inside the archive can't be read: {exc}")
+    return out
 
 
 def parse(data: bytes | bytearray | memoryview) -> dict:
@@ -420,12 +442,15 @@ def strip_warnings(data: bytes, paranoid: bool = False) -> list[str]:
 
 
 def kept_warnings(cleaned: bytes) -> list[str]:
-    """What a cleaned archive still reveals by design: names of user folders."""
+    """What a cleaned archive still reveals: names of user folders (kept by
+    design), and files inside that still hold metadata."""
     try:
         archive = open_archive(cleaned)
+        with scan_inner(True):
+            found = report(cleaned)["inner"]
     except MalformedFileError:
         return []
-    return user_folder_warnings(members(archive))
+    return user_folder_warnings(members(archive)) + inner_warnings(found)
 
 
 # -- verification ----------------------------------------------------------------------------

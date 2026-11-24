@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from metaex.core.errors import MalformedFileError
-from metaex.core.inflate import Budget
+from metaex.core.inflate import Budget, shared_budget
 from metaex.core.reader import ByteReader
 from metaex.core.result import Section
 
@@ -263,7 +263,7 @@ def open_archive(data: bytes | bytearray | memoryview, limits: ZipLimits = DEFAU
 
     entries = _read_central_directory(reader, cd_start, cd_size, total, shift)
     archive = ZipArchive(data, entries, comment, [], zip64, limits,
-                         budget if budget is not None else Budget(limits.max_total_size), depth)
+                         budget or shared_budget() or Budget(limits.max_total_size), depth)
     for entry in entries:
         _check_name(entry)
         folded = _fold(entry.name)
@@ -566,7 +566,7 @@ def _decompress(archive: ZipArchive, entry: ZipEntry) -> bytes:
                   "more than the compression ratio limit")
 
     def over() -> ArchiveLimitError:
-        archive.budget.remaining = 0  # further reads fail fast
+        archive.budget.exhaust()  # further reads fail fast
         return ArchiveLimitError(f"ZIP entry {shown} expands to {reason} (possible zip bomb); "
                                  "refused")
 

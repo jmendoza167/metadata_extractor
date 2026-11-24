@@ -200,7 +200,7 @@ def test_libarchive_xattrs_are_decoded():
 def test_plain_archive_reveals_nothing():
     data = build_tar([folder("d"), file("d/a.txt", b"x"), file("run.sh", b"x", mode=0o755)])
     found = tarformat.parse(data)
-    assert [s.key for s in found["sections"]] == ["archive_contents"]
+    assert [s.key for s in found["sections"]] == ["archive_contents", "archive_files"]
     assert found["warnings"] == []
 
 
