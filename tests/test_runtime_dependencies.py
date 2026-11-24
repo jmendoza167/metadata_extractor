@@ -1,8 +1,8 @@
 """metaex uses only the standard library at runtime.
 
-Pillow, python-docx, openpyxl and python-pptx (and lxml, which they use)
-are test-only dependencies: independent readers for the pixel and Office
-content checks. metaex itself must never import them.
+Pillow, python-docx, openpyxl, python-pptx (and lxml, which they use) and
+mutagen are test-only dependencies: independent readers for the pixel,
+Office content and audio tag checks. metaex itself must never import them.
 """
 
 import json
@@ -23,7 +23,7 @@ from helpers.png import kitchen_sink_png
 from helpers.svg import kitchen_sink_svg
 from helpers.webp import kitchen_sink_webp
 
-FORBIDDEN = ("PIL", "docx", "openpyxl", "pptx", "lxml", "xlsxwriter")
+FORBIDDEN = ("PIL", "docx", "openpyxl", "pptx", "lxml", "xlsxwriter", "mutagen")
 
 CHILD = textwrap.dedent("""
     import json, sys
@@ -84,12 +84,14 @@ def test_cli_never_imports_test_only_packages(tmp_path):
 
 
 def test_test_only_packages_are_importable_in_the_test_environment():
-    """The pixel and Office content checks rely on these packages; they must be
-    installed (the [dev] extra), so a missing one fails the run instead of
-    skipping tests."""
+    """The pixel, Office content and audio tag checks rely on these packages;
+    they must be installed (the [dev] extra), so a missing one fails the run
+    instead of skipping tests."""
     import docx
+    import mutagen
     import openpyxl
     import PIL
     import pptx
 
     assert PIL.__version__ and openpyxl.__version__ and docx and pptx
+    assert mutagen.version >= (1, 47)
