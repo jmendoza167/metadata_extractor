@@ -128,6 +128,8 @@ OTHER_FORMATS = [
     (ftyp(b"M4A ", b"M4A ", b"mp42", b"isom"), ft.M4A),
     (make_tar(), ft.TAR),
     (b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03", ft.GZIP),
+    (b"BZh91AY&SY\x00\x00", ft.BZIP2),
+    (b"\xfd7zXZ\x00\x00\x01", ft.XZ),
     (b"7z\xbc\xaf\x27\x1c\x00\x04", ft.SEVEN_ZIP),
     (b"Rar!\x1a\x07\x00\xcf\x90", ft.RAR),
     (b"Rar!\x1a\x07\x01\x00\x33\x92", ft.RAR),
@@ -141,12 +143,12 @@ def test_detects_other_formats(data, expected):
 
 def test_in_scope_formats_are_marked_supported():
     for t in (ft.DOCX, ft.XLSX, ft.PPTX, ft.ODT, ft.ODS, ft.ODP, ft.MP3, ft.WAV, ft.FLAC,
-              ft.ZIP, ft.TAR):
+              ft.ZIP, ft.TAR, ft.GZIP, ft.BZIP2, ft.XZ):
         assert t.supported is True, t.key
     for t in (ft.PDF, ft.OLE2, ft.DOC, ft.XLS, ft.PPT, ft.ENCRYPTED_OFFICE, ft.EPUB, ft.JAR,
               ft.APK, ft.OGG,
               ft.MP4, ft.MOV,
-              ft.M4A, ft.GZIP, ft.SEVEN_ZIP, ft.RAR, ft.UNKNOWN):
+              ft.M4A, ft.SEVEN_ZIP, ft.RAR, ft.UNKNOWN):
         assert t.supported is False, t.key
 
 

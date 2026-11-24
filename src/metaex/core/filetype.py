@@ -113,7 +113,9 @@ M4A = _t("m4a", "M4A", "audio/mp4", ".m4a .m4b .m4p", False)
 # Archives
 ZIP = _t("zip", "ZIP", "application/zip", ".zip", True)
 TAR = _t("tar", "TAR", "application/x-tar", ".tar", True)
-GZIP = _t("gzip", "gzip", "application/gzip", ".gz .tgz", False)
+GZIP = _t("gzip", "gzip", "application/gzip", ".gz .tgz", True)
+BZIP2 = _t("bzip2", "bzip2", "application/x-bzip2", ".bz2 .tbz2 .tbz", True)
+XZ = _t("xz", "xz", "application/x-xz", ".xz .txz", True)
 SEVEN_ZIP = _t("7z", "7-Zip", "application/x-7z-compressed", ".7z", False)
 RAR = _t("rar", "RAR", "application/vnd.rar", ".rar", False)
 
@@ -132,6 +134,10 @@ _MAGIC_AT_START: tuple[tuple[bytes, FileType], ...] = (
     (b"fLaC", FLAC),
     (b"OggS", OGG),
     (b"\x1f\x8b\x08", GZIP),
+    (b"\xfd7zXZ\x00", XZ),
+    # bzip2: "BZh", the block size 1-9, then a block or the end-of-stream marker
+    *((b"BZh%d1AY&SY" % n, BZIP2) for n in range(1, 10)),
+    *((b"BZh%d\x17rE8P\x90" % n, BZIP2) for n in range(1, 10)),
     (b"7z\xbc\xaf\x27\x1c", SEVEN_ZIP),
     (b"Rar!\x1a\x07\x00", RAR),
     (b"Rar!\x1a\x07\x01\x00", RAR),

@@ -48,17 +48,19 @@ INFO and Lyrics3):
 - low: technical fields (format, bitrate, sample rate, channels, the
   LAME tag, track numbers, genre, cue points and loops)
 
-Archives (ZIP, TAR) have their own table, ARCHIVE_SECTIONS and
-ARCHIVE_FIELDS:
+Archives (ZIP, TAR, and gzip, bzip2 and xz files) have their own table,
+ARCHIVE_SECTIONS and ARCHIVE_FIELDS:
 - critical: "where from" URLs and quarantine records of downloads (in
   extended attributes), names and link targets that reveal a user folder,
-  e-mail addresses anywhere, data hidden in the archive
-- high: entry times, owner user and group names, comments, operating
-  system junk files (__MACOSX, AppleDouble, .DS_Store, Thumbs.db, ...)
-- medium: the operating system that made the entries, owner user and
-  group IDs, permissions
+  e-mail addresses anywhere, data hidden in the archive or after the
+  compressed data
+- high: entry times and the gzip modification time, owner user and group
+  names, comments (gzip comments too), operating system junk files
+  (__MACOSX, AppleDouble, .DS_Store, Thumbs.db, ...)
+- medium: the operating system that made the entries or the gzip file,
+  owner user and group IDs, permissions
 - low: everything else (other extended attributes, other link targets,
-  unknown extra fields)
+  unknown extra fields, the gzip file name and extra field)
 The files inside an archive are reported with their own sections (titles
 start with the entry's path) and keep their own levels.
 """
@@ -75,7 +77,8 @@ CRITICAL, HIGH, MEDIUM, LOW = "critical", "high", "medium", "low"
 LEVELS = (CRITICAL, HIGH, MEDIUM, LOW)
 
 # Sections that describe the file itself rather than embedded metadata.
-NOT_METADATA_SECTIONS = {"file_type", "file_system", "hashes", "structure", "archive_contents"}
+NOT_METADATA_SECTIONS = {"file_type", "file_system", "hashes", "structure", "archive_contents",
+                         "compress_contents"}
 
 # -- critical --------------------------------------------------------------------------
 CRITICAL_SECTIONS = {"gps", "mpf", "trailing",
@@ -326,9 +329,12 @@ ARCHIVE_SECTIONS = {
     "archive_times": HIGH, "archive_comments": HIGH, "archive_junk": HIGH,
     "archive_owners": None, "archive_system": MEDIUM,
     "archive_xattrs": None, "archive_links": None, "archive_extra": LOW,
+    "compress_header": LOW, "compress_hidden": CRITICAL,
 }
 ARCHIVE_FIELDS = {
     ("archive_owners", "owner_names"): HIGH, ("archive_owners", "owner_ids"): MEDIUM,
+    ("compress_header", "mtime"): HIGH, ("compress_header", "comment"): HIGH,
+    ("compress_header", "os"): MEDIUM,
 }
 DOWNLOAD_ATTRIBUTES = ("com.apple.quarantine", "kMDItemWhereFroms")
 """Extended attributes that record where a file was downloaded from."""
@@ -347,7 +353,8 @@ def _archive_level(section_key: str, field_key: str, value: str) -> str:
         return CRITICAL if link_user(value) else LOW
     if any(user_name(p) for p in local_paths(value)):
         return CRITICAL
-    level = ARCHIVE_FIELDS.get((section_key, field_key))
+    # gzip files with several members number their fields: "mtime.2"
+    level = ARCHIVE_FIELDS.get((section_key, field_key.split(".", 1)[0]))
     if level is not None:
         return level
     return ARCHIVE_SECTIONS[section_key] or LOW
