@@ -44,7 +44,14 @@ def load_file(path: str | os.PathLike[str], max_size: int = DEFAULT_MAX_SIZE) ->
 
     try:
         with open(name, "rb") as f:
-            data = f.read(max_size + 1)
+            # Read the size stat() reported plus one byte, not max_size + 1:
+            # read(n) allocates n bytes up front, which for the default limit
+            # costs a 512 MiB allocation per file. If the extra byte arrives,
+            # the file grew: read on, still never more than max_size + 1.
+            limit = max_size + 1
+            data = f.read(min(limit, st.st_size + 1))
+            if st.st_size < len(data) < limit:
+                data += f.read(limit - len(data))
     except PermissionError:
         raise FileAccessError(f"{name}: permission denied") from None
     except IsADirectoryError:

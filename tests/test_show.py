@@ -245,8 +245,17 @@ def test_missing_file(tmp_path):
     assert_one_line_error(run_show(str(tmp_path / "nope.jpg")), "no such file")
 
 
-def test_directory(tmp_path):
-    assert_one_line_error(run_show(str(tmp_path)), "is a directory")
+def test_directory_is_examined_as_a_folder(tmp_path):
+    (tmp_path / "a.png").write_bytes(PNG)
+    result = run_show(str(tmp_path))
+    assert result.returncode == 0
+    assert f"metaex report: {tmp_path / 'a.png'}" in result.stdout
+
+
+def test_empty_directory(tmp_path):
+    result = run_show(str(tmp_path))
+    assert result.returncode == 0
+    assert "\nSummary: 0 entries\n" in result.stdout or result.stdout == ""
 
 
 def test_too_large_file_with_small_max_size(tmp_path):
@@ -267,7 +276,7 @@ def test_invalid_max_size_is_usage_error(tmp_path, bad):
 
 
 def test_debug_shows_traceback(tmp_path):
-    result = run_show(str(tmp_path), "--debug")
+    result = run_show(str(tmp_path / "missing.jpg"), "--debug")
     assert result.returncode == 1
     assert "Traceback" in result.stderr
     assert "metaex: error:" in result.stderr

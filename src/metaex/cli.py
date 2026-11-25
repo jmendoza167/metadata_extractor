@@ -6,12 +6,15 @@ import argparse
 import math
 import sys
 import traceback
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from metaex import __version__
 from metaex.core.errors import MetaexError
 from metaex.core.loader import DEFAULT_MAX_SIZE, MIB
 from metaex.core.report import render_json, render_text, sanitize, write_text
+
+if TYPE_CHECKING:
+    from metaex.commands.batch import BatchRun
 
 EXIT_OK = 0
 EXIT_ERROR = 1
@@ -30,6 +33,16 @@ def _add_common_options(sub: argparse.ArgumentParser) -> None:
     sub.add_argument("--debug", action="store_true", help="show tracebacks on errors")
 
 
+def _add_paths(sub: argparse.ArgumentParser, what: str) -> None:
+    sub.add_argument("paths", nargs="+", metavar="path",
+                     help=f"{what}; folders are searched one level deep (see --recursive)")
+    sub.add_argument("-r", "--recursive", action="store_true",
+                     help="also search the subfolders of folders")
+    sub.add_argument("--include-hidden", action="store_true",
+                     help="also include hidden files and folders inside folders (never .git, "
+                          "node_modules, virtual environments or symbolic links)")
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the top-level argument parser."""
     parser = argparse.ArgumentParser(
@@ -45,7 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     show_help = "show the metadata found in a file"
     show = subparsers.add_parser("show", help=show_help, description=show_help)
-    show.add_argument("path", help="file to examine")
+    _add_paths(show, "files or folders to examine")
     show.add_argument("--json", action="store_true", help="print the report as JSON")
     show.add_argument(
         "--structure",
@@ -111,7 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     risk_help = "summarize what a file's metadata reveals, by risk level"
     risk = subparsers.add_parser("risk", help=risk_help, description=risk_help)
-    risk.add_argument("path", help="file to examine")
+    _add_paths(risk, "files or folders to examine")
     risk.add_argument("--json", action="store_true", help="print the findings as JSON")
     risk.add_argument("--no-color", action="store_true", help="never use colors")
     _add_common_options(risk)
@@ -165,7 +178,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _cmd_show(args: argparse.Namespace) -> int:
     from metaex.commands.show import build_report, extract_thumbnail
+    from metaex.core.batch import is_batch
 
+    if is_batch(args.paths):
+        if args.extract_thumbnail:
+            return _usage_error("show", "--extract-thumbnail works on one file only")
+        return _batch_show(args)
+    args.path = args.paths[0]
     report = build_report(args.path, max_size=args.max_size, structure=args.structure)
     saved = None
     if args.extract_thumbnail:
@@ -227,7 +246,11 @@ def _cmd_risk(args: argparse.Namespace) -> int:
     import json
 
     from metaex.commands.risk import assess_file, risk_lines, risk_to_dict, use_color
+    from metaex.core.batch import is_batch
 
+    if is_batch(args.paths):
+        return _batch_risk(args)
+    args.path = args.paths[0]
     report, findings, strippable = assess_file(args.path, max_size=args.max_size)
     if args.json:
         write_text(json.dumps(risk_to_dict(args.path, report, findings, strippable), indent=2,
@@ -249,6 +272,112 @@ def _cmd_formats(args: argparse.Namespace) -> int:
     else:
         write_text("\n".join(formats_lines()) + "\n")
     return EXIT_OK
+
+
+# -- many files ------------------------------------------------------------------------
+
+
+def _collect(args: argparse.Namespace, *, skip_clean_outputs: bool = True,
+             exclude: Sequence[str] = ()):
+    from metaex.core.batch import collect
+
+    return collect(args.paths, recursive=args.recursive, include_hidden=args.include_hidden,
+                   skip_clean_outputs=skip_clean_outputs, exclude=exclude)
+
+
+def _run_batch(args: argparse.Namespace, collection, work, *, refuse_unsupported: bool,
+               print_result) -> BatchRun:
+    from metaex.commands import batch
+
+    def process_item(item):
+        return batch.process(item, lambda result: work(item, result), max_size=args.max_size,
+                             refuse_unsupported=refuse_unsupported, debug=args.debug)
+
+    def on_result(result, index, total):
+        if not args.json:
+            print_result(result)
+
+    run = batch.run(collection, process_item, on_result)
+    if run.interrupted:
+        _print_error("interrupted")
+    return run
+
+
+def _report_printer(render):
+    """show and risk: each file's report under a header with its path;
+    failures under the header too; skipped files only in the summary."""
+    from metaex.commands import batch
+
+    def print_result(result):
+        if result.outcome == batch.SKIPPED:
+            return
+        write_text(batch.file_header(sanitize(result.path)))
+        if result.outcome in batch.FAILURES:
+            write_text(sanitize(f"{result.outcome.capitalize()}: {batch.reason_text(result)}")
+                       + "\n\n")
+        else:
+            write_text(render(result))
+
+    return print_result
+
+
+def _batch_json(command: str, run, file_data) -> None:
+    import json
+
+    from metaex.commands import batch
+
+    files = []
+    for result in batch.results_in_order(run.results):
+        entry = {"path": result.path, "outcome": result.outcome, "format": result.format,
+                 "reason": result.reason}
+        entry.update(file_data(result) if result.payload is not None else {})
+        files.append(entry)
+    write_text(json.dumps({"command": command, "interrupted": run.interrupted,
+                           "files": files}, indent=2, ensure_ascii=True) + "\n")
+
+
+def _batch_show(args: argparse.Namespace) -> int:
+    from metaex.commands import batch
+    from metaex.commands.show import build_report
+    from metaex.core.report import report_to_data
+
+    def work(item, result):
+        result.payload = build_report(item.path, max_size=args.max_size,
+                                      structure=args.structure)
+        return batch.EXAMINED
+
+    run = _run_batch(args, _collect(args), work, refuse_unsupported=False,
+                     print_result=_report_printer(lambda r: render_text(r.payload) + "\n"))
+    if args.json:
+        _batch_json("show", run, lambda r: {"report": report_to_data(r.payload)})
+    return batch.exit_code(run)
+
+
+def _batch_risk(args: argparse.Namespace) -> int:
+    from metaex.commands import batch
+    from metaex.commands.risk import assess_file, risk_lines, risk_to_dict, use_color
+
+    color = use_color(args.no_color)
+
+    def work(item, result):
+        result.payload = assess_file(item.path, max_size=args.max_size)
+        return batch.EXAMINED
+
+    def render(result):
+        report, findings, strippable = result.payload
+        return "\n".join(risk_lines(result.path, report, findings, strippable,
+                                    color=color)) + "\n\n"
+
+    run = _run_batch(args, _collect(args), work, refuse_unsupported=False,
+                     print_result=_report_printer(render))
+    if args.json:
+        _batch_json("risk", run, lambda r: {"risk": risk_to_dict(r.path, *r.payload)})
+    return batch.exit_code(run)
+
+
+def _usage_error(command: str, message: str) -> int:
+    write_text(f"metaex {command}: error: {sanitize(message)}\n", sys.stderr)
+    return EXIT_USAGE
 
 
 def _size_in_mib(text: str) -> int:

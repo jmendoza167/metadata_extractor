@@ -143,6 +143,12 @@ def io_path(path: str) -> str:
     return "\\\\?\\" + full if len(full) >= _WINDOWS_LONG_PATH else path
 
 
+def native(path: str) -> str:
+    """``path`` with the system's own separator: on Windows "/" becomes "\\",
+    so paths built from it don't mix both (elsewhere it is unchanged)."""
+    return path.replace("/", "\\") if sys.platform == "win32" else path
+
+
 def display_path(path: str) -> str:
     """``path`` without the long path prefix io_path() may have added."""
     return path[4:] if sys.platform == "win32" and path.startswith("\\\\?\\") else path
@@ -155,7 +161,7 @@ def collect(paths: Iterable[str], *, recursive: bool = False, include_hidden: bo
     excluded = {path_key(p) for p in exclude}
     seen: set[object] = set()
     for arg in paths:
-        _collect_argument(os.fspath(arg), result, seen, excluded, recursive=recursive,
+        _collect_argument(native(os.fspath(arg)), result, seen, excluded, recursive=recursive,
                           include_hidden=include_hidden, skip_clean_outputs=skip_clean_outputs)
     result.items.sort(key=lambda item: sort_key(item.path))
     result.skipped.sort(key=lambda s: sort_key(s.path))

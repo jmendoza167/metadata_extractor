@@ -49,6 +49,62 @@ def test_size_is_checked_before_reading(tmp_path, monkeypatch):
         load_file(p, max_size=10)
 
 
+def recording_open(monkeypatch):
+    """Patch open() so every read(n) size is recorded."""
+    sizes = []
+    real_open = builtins.open
+
+    class Recorder:
+        def __init__(self, f):
+            self.f = f
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.f.close()
+
+        def read(self, n=-1):
+            sizes.append(n)
+            return self.f.read(n)
+
+    monkeypatch.setattr(builtins, "open", lambda *a, **k: Recorder(real_open(*a, **k)))
+    return sizes
+
+
+def test_reads_only_the_file_size_not_the_limit(tmp_path, monkeypatch):
+    """Regression: read(max_size + 1) allocated 512 MiB for every file loaded."""
+    p = tmp_path / "a.bin"
+    p.write_bytes(b"x" * 100)
+    sizes = recording_open(monkeypatch)
+    assert load_file(p) == b"x" * 100
+    assert sizes == [101]
+
+
+class FakeStat:
+    def __init__(self, real, size):
+        self.st_mode, self.st_size = real.st_mode, size
+
+
+def test_file_that_grew_after_stat_is_loaded_whole(tmp_path, monkeypatch):
+    p = tmp_path / "a.bin"
+    p.write_bytes(b"x" * 500)
+    real_stat = os.stat
+    monkeypatch.setattr(os, "stat", lambda name: FakeStat(real_stat(name), 100))
+    assert load_file(p, max_size=1000) == b"x" * 500
+
+
+def test_file_that_grew_past_the_limit_after_stat_is_refused(tmp_path, monkeypatch):
+    p = tmp_path / "a.bin"
+    p.write_bytes(b"x" * 5000)
+    real_stat = os.stat
+    monkeypatch.setattr(os, "stat", lambda name: FakeStat(real_stat(name), 100))
+    sizes = recording_open(monkeypatch)
+    with pytest.raises(FileTooLargeError):
+        load_file(p, max_size=1000)
+    assert sizes == [101, 900]  # never more than max_size + 1 in total
+
+
 def test_missing_file(tmp_path):
     with pytest.raises(FileAccessError, match="no such file"):
         load_file(tmp_path / "nope.jpg")
