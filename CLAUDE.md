@@ -99,7 +99,11 @@ These hold for every format metaex strips:
   `--deep`, each by its own format module and verified against the
   original file inside; files metaex can't clean are copied and listed,
   never dropped. Without `--deep`, strip warns about files inside that
-  still hold metadata, and `verify` reports them (NOT CLEAN). Verification
+  still hold metadata, and `verify` reports them (NOT CLEAN). Files inside
+  that were not examined (past the limits, a format metaex doesn't read,
+  damaged) are "not checked" items, and so are embedded objects and images
+  metaex can't read in documents: `verify` says NOT CLEAN for them, and
+  strip writes the copy but reports the same verdict. Verification
   compares the entries (names, types, link targets) and every file's bytes,
   or for `--deep` output each cleaned file with its original. Reading
   inside archives is bounded: 3 levels of nesting, 1000 files, and one
@@ -168,6 +172,7 @@ What belongs where:
   AppleDouble files and binary property lists (`appledouble.py`), the TAR
   reader and writer (`tar.py`, `tarwriter.py`), and gzip, bzip2 and xz
   files (`compress.py`, shared by `formats/gzip.py`, `bzip2.py` and `xz.py`).
+  For WebP: finding the end of a lossless (VP8L) bitstream (`vp8l.py`).
   For many files: collecting the files from paths and folders, the skip
   rules and path comparisons (`batch.py`); CSV output with formula
   protection (`csvout.py`).

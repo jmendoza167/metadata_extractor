@@ -409,17 +409,27 @@ remove or detect:
   reject the changes for you: do that in Word or LibreOffice, save, and run
   metaex again.
 - **Macros and embedded objects** in office documents are kept as they are;
-  their code and content can hold names, paths and other details.
+  their code and content can hold names, paths and other details. metaex
+  can't check embedded objects (or images in formats it doesn't read), so
+  `strip` and `verify` list them as "not checked" and say NOT CLEAN.
 - **Data hidden inside the content.** metaex never decodes images or audio,
   so data hidden inside the image or sound data itself (steganography,
   watermarks, camera sensor noise patterns that can link photos to one
-  device) is not found. In particular: bytes hidden in a **GIF's LZW
-  data**, inside **WebP's VP8/VP8L bitstreams**, in the pixels of a PNG or
-  in a JPEG's compressed data, inside MP3 frames, and **between the FLAC
-  audio frames** (only the first and last frame are parsed) are not
-  detected. Hidden data *around* the content (after the end of an image, in
-  padding, between MP3 frames, in a PNG's compressed stream) is detected and
-  removed.
+  device) is not found. In particular, these are copied byte for byte and
+  not checked:
+  - **a JPEG's compressed scan data**: bytes added inside it (for example
+    just before the end-of-image marker) are not detected, because finding
+    where the image data really ends would need decoding it;
+  - **MP3 audio frames**: data inside a frame (in its unused or ancillary
+    bits) is not detected;
+  - a **lossy WebP** (VP8) bitstream, the pixels of any image, and the
+    audio **between the first and last FLAC frame** (only those two are
+    parsed).
+
+  Hidden data *around* the content is detected: after the end of an image,
+  in padding, between MP3 frames, in a PNG's compressed stream, after a
+  GIF's LZW end code or a lossless WebP bitstream. `strip` removes it, or
+  refuses the file where removing it would mean re-encoding.
 - **Traces of the software.** A JPEG keeps its quantization tables and a ZIP
   entry keeps its compressed bytes, which can hint at the camera or program
   that made them.
@@ -427,7 +437,9 @@ remove or detect:
   its name, and the order of the files is kept. A name can reveal a person,
   a project or a user folder (metaex warns about user folders). Without
   `--deep`, the files inside also keep their metadata; with it, formats
-  metaex doesn't read (PDF, plain text, ...) are copied as they are.
+  metaex doesn't read (PDF, plain text, ...) are copied as they are. Files
+  that may hold metadata metaex couldn't check (PDF, files past 3 levels of
+  archives or 1000 files) make `strip` and `verify` say NOT CLEAN.
 - **Formats metaex refuses.** PDF, HEIC, TIFF, video, legacy Office files
   (.doc, .xls, .ppt), password-protected documents and the other formats
   `metaex formats` lists are refused, never cleaned: metaex writes nothing
