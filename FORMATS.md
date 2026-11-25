@@ -107,11 +107,11 @@ Extension: `.png`.
   frame chunks (or, after `--rebuild-image-data`, the decompressed pixels).
 - **Refused**: a bad CRC, a missing IEND, critical chunks metaex doesn't
   know, image data that is too short or invalid, hidden data in APNG frames
-  (it can't be rebuilt).
+  (it can't be rebuilt), and images whose decompressed data would be larger
+  than 1 GiB: they are not checked for hidden data, so `show` warns and
+  `verify` says NOT CLEAN.
 - **Known limits**: data hidden in the pixels themselves or in unused
-  palette entries is not detected. Images whose decompressed data would be
-  larger than 1 GiB are not checked for hidden data (`show` and `verify`
-  say so). Removing Content Credentials removes the provenance some
+  palette entries is not detected. Removing Content Credentials removes the provenance some
   websites use to label AI-generated or edited images. A kept ICC profile
   keeps its description and copyright text.
 

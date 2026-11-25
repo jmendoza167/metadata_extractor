@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from metaex.core import exif, filetype, icc, xmp
-from metaex.core.errors import HiddenDataError, MalformedFileError, MetaexError
+from metaex.core.errors import CannotCleanError, HiddenDataError, MalformedFileError, MetaexError
 from metaex.core.inflate import Budget, DecompressionLimitError, inflate, inflate_stream
 from metaex.core.result import Field, Section
 
@@ -703,6 +703,28 @@ class ImageDataCheck:
         return [s for s in self.streams if s.skipped]
 
 
+_CHECK_CACHE: dict[bytes, ImageDataCheck] = {}
+CHECK_CACHE_SIZE = 8
+"""Results of check_image_data() kept, so the image data is decompressed
+once per command (show, strip and verify each read the file several times)."""
+
+
+def _check_key(structure: PngStructure) -> bytes:
+    """A digest of everything check_image_data() looks at: the first chunk,
+    the image data chunks (IHDR, IDAT, fcTL, fdAT) in order and whether each
+    IDAT follows another one (other chunks, which strip removes, don't
+    matter otherwise)."""
+    h = hashlib.sha256(f"{MAX_CHECKED_IMAGE_SIZE},{EXTRA_COUNT_LIMIT}".encode("ascii"))
+    previous = ""
+    for n, chunk in enumerate(structure.chunks):
+        if n == 0 or chunk.type in ("IHDR", "IDAT", "fcTL", "fdAT"):
+            joined = b"+" if chunk.type == "IDAT" and previous == "IDAT" else b"-"
+            h.update(chunk.type.encode("ascii") + joined
+                     + len(chunk.data).to_bytes(8, "big") + chunk.data)
+        previous = chunk.type
+    return h.digest()
+
+
 def check_image_data(structure: PngStructure) -> ImageDataCheck:
     """Decompress each image data stream (discarding the output) and compare
     its size with the exact size the IHDR (or fcTL) implies.
@@ -710,8 +732,28 @@ def check_image_data(structure: PngStructure) -> ImageDataCheck:
     Extra decompressed bytes and bytes after the end of the zlib stream are
     ignored by viewers, so they can hide data. A stream that is too short or
     invalid is malformed. Streams are checked while their sizes add up to at
-    most MAX_CHECKED_IMAGE_SIZE; later ones are marked ``skipped``.
+    most MAX_CHECKED_IMAGE_SIZE; later ones are marked ``skipped`` (strip
+    refuses such files and verify reports them: hidden data can't be ruled
+    out). The result is cached by content (see _CHECK_CACHE); treat it as
+    read-only.
     """
+    key = _check_key(structure)
+    cached = _CHECK_CACHE.pop(key, None)
+    if cached is None:
+        cached = _check_image_data(structure)
+    _CHECK_CACHE[key] = cached  # most recently used last
+    while len(_CHECK_CACHE) > CHECK_CACHE_SIZE:
+        del _CHECK_CACHE[next(iter(_CHECK_CACHE))]
+    return cached
+
+
+def _skipped_text(s: StreamCheck) -> str:
+    return (f"{s.stream.name} was not checked for hidden data: the image needs "
+            f"{s.expected} bytes uncompressed, more than the "
+            f"{MAX_CHECKED_IMAGE_SIZE // 1024**3} GiB limit")
+
+
+def _check_image_data(structure: PngStructure) -> ImageDataCheck:
     result = ImageDataCheck()
     first = structure.chunks[0] if structure.chunks else None
     if first is None or first.type != "IHDR":
@@ -754,9 +796,7 @@ def image_data_sections(check: ImageDataCheck, warnings: list[str]) -> list[Sect
     for problem in check.problems:
         warnings.append(f"malformed PNG: {problem}")
     for s in check.skipped:
-        warnings.append(f"{s.stream.name} was not checked for hidden data: the image "
-                        f"needs {s.expected} bytes uncompressed, more than the "
-                        f"{MAX_CHECKED_IMAGE_SIZE // 1024**3} GiB limit")
+        warnings.append(_skipped_text(s))
     section = Section("hidden_image_data", "Hidden data in image data")
     for i, s in enumerate(check.streams):
         name = s.stream.name
@@ -1080,6 +1120,9 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     check = check_image_data(structure)
     if check.problems:
         raise MalformedFileError(check.problems[0])
+    if check.skipped:
+        raise CannotCleanError(f"{_skipped_text(check.skipped[0])}, so data hidden in it "
+                               "can't be ruled out")
     rebuild = _refuse_hidden(check, rebuild_image_data)
     new_idat = rebuilt_idat_chunks(rebuild) if rebuild is not None else None
     keep_color = set(PARANOID_COLOR) if paranoid else set(KEPT_COLOR_SIZES)
@@ -1168,8 +1211,9 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
     out["image_sha256"] = hashlib.sha256(image).hexdigest()
     # Hidden data inside the image data is reported by parse() as a leftover
     # section; malformed image data is a problem.
-    out["problems"] += [f"image data is malformed: {p}"
-                        for p in check_image_data(walk_chunks(cleaned)).problems]
+    check = check_image_data(walk_chunks(cleaned))
+    out["problems"] += [f"image data is malformed: {p}" for p in check.problems]
+    out["problems"] += [_skipped_text(s) for s in check.skipped]
 
     seen: set[str] = set()
     for chunk in walk_chunks(cleaned).chunks:

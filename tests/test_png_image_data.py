@@ -10,7 +10,7 @@ from helpers.png import (ADAM7, GRAY, PALETTE, RGB, RGBA, SIGNATURE, actl, chunk
                          expected_raw_size, fctl, ihdr, make_png, raw_image, text, variants,
                          zlib_bomb)
 from metaex.core import risk
-from metaex.core.errors import HiddenDataError, MalformedFileError
+from metaex.core.errors import CannotCleanError, HiddenDataError, MalformedFileError
 from metaex.core.verify import verify
 from metaex.formats import png
 
@@ -246,10 +246,14 @@ def test_idat_bomb_is_bounded():
     assert time.monotonic() - start < 15
 
 
-def test_very_large_images_are_skipped_with_a_note(monkeypatch):
+def test_very_large_images_are_reported_and_refused(monkeypatch):
     monkeypatch.setattr(png, "MAX_CHECKED_IMAGE_SIZE", 10)
     data = png_with_idat(zlib.compress(RAW) + b"hidden!")
     result = png.parse(data)
     assert not [s for s in result["sections"] if s.key == "hidden_image_data"]
     assert any("was not checked for hidden data" in w for w in result["warnings"])
-    assert png.strip(data)  # not checked, so not refused
+    # not checked, so hidden data can't be ruled out: refused, and not clean
+    with pytest.raises(CannotCleanError, match="can't be ruled out"):
+        png.strip(data)
+    assert any("was not checked for hidden data" in p
+               for p in png.verify_details(data)["problems"])
