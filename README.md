@@ -1232,150 +1232,56 @@ formats it refuses, with the reason (`--json` too).
 
 ## Limitations
 
-Removing metadata does not make a file anonymous. No metadata tool can
-remove:
+Removing metadata does not make a file anonymous. What metaex does **not**
+remove or detect:
 
-- **Visible content**: faces, street signs, screens, reflections, or names
-  and addresses written in the document itself.
-- **Hidden document text**: text in white-on-white, text behind images, or
-  content covered by a shape or "redaction" box is part of the document, not
-  metadata.
-- **Sensor fingerprints**: camera sensors leave a noise pattern (PRNU) in
-  every photo that can link images to the same device.
-- **Watermarks**: visible or invisible watermarks embedded in the image,
-  audio or text itself.
-- **Platform-side data**: anything a website, app or messaging service
-  records when you upload a file (account, IP address, upload time), and any
-  copy it already has.
+- **Visible content.** Faces, street signs, screens and reflections in a
+  photo; names and addresses in the text, cells, headers, slides and
+  **speaker notes** of a document; **text inside an image**; voices and
+  background sounds in a recording. That is the content itself, not
+  metadata. So is text hidden in plain sight (white on white, behind an
+  image, under a "redaction" box): it stays, and so do hidden text, hidden
+  sheets and slides (metaex warns about them).
+- **Deleted text in tracked changes.** A document with tracked changes
+  still stores the deleted text. metaex warns loudly but does not accept or
+  reject the changes for you: do that in Word or LibreOffice, save, and run
+  metaex again.
+- **Macros and embedded objects** in office documents are kept as they are;
+  their code and content can hold names, paths and other details.
+- **Data hidden inside the content.** metaex never decodes images or audio,
+  so data hidden inside the image or sound data itself (steganography,
+  watermarks, camera sensor noise patterns that can link photos to one
+  device) is not found. In particular: bytes hidden in a **GIF's LZW
+  data**, inside **WebP's VP8/VP8L bitstreams**, in the pixels of a PNG or
+  in a JPEG's compressed data, inside MP3 frames, and **between the FLAC
+  audio frames** (only the first and last frame are parsed) are not
+  detected. Hidden data *around* the content (after the end of an image, in
+  padding, between MP3 frames, in a PNG's compressed stream) is detected and
+  removed.
+- **Traces of the software.** A JPEG keeps its quantization tables and a ZIP
+  entry keeps its compressed bytes, which can hint at the camera or program
+  that made them.
+- **Names of files in archives.** Every file inside a cleaned archive keeps
+  its name, and the order of the files is kept. A name can reveal a person,
+  a project or a user folder (metaex warns about user folders). Without
+  `--deep`, the files inside also keep their metadata; with it, formats
+  metaex doesn't read (PDF, plain text, ...) are copied as they are.
+- **Formats metaex refuses.** PDF, HEIC, TIFF, video, legacy Office files
+  (.doc, .xls, .ppt), password-protected documents and the other formats
+  `metaex formats` lists are refused, never cleaned: metaex writes nothing
+  and tells you why.
+- **Metadata added when you upload.** A website, app or messaging service
+  records its own data when you upload a file (your account, IP address,
+  upload time) and may add metadata to its copy. metaex can only clean the
+  file before it leaves your computer.
+- **File system metadata outside the file.** The dates, owner and
+  permissions your system keeps about a file, the Windows "downloaded from
+  the internet" mark, macOS extended attributes, backups, synced cloud
+  copies, thumbnail caches and older versions of the original are not part
+  of the file, so metaex can't change them. A cleaned copy is a new file
+  with new dates; the original keeps everything until you delete it.
 
-Specific to archives:
-
-- **File names are kept**: a name can reveal a person, a project or a user
-  folder (metaex warns about user folders). Rename files before archiving
-  them if their names matter.
-- Without `--deep`, **the files inside keep their metadata**. With it,
-  files of formats metaex doesn't read (PDF, plain text, ...) are still
-  copied as they are.
-- **The order of the files** in the archive is kept; it can hint at how the
-  archive was made.
-- A ZIP archive metaex writes says it was made on Unix (where permissions
-  are stored), whatever the original said. Compressed data is copied as it
-  is, so the **compression settings** of the original program stay visible.
-
-Specific to how metaex cleans JPEGs:
-
-- Because the image is never re-encoded, its **quantization tables** are
-  kept as they are. They can hint at which camera model or editing software
-  produced the file.
-- Data hidden **inside the compressed image data** itself (steganography)
-  cannot be detected or removed without re-encoding.
-- Unusual JPEG variants (hierarchical or extension markers) are refused
-  rather than cleaned.
-
-Specific to how metaex cleans PNGs:
-
-- Extra bytes inside the image data (after the pixels or after the end of
-  the compressed stream) are detected. Data hidden *in the pixels
-  themselves* (steganography) or in unused palette entries is not.
-- Images whose decompressed data would be larger than 1 GiB are not
-  checked for hidden data (show and verify say so); they are stripped as
-  before, with the image data copied as it is.
-- Hidden data in APNG frames (fdAT) is detected but can't be rebuilt; such
-  files are refused.
-- Stripping removes **Content Credentials** (C2PA, the caBX chunk). Some
-  websites use them to label AI-generated or edited images; a cleaned copy
-  no longer carries that provenance.
-- The kept ICC profile keeps its description and copyright text and any
-  device names (the summary warns about device names). Use `--paranoid` to
-  drop it. The same applies to GIF and WebP.
-
-Specific to GIF:
-
-- The LZW image data is kept as it is and not decoded, so bytes hidden
-  after its end code, in unused color table entries or in the pixels are
-  not detected.
-- Plain Text extensions (text drawn over the image, which almost no viewer
-  supports) are removed with the other metadata.
-
-Specific to WebP:
-
-- The VP8/VP8L bitstreams and alpha data are copied as they are and not
-  decoded; data hidden inside them is not detected.
-- The canvas size and the alpha flag are copied from the original VP8X
-  chunk; a simple (VP8 or VP8L only) file becomes an extended one only if
-  it keeps something that needs VP8X (its EXIF orientation, or a stray ICC
-  profile).
-
-Specific to office documents:
-
-- **The visible content is not touched.** Names, addresses and other
-  details written in the text, in cells, in headers and footers, on slides
-  or in speaker notes stay; so do hidden text, hidden sheets and slides and
-  the glossary (metaex warns about them).
-- **Deleted text in tracked changes stays** until you accept or reject the
-  changes in Word or LibreOffice. metaex warns loudly but does not do it
-  for you.
-- Excel writes the author's name at the start of each note ("Jane Doe:");
-  that is comment text, so it stays (metaex warns, and
-  `--remove-comments` removes the notes).
-- Content controls that show document properties (for example the
-  author's name on a cover page) keep the text they show; metaex warns.
-- **Macros** and **embedded objects** (an Excel table inside a Word
-  document, OLE objects) are kept as they are; their own content and
-  metadata are not cleaned. Images in formats metaex can't clean (EMF,
-  WMF, TIFF, ...) are kept as they are too.
-- Links (hyperlinks, linked images and workbooks, data connections) stay,
-  because they are part of the document. Opening the file may contact
-  those addresses. A document with a link into a user's folder is refused.
-- Removing the sensitivity label may go against your organization's rules;
-  check before you share a cleaned copy outside it.
-- Files that are changed are compressed again, so the cleaned file's size
-  differs from the original even where little was removed.
-
-Specific to audio:
-
-- **The audio is never decoded.** Watermarks, data hidden in the sound
-  itself (steganography) and anything a recording reveals (voices, the
-  room, background noise) are not detected and stay.
-- MP3: data hidden inside the audio frames (their unused bits and
-  "ancillary data") is not detected. The private bit of each frame header
-  is kept as it is.
-- FLAC: only the first and the last frame are parsed (the last to find
-  exactly where the audio ends); the frames in between are copied byte for
-  byte without being checked, so data hidden between them would be kept.
-  The MD5 in STREAMINFO is kept, so players can still check the audio.
-- The duration and encoder information a player shows can change with
-  `--paranoid` for MP3 files (the Xing/LAME frame is gone).
-- Tags metaex doesn't know in other places of the file (for example an APE
-  tag at the start of an MP3) are not read; in an MP3 they are removed as
-  hidden data, together with anything else that is not an audio frame.
-
-Specific to SVG:
-
-- **The file is re-serialized**, not byte-copied (see [strip](#strip)): the
-  drawing is the same, but a byte comparison with the original is not.
-- **Visible text in the drawing is not metadata**: names in `<text>`,
-  element `id`s and class names ("jane-notes"), and text that is drawn
-  are all kept. So are scripts and external references (metaex warns
-  about them); remove them yourself if you don't want them.
-- `<title>` and `<desc>` are kept by default (for accessibility); the
-  strip summary shows them, and `--paranoid` removes them.
-- Processing instructions are removed, including `<?xml-stylesheet?>`: a
-  drawing that takes its styles from an external stylesheet will look
-  different. Copy the CSS into a `<style>` element first.
-- Only the official W3C SVG 1.0 and SVG 1.1 DOCTYPE lines are accepted
-  (quotes and spacing may differ). Every other DOCTYPE is refused: SVG
-  Tiny or Basic, a different or `https://` address, a DOCTYPE with extra
-  declarations in `[...]`, more than one DOCTYPE. So are ENTITY
-  declarations, named entities other than `&amp;` `&lt;` `&gt;` `&quot;`
-  `&apos;` (for example `&nbsp;` or `&copy;`; write the character itself
-  or `&#160;` instead) and any encoding other than UTF-8. Embedded SVGs
-  are read at most 3 levels deep.
-- data: URIs inside CSS (`url(data:...)`, often fonts) are not examined;
-  `show` warns about them and `strip` refuses such files.
-- Only the editor namespaces metaex knows are recognized (Inkscape,
-  Sodipodi, Adobe, Sketch, Affinity, Visio, Krita); data a program writes
-  without its own namespace (for example `data-*` attributes) is kept.
+Each format's own limits are listed in [FORMATS.md](FORMATS.md).
 
 ## License
 
