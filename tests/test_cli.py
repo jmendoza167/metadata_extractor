@@ -25,7 +25,7 @@ def test_version_flag_prints_name_and_version():
     result = run_cli("--version")
     assert result.returncode == 0
     assert result.stdout.strip() == f"metaex {__version__}"
-    assert result.stdout.strip() == "metaex 0.1.0"
+    assert result.stdout.strip() == "metaex 0.1.1"
 
 
 def test_no_arguments_prints_help():

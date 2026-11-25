@@ -6,6 +6,39 @@ All notable changes to metaex are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - Unreleased
+
+### Security
+
+- `strip` could leave personal data in a cleaned file while `verify` called
+  it CLEAN. Now fixed for:
+  - SVG: data outside the drawing (unknown elements and attributes, other
+    namespaces, text outside text elements) and files without the SVG
+    namespace. `strip` keeps only what is drawn.
+  - Archives: files inside past the limits (1000 files, 3 levels of
+    nesting) or in formats metaex doesn't read, and embedded objects and
+    unreadable images in office documents. They are listed as "not
+    checked", and the verdict is NOT CLEAN.
+  - Data hidden in image or audio data that is copied byte for byte: PNG
+    image data too large to check, GIF LZW data, lossless WebP bitstreams,
+    the WAV `fmt` chunk, and ICC color profiles with private tags or
+    unused bytes. Such data is shown, refused or removed, and `verify`
+    reports it.
+- `--in-place` is refused for a symbolic link or a file with several hard
+  links, whose other names kept the original.
+- `--csv` escapes terminal control characters in every cell.
+- A crafted FLAC file could keep metaex busy for minutes; a damaged ZIP
+  could make every command stop with an internal error.
+- Releases: packages are built with build tools pinned by hash, only tags
+  on `main` are published, and the unused TestPyPI dry run was removed.
+
+### Fixed
+
+- Output piped into a program that stops reading (`| head`) no longer ends
+  with "internal error".
+- After `strip --deep`, the verdict no longer suggests `--deep`.
+- PNG image data is decompressed once per command.
+
 ## [0.1.0] - 2026-11-25
 
 The first release. metaex shows and removes metadata from photos,
@@ -111,5 +144,6 @@ variants) and ODT, ODS, ODP
   refused; `--max-size` changes that), XML DOCTYPE and entity declarations
   are refused, and nothing is ever extracted to disk.
 
-[Unreleased]: https://github.com/jmendoza167/metadata_extractor/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jmendoza167/metadata_extractor/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/jmendoza167/metadata_extractor/releases/tag/v0.1.1
 [0.1.0]: https://github.com/jmendoza167/metadata_extractor/releases/tag/v0.1.0

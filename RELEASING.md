@@ -3,7 +3,7 @@
 Releases are published only by GitHub Actions (`.github/workflows/release.yml`)
 with PyPI Trusted Publishing: no API token is used anywhere. The one-time
 PyPI and GitHub settings are listed in CLAUDE.md ("Releases and
-publishing"). The commands below are for version **0.1.0**; change the
+publishing"). The commands below are for version **0.1.1**; change the
 version everywhere for later releases.
 
 ## 1. Before tagging
@@ -23,7 +23,7 @@ version everywhere for later releases.
    ```
    python -m build --outdir dist .
    python -m twine check --strict dist/*
-   python scripts/check_wheel.py dist/metaex-0.1.0-py3-none-any.whl tests/samples
+   python scripts/check_wheel.py dist/metaex-0.1.1-py3-none-any.whl tests/samples
    ```
 
    `check_wheel.py` installs the wheel alone in a new virtual environment
@@ -31,9 +31,9 @@ version everywhere for later releases.
    that installed `metaex` on a few of your own files in `private_samples/`
    (never commit them) and check the results by eye.
 4. Write the release date into `CHANGELOG.md`: change
-   `## [0.1.0] - Unreleased` to `## [0.1.0] - YYYY-MM-DD`, with the date you
+   `## [0.1.1] - Unreleased` to `## [0.1.1] - YYYY-MM-DD`, with the date you
    will push the tag (UTC). Leave the empty `## [Unreleased]` section above
-   it. Commit this on `main` (for example `docs: release 0.1.0`), push, and
+   it. Commit this on `main` (for example `docs: release 0.1.1`), push, and
    wait for CI to pass. The release workflow refuses a tag whose CHANGELOG
    section still says "Unreleased".
 
@@ -42,8 +42,8 @@ version everywhere for later releases.
 ```
 git switch main
 git pull --ff-only
-git tag -a v0.1.0 -m "metaex 0.1.0"
-git push origin v0.1.0
+git tag -a v0.1.1 -m "metaex 0.1.1"
+git push origin v0.1.1
 ```
 
 The tag must be exactly `v` + the version in `src/metaex/__init__.py`, on a
@@ -54,21 +54,21 @@ creates the GitHub Release with the CHANGELOG section as its notes and the
 two files attached.
 
 Afterwards, check <https://pypi.org/project/metaex/> and the release page,
-and install it like a user would: `pipx install metaex==0.1.0` (or `pip
-install metaex==0.1.0` in a new virtual environment), then
+and install it like a user would: `pipx install metaex==0.1.1` (or `pip
+install metaex==0.1.1` in a new virtual environment), then
 `metaex --version` and `metaex formats`.
 
 If the workflow fails **before** publishing, fix the problem on `main`,
 delete the tag and tag again:
 
 ```
-git push --delete origin v0.1.0
-git tag -d v0.1.0
+git push --delete origin v0.1.1
+git tag -d v0.1.1
 ```
 
 Once a version is on PyPI it can never be uploaded again, even after it is
 deleted. If a published release is broken, yank it on PyPI (Manage project
-> Releases > Yank) and release 0.1.1.
+> Releases > Yank) and release 0.1.2.
 
 ## 3. After the release
 
