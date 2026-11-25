@@ -18,7 +18,7 @@ import hashlib
 from dataclasses import dataclass, field
 
 from metaex.core import filetype, icc, xmp
-from metaex.core.errors import MalformedFileError
+from metaex.core.errors import CannotCleanError, HiddenDataError, MalformedFileError
 from metaex.core.result import Section
 
 SIGNATURES = (b"GIF87a", b"GIF89a")
@@ -202,6 +202,178 @@ def _image_block(data: bytes, pos: int) -> Block:
     subs, end = read_sub_blocks(data, table_end + 1, f"image data at offset {pos}")
     return Block("image", pos, end, None, subs, table_end + 1, descriptor,
                  data[pos + 10 : table_end], min_code_size)
+
+
+# -- the LZW image data ------------------------------------------------------------------
+
+MAX_LZW_CODES = 32_000_000
+"""LZW codes decoded per file at most (a few seconds); the image data of
+larger files is not checked for hidden data, and such files are refused."""
+LZW_CACHE_SIZE = 8
+
+
+@dataclass(frozen=True)
+class LzwCheck:
+    pixels: int
+    """Pixels the codes stand for, up to the end-of-information code."""
+    after_end: bytes
+    """LZW data after the byte that holds the end-of-information code."""
+    ended: bool
+    """True if an end-of-information code was found."""
+    codes: int
+    """Codes decoded."""
+    problem: str | None = None
+    """Why the data is not valid LZW (an undefined code)."""
+
+
+def decode_lzw(min_code_size: int, lzw: bytes, max_codes: int) -> LzwCheck | None:
+    """Walk the LZW codes of one image without building the pixels: only the
+    length of each table entry is tracked, which is all it takes to know the
+    code sizes, the number of pixels and where the end-of-information code
+    is. None if more than ``max_codes`` codes would be needed."""
+    clear = 1 << min_code_size
+    end = clear + 1
+    size = min_code_size + 1
+    next_code = end + 1
+    lengths = [1] * clear + [0] * (4096 - clear)
+    previous = 0  # length of the previous code's string (0: right after a clear code)
+    acc = nbits = pos = pixels = codes = 0
+    n = len(lzw)
+    while True:
+        while nbits < size:
+            if pos >= n:
+                return LzwCheck(pixels, b"", False, codes)
+            acc |= lzw[pos] << nbits
+            pos += 1
+            nbits += 8
+        code = acc & ((1 << size) - 1)
+        acc >>= size
+        nbits -= size
+        codes += 1
+        if codes > max_codes:
+            return None
+        if code == clear:
+            size, next_code, previous = min_code_size + 1, end + 1, 0
+            continue
+        if code == end:
+            return LzwCheck(pixels, lzw[pos:], True, codes)
+        if previous == 0:
+            if code > clear:
+                return LzwCheck(pixels, b"", False, codes,
+                                f"code {code} after a clear code is not a color")
+            length = 1
+        else:
+            if code < next_code:
+                length = lengths[code]
+            elif code == next_code:
+                length = previous + 1
+            else:
+                return LzwCheck(pixels, b"", False, codes, f"undefined LZW code {code}")
+            if next_code < 4096:
+                lengths[next_code] = previous + 1
+                next_code += 1
+                if next_code == 1 << size and size < 12:
+                    size += 1
+        pixels += length
+        previous = length
+
+
+@dataclass
+class ImageCheck:
+    block: Block
+    number: int
+    """1 for the first image."""
+    expected: int
+    """Pixels the image descriptor needs (width x height)."""
+    lzw: LzwCheck | None
+    """None: not checked (over MAX_LZW_CODES)."""
+
+    @property
+    def extra_pixels(self) -> int:
+        return max(0, self.lzw.pixels - self.expected) if self.lzw is not None else 0
+
+    @property
+    def hidden_bytes(self) -> int:
+        """Bytes after the end code; zeros don't count (they carry nothing)."""
+        if self.lzw is None or self.lzw.after_end.count(0) == len(self.lzw.after_end):
+            return 0
+        return len(self.lzw.after_end)
+
+    @property
+    def hidden(self) -> bool:
+        return bool(self.extra_pixels or self.hidden_bytes)
+
+
+_LZW_CACHE: dict[bytes, list[ImageCheck]] = {}
+
+
+def check_images(structure: GifStructure) -> list[ImageCheck]:
+    """Decode the LZW codes of every image (without the pixels) and compare
+    what they hold with what the image needs. Viewers stop at the image's
+    last pixel and at the end-of-information code, so extra pixels and data
+    after the end code can hide data. Cached by content (decoding is done
+    once per command); treat the result as read-only."""
+    h = hashlib.sha256(str(MAX_LZW_CODES).encode("ascii"))
+    for block in structure.images:
+        lzw = b"".join(block.sub_blocks)
+        h.update(block.descriptor + bytes([block.min_code_size]) + len(lzw).to_bytes(8, "big")
+                 + lzw)
+    key = h.digest()
+    cached = _LZW_CACHE.pop(key, None)
+    if cached is None:
+        cached = []
+        budget = MAX_LZW_CODES
+        for n, block in enumerate(structure.images, 1):
+            width = int.from_bytes(block.descriptor[5:7], "little")
+            height = int.from_bytes(block.descriptor[7:9], "little")
+            result = None
+            if budget > 0:
+                result = decode_lzw(block.min_code_size, b"".join(block.sub_blocks), budget)
+            if result is not None:
+                budget -= result.codes
+            else:
+                budget = 0
+            cached.append(ImageCheck(block, n, width * height, result))
+    _LZW_CACHE[key] = cached
+    while len(_LZW_CACHE) > LZW_CACHE_SIZE:
+        del _LZW_CACHE[next(iter(_LZW_CACHE))]
+    return cached
+
+
+def _hidden_text(c: ImageCheck) -> str:
+    parts = []
+    if c.extra_pixels:
+        parts.append(f"{c.extra_pixels} pixels more than the image needs")
+    if c.hidden_bytes:
+        parts.append(f"{c.hidden_bytes} bytes after the end of the image data")
+    return " and ".join(parts)
+
+
+def image_data_problems(checks: list[ImageCheck]) -> list[str]:
+    """Image data that is not valid LZW, or that was too large to check."""
+    out = []
+    for c in checks:
+        where = f"image {c.number} (offset {c.block.offset})"
+        if c.lzw is None:
+            out.append(f"{where} was not checked for hidden data: the file has more than "
+                       f"{MAX_LZW_CODES} LZW codes")
+        elif c.lzw.problem is not None:
+            out.append(f"{where} has invalid image data: {c.lzw.problem}")
+    return out
+
+
+def hidden_image_data_sections(structure: GifStructure, warnings: list[str]) -> list[Section]:
+    section = Section("hidden_image_data", "Hidden data in image data")
+    checks = check_images(structure)
+    for c in checks:
+        if c.hidden:
+            section.add(f"image_{c.number}", f"image {c.number} (offset {c.block.offset})",
+                        _hidden_text(c), sensitive=True)
+    if section.fields:
+        warnings.append(f"CRITICAL: the image data hides data that viewers don't show "
+                        f"({section.fields[0].label}: {section.fields[0].value})")
+    warnings += image_data_problems(checks)
+    return [section] if section.fields else []
 
 
 # -- sections ---------------------------------------------------------------------------
@@ -527,11 +699,25 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     unknown extensions, and any data after the trailer. GIF has no
     orientation, so ``keep_orientation`` has no effect.
 
-    Raises MalformedFileError for malformed, truncated or unsupported input;
-    nothing is ever partly stripped.
+    Raises MalformedFileError for malformed, truncated or unsupported input
+    (including image data that is not valid LZW), HiddenDataError if the
+    image data holds more than the image (extra pixels, data after the end
+    code), CannotCleanError if it is too large to check; nothing is ever
+    partly stripped.
     """
     data = bytes(data)
     structure = checked_structure(data)
+    checks = check_images(structure)
+    for c in checks:
+        if c.lzw is not None and c.lzw.problem is not None:
+            raise MalformedFileError(image_data_problems([c])[0])
+        if c.lzw is None:
+            raise CannotCleanError(f"{image_data_problems([c])[0]}, so data hidden in it "
+                                   "can't be ruled out")
+        if c.hidden:
+            raise HiddenDataError(f"image {c.number} hides {_hidden_text(c)}, which viewers "
+                                  "don't show; the image data is copied byte for byte, so "
+                                  "this file can't be cleaned")
     r = rendered(structure, data)
     out = bytearray(data[: structure.screen_end])
     icc_written = False
@@ -620,6 +806,8 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
         return out
     out["image_sha256"] = hashlib.sha256(image).hexdigest()
     structure = walk_blocks(cleaned)
+    # Hidden data in the image data is reported by parse() as a leftover section.
+    out["problems"] += image_data_problems(check_images(structure))
     seen: set[str] = set()
     for i, block in enumerate(structure.blocks):
         problem = _leftover_problem(structure, i, cleaned, seen)
@@ -670,6 +858,7 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     sections += icc_sections(structure, warnings)
     sections += animation_sections(structure, warnings)
     sections += app_extension_sections(structure)
+    sections += hidden_image_data_sections(structure, warnings)
     sections += trailing_sections(structure, data, warnings)
     return {
         "warnings": warnings,

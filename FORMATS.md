@@ -135,10 +135,14 @@ Extension: `.gif`.
 - **Options**: `--paranoid` also removes the ICC profile.
 - **verify** compares the screen descriptor, color tables, Graphic Control
   fields, image descriptors, LZW data and loop count.
-- **Refused**: a missing trailer, broken sub-blocks.
-- **Known limits**: the LZW data is not decoded, so bytes hidden after its
-  end code, in unused color table entries or in the pixels are not
-  detected. Plain Text extensions (text drawn over the image, which almost
+- **Refused**: a missing trailer, broken sub-blocks, image data that is not
+  valid LZW, and image data that hides more than the image: codes for more
+  pixels than it has, or data after the end code (viewers ignore both, and
+  the image data is copied byte for byte). The LZW codes are walked without
+  building the pixels; files with more than 32 million codes are not
+  checked, so they are refused too.
+- **Known limits**: data hidden in unused color table entries or in the
+  pixels themselves is not detected. Plain Text extensions (text drawn over the image, which almost
   no viewer shows) are removed.
 
 ### WebP

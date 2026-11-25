@@ -5,7 +5,7 @@ import random
 import pytest
 
 from helpers.gif import kitchen_sink_gif, lzw_decode, make_gif, variants
-from metaex.core.errors import MalformedFileError
+from metaex.core.errors import CannotCleanError, MalformedFileError
 from metaex.core.report import Report, render_json, render_text
 from metaex.core.verify import verify
 from metaex.formats import gif
@@ -154,8 +154,8 @@ def test_mutations_either_raise_or_produce_clean_output():
         paranoid = bool(i % 2)
         try:
             cleaned = gif.strip(data, paranoid=paranoid)
-        except MalformedFileError:
-            continue
+        except (MalformedFileError, CannotCleanError):
+            continue  # damaged, or the image data holds more than the image
         stripped += 1
         result = verify(cleaned, data)
         assert result.clean, (i, result.leftovers, result.problems)
