@@ -119,3 +119,44 @@ def test_tests_workflow_can_be_called():
     text = (RELEASE.parent / "tests.yml").read_text(encoding="utf-8")
     assert re.search(r"(?m)^  workflow_call:", text)
     assert "name: dist" in jobs(text)["package"]
+
+
+# -- the build of the published files -------------------------------------------------------
+
+BUILD_REQUIREMENTS = RELEASE.parent.parent / "build-requirements.txt"
+
+
+def steps(job_text: str) -> list[str]:
+    """The job's steps, as text, in order."""
+    return re.split(r"(?m)^      - ", job_text)[1:]
+
+
+def test_packages_are_built_with_tools_pinned_by_hash():
+    """Regression test: the build tools were pinned by version only, and the
+    isolated build environment installed the newest setuptools, so the
+    published wheel was built with whatever was on PyPI that day."""
+    package = jobs((RELEASE.parent / "tests.yml").read_text(encoding="utf-8"))["package"]
+    assert ("python -m pip install --require-hashes --no-deps "
+            "-r .github/build-requirements.txt") in package
+    assert "python -m build --no-isolation --outdir dist ." in package
+    order = steps(package)
+    upload = next(i for i, s in enumerate(order) if "actions/upload-artifact@" in s)
+    # nothing but the pinned tools is installed before the upload
+    installs = [i for i, s in enumerate(order) if "pip install" in s]
+    assert installs[0] < upload and all(
+        "--require-hashes" in order[i] for i in installs if i < upload)
+    assert any("twine check" in s for s in order[upload + 1:])
+
+
+def test_build_requirements_are_pinned_by_hash():
+    text = BUILD_REQUIREMENTS.read_text(encoding="utf-8")
+    entries = re.findall(r"(?m)^([A-Za-z0-9_.-]+)==(\S+) \\\n    --hash=sha256:([0-9a-f]{64})$",
+                         text)
+    names = {name.lower().replace("_", "-") for name, _v, _h in entries}
+    assert names == {"build", "packaging", "pyproject-hooks", "setuptools"}
+    lines = [l for l in text.splitlines() if l.strip() and not l.startswith("#")]
+    assert len(lines) == 2 * len(entries)  # nothing unpinned
+    version = dict((n.lower(), v) for n, v, _h in entries)["setuptools"]
+    pyproject = (RELEASE.parent.parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+    minimum = re.search(r'requires = \["setuptools>=(\d+)"\]', pyproject).group(1)
+    assert int(version.split(".")[0]) >= int(minimum)
