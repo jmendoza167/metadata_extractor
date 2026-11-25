@@ -360,6 +360,20 @@ def _report_printer(render):
     return print_result
 
 
+def _finish_batch(args: argparse.Namespace, command: str, run, file_data, *,
+                  not_clean_code: int | None = None) -> int:
+    """Print the summary (or the JSON with every file and the summary) and
+    return the exit code."""
+    from metaex.commands import batch
+
+    if args.json:
+        _batch_json(command, run, file_data)
+    else:
+        lines = batch.summary_lines(command, run)
+        write_text("\n".join(sanitize(line) for line in lines) + "\n")
+    return batch.exit_code(run, not_clean_code=not_clean_code)
+
+
 def _batch_json(command: str, run, file_data) -> None:
     import json
 
@@ -372,7 +386,8 @@ def _batch_json(command: str, run, file_data) -> None:
         entry.update(file_data(result) if result.payload is not None else {})
         files.append(entry)
     write_text(json.dumps({"command": command, "interrupted": run.interrupted,
-                           "files": files}, indent=2, ensure_ascii=True) + "\n")
+                           "files": files, "summary": batch.summarize(command, run)},
+                          indent=2, ensure_ascii=True) + "\n")
 
 
 def _batch_show(args: argparse.Namespace) -> int:
@@ -387,9 +402,7 @@ def _batch_show(args: argparse.Namespace) -> int:
 
     run = _run_batch(args, _collect(args), work, refuse_unsupported=False,
                      print_result=_report_printer(lambda r: render_text(r.payload) + "\n"))
-    if args.json:
-        _batch_json("show", run, lambda r: {"report": report_to_data(r.payload)})
-    return batch.exit_code(run)
+    return _finish_batch(args, "show", run, lambda r: {"report": report_to_data(r.payload)})
 
 
 def _batch_risk(args: argparse.Namespace) -> int:
@@ -409,9 +422,8 @@ def _batch_risk(args: argparse.Namespace) -> int:
 
     run = _run_batch(args, _collect(args), work, refuse_unsupported=False,
                      print_result=_report_printer(render))
-    if args.json:
-        _batch_json("risk", run, lambda r: {"risk": risk_to_dict(r.path, *r.payload)})
-    return batch.exit_code(run)
+    return _finish_batch(args, "risk", run,
+                         lambda r: {"risk": risk_to_dict(r.path, *r.payload)})
 
 
 def _batch_strip(args: argparse.Namespace) -> int:
@@ -454,9 +466,8 @@ def _batch_strip(args: argparse.Namespace) -> int:
 
     run = _run_batch(args, collection, work, refuse_unsupported=True,
                      print_result=_print_strip_line)
-    if args.json:
-        _batch_json("strip", run, lambda r: {"output": r.output, "strip": r.payload.to_dict()})
-    return batch.exit_code(run)
+    return _finish_batch(args, "strip", run,
+                         lambda r: {"output": r.output, "strip": r.payload.to_dict()})
 
 
 def _batch_verify(args: argparse.Namespace) -> int:
@@ -501,10 +512,9 @@ def _batch_verify(args: argparse.Namespace) -> int:
             run.results.append(result)
             if not args.json:
                 _print_verify_line(result)
-    if args.json:
-        _batch_json("verify", run, lambda r: {
-            "original": r.payload[0], "verify": result_to_dict(r.path, r.payload[1])})
-    return batch.exit_code(run, not_clean_code=EXIT_NOT_CLEAN)
+    return _finish_batch(args, "verify", run, lambda r: {
+        "original": r.payload[0], "verify": result_to_dict(r.path, r.payload[1])},
+        not_clean_code=EXIT_NOT_CLEAN)
 
 
 MAX_DETAIL_LINES = 5

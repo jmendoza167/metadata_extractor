@@ -59,6 +59,8 @@ class BatchRun:
     total: int = 0
     """Number of files to process (not counting what was skipped or missing
     before processing started)."""
+    processed: int = 0
+    """Number of those files processed (less than total if interrupted)."""
 
 
 def unsupported_reason(detected: ft.FileType) -> str:
@@ -120,6 +122,7 @@ def run(collection: Collection, process_item: Callable[[Item], FileResult],
         for index, item in enumerate(collection.items, 1):
             result = process_item(item)
             batch.results.append(result)
+            batch.processed += 1
             if on_result is not None:
                 on_result(result, index, batch.total)
     except KeyboardInterrupt:
@@ -154,3 +157,108 @@ def reason_text(result: FileResult) -> str:
 def file_header(path: str) -> str:
     rule = "=" * 72
     return f"{rule}\n==> {path}\n{rule}\n"
+
+
+# -- summary ---------------------------------------------------------------------------
+
+COMMAND_OUTCOMES = {
+    "show": (EXAMINED, SKIPPED, REFUSED, ERROR),
+    "risk": (EXAMINED, SKIPPED, REFUSED, ERROR),
+    "strip": (CLEANED, ALREADY_CLEAN, SKIPPED, REFUSED, ERROR),
+    "verify": (CLEAN, NOT_CLEAN, SKIPPED, REFUSED, ERROR),
+}
+NOT_READ = "(not read)"
+"""Format name for entries whose type was never detected (skipped while
+collecting, missing, unreadable)."""
+LISTED = (REFUSED, ERROR, SKIPPED)
+"""Outcomes listed file by file in the summary, with the reason."""
+
+
+def summarize(command: str, batch: BatchRun) -> dict[str, Any]:
+    """Counts per outcome and per format, for the summary and --json."""
+    outcomes = {o: 0 for o in COMMAND_OUTCOMES[command]}
+    formats: dict[str, dict[str, int]] = {}
+    for result in batch.results:
+        outcomes[result.outcome] = outcomes.get(result.outcome, 0) + 1
+        per_format = formats.setdefault(result.format or NOT_READ, {})
+        per_format[result.outcome] = per_format.get(result.outcome, 0) + 1
+    summary: dict[str, Any] = {
+        "files": len(batch.results),
+        "outcomes": outcomes,
+        "formats": {name: {o: formats[name][o] for o in OUTCOMES if o in formats[name]}
+                    for name in sorted(formats, key=_format_order)},
+        "interrupted": batch.interrupted,
+        "to_process": batch.total,
+        "processed": batch.processed,
+    }
+    if command == "risk":
+        summary["risk"] = _risk_totals(batch)
+    return summary
+
+
+def _risk_totals(batch: BatchRun) -> dict[str, dict[str, int]]:
+    """risk: per level, the findings in all examined files and how many
+    files have at least one."""
+    from metaex.core.risk import LEVELS, counts
+
+    totals = {level: {"findings": 0, "files": 0} for level in LEVELS}
+    for result in batch.results:
+        if result.payload is None:
+            continue
+        for level, n in counts(result.payload[1]).items():
+            totals[level]["findings"] += n
+            totals[level]["files"] += 1 if n else 0
+    return totals
+
+
+def _critical_files(batch: BatchRun) -> list[tuple[str, int]]:
+    from metaex.core.risk import CRITICAL, counts
+
+    found = []
+    for result in results_in_order(batch.results):
+        if result.payload is not None:
+            n = counts(result.payload[1])[CRITICAL]
+            if n:
+                found.append((result.path, n))
+    return found
+
+
+def _format_order(name: str) -> tuple[bool, str]:
+    return (name == NOT_READ, name.casefold())
+
+
+def summary_lines(command: str, batch: BatchRun) -> list[str]:
+    """The text summary printed after a batch run (unsanitized)."""
+    summary = summarize(command, batch)
+    noun = "entry" if summary["files"] == 1 else "entries"
+    lines = ["", f"Summary: {summary['files']} {noun}"]
+    if batch.interrupted:
+        lines.append(f"INTERRUPTED: stopped after {batch.processed} of {batch.total} file(s); "
+                     "this summary is partial")
+    width = max(len(o) for o in summary["outcomes"])
+    for outcome, count in summary["outcomes"].items():
+        lines.append(f"  {outcome.ljust(width)}  {count}")
+    if "risk" in summary:
+        lines += ["", "Findings in the examined files:"]
+        for level, total in summary["risk"].items():
+            files = "file" if total["files"] == 1 else "files"
+            lines.append(f"  {level.ljust(8)}  {total['findings']} (in {total['files']} {files})")
+        critical = _critical_files(batch)
+        if critical:
+            lines += ["", f"Files with critical findings ({len(critical)}):"]
+            lines += [f"  {path}: {n} critical" for path, n in critical]
+    if summary["formats"]:
+        lines += ["", "By format:"]
+        width = max(len(name) for name in summary["formats"])
+        for name, counts in summary["formats"].items():
+            total = sum(counts.values())
+            detail = ", ".join(f"{counts[o]} {o}" for o in OUTCOMES if o in counts)
+            lines.append(f"  {name.ljust(width)}  {total} ({detail})")
+    for outcome in LISTED:
+        listed = [r for r in results_in_order(batch.results) if r.outcome == outcome]
+        if listed:
+            lines += ["", f"{outcome.capitalize()} ({len(listed)}):"]
+            lines += [f"  {r.path}: {reason_text(r)}" for r in listed]
+    if any(r.reason.startswith("unsupported format") for r in batch.results):
+        lines += ["", 'Run "metaex formats" to see the supported formats.']
+    return lines
