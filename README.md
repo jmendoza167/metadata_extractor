@@ -222,7 +222,7 @@ Options for `strip`:
 | `-o FILE` | where to write the cleaned copy (one file only) |
 | `--output-dir DIR` | write cleaned copies into `DIR`, with their original names |
 | `--overwrite` | replace a cleaned copy that already exists (never an original) |
-| `--in-place` | replace the original, after you type `yes` (`--yes` skips the question) |
+| `--in-place` | replace the original, after you type `yes` (`--yes` skips the question); refused for a symbolic link or a file with several hard links, whose other names would keep the original |
 | `--rename` | give the copy a random name, like `img_8f3a2c1d.jpg` |
 | `--paranoid` | also remove what is kept by design: color profiles, MP3 encoder frame, WAV cue points, FLAC cue sheet, SVG title and description |
 | `--no-orientation` | don't keep the image rotation |

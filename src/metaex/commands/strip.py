@@ -183,6 +183,7 @@ def _strip(source: str, data: bytes, detected: ft.FileType, module, output,
     if sum((in_place, output is not None, rename)) > 1:
         raise MetaexError("choose only one of --in-place, -o and --rename")
     if in_place:
+        check_in_place(source)
         target = source
     elif rename:
         target = random_output_path(source, detected)
@@ -275,6 +276,29 @@ def _strip(source: str, data: bytes, detected: ft.FileType, module, output,
             outcome.notes.append("the output has a Zone.Identifier stream; this should not "
                                  "happen, please report it")
     return outcome
+
+
+def check_in_place(path: str) -> None:
+    """Refuse --in-place where replacing the file would leave the original
+    data in place: a symbolic link (the link would be replaced, not the file
+    it points to) or a file with more than one hard link (only this name
+    would get the cleaned copy; the others would keep the original)."""
+    from metaex.core.batch import is_link
+
+    try:
+        st = os.lstat(path)
+    except OSError as exc:
+        raise MetaexError(f"{path}: cannot access it ({exc.strerror or exc}); nothing "
+                          "changed") from None
+    if is_link(st):
+        raise MetaexError(f"{path}: is a symbolic link; --in-place would replace the link, "
+                          "not the file it points to, which would keep its metadata. Name the "
+                          "file itself. Nothing changed.")
+    if st.st_nlink > 1:
+        raise MetaexError(f"{path}: has {st.st_nlink} hard links (other names for the same "
+                          "file); --in-place would clean only this name, and the others would "
+                          "keep the original with its metadata. Use -o or --output-dir "
+                          "instead. Nothing changed.")
 
 
 def kept_warnings(parsed_output: dict) -> list[str]:
