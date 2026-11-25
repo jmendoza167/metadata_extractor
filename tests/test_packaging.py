@@ -101,9 +101,8 @@ def test_sdist_contents(dist):
         members = t.getmembers()
     assert all(m.name == top or m.name.startswith(top + "/") for m in members)
     files = {m.name[len(top) + 1:] for m in members if m.isfile()}
-    expected = {"PKG-INFO", "setup.cfg", "pyproject.toml", "README.md", "LICENSE"}
-    if (ROOT / "CHANGELOG.md").exists():
-        expected.add("CHANGELOG.md")
+    expected = {"PKG-INFO", "setup.cfg", "pyproject.toml", "README.md", "LICENSE",
+                "CHANGELOG.md"}
     expected |= {f"src/{n}" for n in package_sources()}
     expected |= {f"src/metaex.egg-info/{n}" for n in EGG_INFO}
     assert files == expected
