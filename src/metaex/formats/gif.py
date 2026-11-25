@@ -614,7 +614,8 @@ def usable_icc_profile(block: Block) -> bytes | None:
     declared = int.from_bytes(profile[0:4], "big")
     if not 128 <= declared <= len(profile):
         return None
-    return profile[:declared]
+    profile = profile[:declared]
+    return None if icc.profile_problem(profile) else profile
 
 
 def icc_extension(profile: bytes) -> bytes:

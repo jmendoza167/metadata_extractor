@@ -593,7 +593,8 @@ def usable_icc_profile(chunk: Chunk) -> bytes | None:
     declared = int.from_bytes(profile[0:4], "big")
     if not 128 <= declared <= len(profile):
         return None
-    return profile[:declared]
+    profile = profile[:declared]
+    return None if icc.profile_problem(profile) else profile
 
 
 def _kept_chunk(data: bytes, chunk: Chunk) -> bytes:

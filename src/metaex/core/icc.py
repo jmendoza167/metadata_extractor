@@ -29,6 +29,62 @@ TEXT_TAGS = (("desc", "description", "Description"),
              ("dmdd", "device_model_description", "Device model description"))
 
 
+KNOWN_TAGS = frozenset([
+    # ICC.1 (v4) and the v2 tags that v4 dropped
+    "A2B0", "A2B1", "A2B2", "A2B3", "A2M0", "B2A0", "B2A1", "B2A2", "B2A3", "B2D0", "B2D1",
+    "B2D2", "B2D3", "D2B0", "D2B1", "D2B2", "D2B3", "bXYZ", "bTRC", "bfd ", "bkpt", "calt",
+    "chad", "chrm", "cicp", "ciis", "clot", "clro", "clrt", "cprt", "crdi", "desc", "devs",
+    "dmdd", "dmnd", "gamt", "gTRC", "gXYZ", "kTRC", "lumi", "meas", "ncl2", "ncol", "pre0",
+    "pre1", "pre2", "ps2i", "ps2s", "ps2r", "ps2c", "psd0", "psd1", "psd2", "psd3", "pseq",
+    "psid", "resp", "rig0", "rig2", "rTRC", "rXYZ", "scrd", "scrn", "targ", "tech", "vued",
+    "view", "wtpt",
+    # written by operating systems: video card gamma, Apple display data, Windows HDR
+    "vcgt", "dscm", "mmod", "ndin", "MHC2",
+])
+"""Tags of color profiles. The ICC "meta" dictionary tag and private tags
+can hold anything, so a profile with them is not kept (see profile_problem())."""
+
+
+def profile_problem(profile: bytes) -> str | None:
+    """Why a profile may hold data that is not part of the color profile,
+    or None. A cleaned file keeps an ICC profile byte for byte, so it is
+    only kept if every tag is a known color tag, every byte belongs to the
+    header, the tag table or a tag (bytes between tags must be zero) and the
+    reserved header bytes are zero."""
+    n = len(profile)
+    if n < 132:
+        return f"the profile is too short ({n} bytes)"
+    declared = int.from_bytes(profile[0:4], "big")
+    if declared != n:
+        return f"the header says {declared} bytes, but the profile has {n}"
+    if profile[36:40] != b"acsp":
+        return "no 'acsp' signature"
+    if any(profile[100:128]):
+        return "the reserved bytes of the header are not zero"
+    count = int.from_bytes(profile[128:132], "big")
+    table_end = 132 + 12 * count
+    if count > MAX_TAGS or table_end > n:
+        return f"the tag table ({count} tags) does not fit in the profile"
+    ranges = [(0, table_end)]
+    for i in range(count):
+        entry = profile[132 + 12 * i : 144 + 12 * i]
+        sig = entry[0:4].decode("latin-1")
+        offset, size = int.from_bytes(entry[4:8], "big"), int.from_bytes(entry[8:12], "big")
+        if sig not in KNOWN_TAGS:
+            return f"it has a tag metaex doesn't know ({fourcc(entry[0:4])!r})"
+        if offset < table_end or offset > n or size > n - offset:
+            return f"the {sig!r} tag is outside the profile"
+        ranges.append((offset, offset + size))
+    position = 0
+    for start, end in sorted(ranges):
+        if start > position and any(profile[position:start]):
+            return f"{start - position} bytes at offset {position} belong to no tag"
+        position = max(position, end)
+    if position < n and any(profile[position:]):
+        return f"{n - position} bytes at the end belong to no tag"
+    return None
+
+
 def fourcc(raw: bytes) -> str:
     """A 4-byte signature as text; "(none)" if zero, hex if not printable."""
     if raw == b"\x00\x00\x00\x00":
@@ -87,6 +143,11 @@ def icc_section(profile: bytes, warnings: list[str]) -> Section:
     section.add("profile_id", "Profile ID",
                 profile_id.hex() if any(profile_id) else "(not set)")
 
+    problem = profile_problem(profile)
+    if problem is not None:
+        section.add("unchecked_data", "Data metaex can't check", problem, sensitive=True)
+        warnings.append(f"the ICC profile may hold data that is not part of it ({problem}); "
+                        "strip removes the profile")
     tags = _tag_table(r, warnings)
     for sig, key, label in TEXT_TAGS:
         if sig in tags:

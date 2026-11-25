@@ -124,7 +124,7 @@ def test_orientation_exif_with_hidden_bytes_is_a_leftover():
     [
         (app(0, b"JFIF\x00\x01\x02\x01\x00\x48\x00\x48\x00\x00" + b"secret"), "extra bytes in JFIF"),
         (app(14, b"Adobe\x00\x64\x00\x00\x00\x00\x01" + b"secret"), "extra bytes in Adobe"),
-        (app(2, b"ICC_PROFILE\x00\x02\x02" + bytes(10)), "ICC profile chunk"),
+        (app(2, b"ICC_PROFILE\x00\x02\x02" + bytes(10)), "ICC profile that is incomplete"),
         (segment(0xFE, b"note"), "COM segment is not allowed"),
         (app(1, b"http://ns.adobe.com/xmp/extension/\x00short"), "APP1"),
     ],

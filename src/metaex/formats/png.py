@@ -998,7 +998,7 @@ def usable_icc_profile(chunk: Chunk) -> bytes | None:
     except MetaexError:
         return None
     profile = inflated.data
-    if len(profile) < 128 or profile[36:40] != b"acsp":
+    if len(profile) < 128 or profile[36:40] != b"acsp" or icc.profile_problem(profile):
         return None
     return iccp.compressed if inflated.extra == 0 else zlib.compress(profile, 9)
 
@@ -1183,7 +1183,8 @@ def _iccp_problem(chunk: Chunk) -> str | None:
     profile = inflated.data
     if len(profile) < 128 or profile[36:40] != b"acsp":
         return "not a valid ICC profile"
-    return None
+    problem = icc.profile_problem(profile)
+    return None if problem is None else f"ICC profile kept although {problem}"
 
 
 def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:

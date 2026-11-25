@@ -43,6 +43,14 @@ change how a file looks or plays; each format below says what that is.
 
 ## Images
 
+**Color profiles (ICC)**, kept by default in JPEG, PNG, GIF and WebP (and
+removed with `--paranoid`), are copied byte for byte, so a profile is kept
+only if it holds nothing but color data: every tag a known color tag (no
+private tags, no `meta` dictionary), every byte part of the header, the
+tag table or a tag, and the header's reserved bytes zero. Any other
+profile is listed by `show` and `risk` ("Data metaex can't check") and
+removed by `strip`; `verify` reports it as a leftover.
+
 ### JPEG
 
 Extensions: `.jpg`, `.jpeg`, `.jpe`, `.jfif`.

@@ -818,7 +818,8 @@ def icc_profile_segments(profile: bytes) -> bytes:
 def _usable_icc_profile(structure: JpegStructure) -> bytes | None:
     """The original ICC profile if it is complete and looks like a real profile."""
     profile = assemble_icc_profile(structure, [])
-    if profile is None or len(profile) < 128 or profile[36:40] != b"acsp":
+    if (profile is None or len(profile) < 128 or profile[36:40] != b"acsp"
+            or icc.profile_problem(profile)):
         return None
     if len(profile) > ICC_CHUNK_DATA * 255:
         return None
@@ -905,7 +906,7 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
     out["image_sha256"] = hashlib.sha256(image).hexdigest()
 
     structure = walk_segments(bytes(cleaned))
-    icc_ok = assemble_icc_profile(structure, []) is not None
+    icc_ok = _usable_icc_profile(structure) is not None
     seen: set[str] = set()
     for seg in structure.segments:
         p = seg.payload
@@ -924,7 +925,7 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
         elif seg.marker == APP2 and p.startswith(ICC_ID):
             if icc_ok:
                 continue
-            problem = "ICC profile chunk that cannot be read as a complete profile"
+            problem = "ICC profile that is incomplete or holds data metaex can't check"
         elif seg.marker == APP14 and p.startswith(ADOBE_ID) and "adobe" not in seen:
             seen.add("adobe")
             if len(p) == 12:

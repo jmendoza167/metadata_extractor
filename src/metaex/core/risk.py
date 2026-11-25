@@ -418,7 +418,10 @@ def classify(section_key: str, field_key: str, label: str = "", value: str = "")
         return _archive_level(section_key, field_key, value)
     if section_key == "icc":
         # ICC fields share names with personal fields (Description, Copyright) but
-        # describe a color profile; only the device fields can fingerprint.
+        # describe a color profile; only the device fields can fingerprint, and
+        # data metaex can't check may hold anything.
+        if field_key == "unchecked_data":
+            return HIGH
         return MEDIUM if (section_key, field_key) in MEDIUM_FIELDS else LOW
     names = _names(section_key, field_key, label)
     if (section_key in CRITICAL_SECTIONS or (section_key, field_key) in CRITICAL_FIELDS
