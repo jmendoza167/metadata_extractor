@@ -156,3 +156,44 @@ def test_build_requirements_are_pinned_by_hash():
     pyproject = (RELEASE.parent.parent.parent / "pyproject.toml").read_text(encoding="utf-8")
     minimum = re.search(r'requires = \["setuptools>=(\d+)"\]', pyproject).group(1)
     assert int(version.split(".")[0]) >= int(minimum)
+
+
+def test_only_tags_on_main_are_released():
+    """Regression test: a tag pushed on a commit of any branch was released."""
+    check = jobs(RELEASE.read_text(encoding="utf-8"))["check"]
+    order = steps(check)
+    checkout = next(s for s in order if "actions/checkout@" in s)
+    assert "fetch-depth: 0" in checkout
+    on_main = next(i for i, s in enumerate(order)
+                   if 'git merge-base --is-ancestor "$GITHUB_SHA" origin/main' in s)
+    notes = next(i for i, s in enumerate(order) if "release_notes.py" in s)
+    assert on_main < notes and "exit 1" in order[on_main]
+    j = jobs(RELEASE.read_text(encoding="utf-8"))
+    assert "needs: check" in j["publish-pypi"] and "needs: publish-pypi" in j["github-release"]
+
+
+def run_scripts(text: str) -> list[str]:
+    """The shell script of every run: step (one line, or a block)."""
+    out = []
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        m = re.match(r"^(\s*)(?:- )?run:\s*(.*)$", line)
+        if not m:
+            continue
+        indent, first = len(m.group(1)), m.group(2)
+        body = [] if first in ("|", ">-", ">", "|-") else [first]
+        for nxt in lines[i + 1:]:
+            if nxt.strip() and len(nxt) - len(nxt.lstrip()) <= indent:
+                break
+            body.append(nxt)
+        out.append("\n".join(body))
+    return out
+
+
+@pytest.mark.parametrize("workflow", WORKFLOWS, ids=lambda p: p.name)
+def test_no_expressions_in_scripts(workflow):
+    """Values such as tag or branch names reach a script only through env:
+    an expression inside run: is pasted into the script before it runs."""
+    scripts = run_scripts(workflow.read_text(encoding="utf-8"))
+    assert scripts
+    assert [s for s in scripts if "${{" in s] == []

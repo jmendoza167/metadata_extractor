@@ -282,7 +282,8 @@ python -m pytest
   version, CHANGELOG section dated), publishes to PyPI (environment
   `pypi`), then creates the GitHub Release with the CHANGELOG section as
   notes and the files attached. Only a pushed tag starts it (there is no
-  run by hand and no TestPyPI dry run).
+  run by hand and no TestPyPI dry run), and only a tag of a commit on
+  `main` gets past the `check` job.
 - The packages are built **once**, by the `package` job, and the same
   files are checked, installed and published.
 - Third-party actions are pinned to full commit SHAs with the version in a

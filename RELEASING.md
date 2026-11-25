@@ -46,8 +46,8 @@ git tag -a v0.1.0 -m "metaex 0.1.0"
 git push origin v0.1.0
 ```
 
-The tag must be exactly `v` + the version in `src/metaex/__init__.py`; the
-workflow checks it. It then runs the full test matrix, builds the packages
+The tag must be exactly `v` + the version in `src/metaex/__init__.py`, on a
+commit of `main`; the workflow checks both. It then runs the full test matrix, builds the packages
 once, checks them on Windows, Linux and macOS, publishes them to PyPI (if
 the `pypi` environment requires a reviewer, approve it under Actions) and
 creates the GitHub Release with the CHANGELOG section as its notes and the
