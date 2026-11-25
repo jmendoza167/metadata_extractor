@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from metaex.core.batch import is_clean_output, path_key
 from metaex.core.generic import mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, load_file
 from metaex.core.verify import VerifyResult, verdict, verify
@@ -73,3 +74,26 @@ def result_lines(path: str, result: VerifyResult) -> list[str]:
     for note in result.notes:
         lines.append(f"Note: {note}")
     return lines
+
+
+# -- many files ----------------------------------------------------------------------
+
+
+def original_for(relative: tuple[str, ...], original_root: str) -> str | None:
+    """The original of a cleaned file inside ``original_root``: the file at
+    the same relative path, else (for photo_clean.jpg, backup_clean.tar.gz)
+    the same path without "_clean"; None if neither exists."""
+    candidates = [os.path.join(original_root, *relative)]
+    name = relative[-1]
+    if is_clean_output(name):
+        stem, _, rest = name.rpartition("_clean.")
+        candidates.append(os.path.join(original_root, *relative[:-1], f"{stem}.{rest}"))
+    for candidate in candidates:
+        if os.path.isfile(candidate) and not os.path.islink(candidate):
+            return candidate
+    return None
+
+
+def unpaired_originals(originals: list[str], paired: set[str]) -> list[str]:
+    """Originals that no cleaned file was paired with (by path_key)."""
+    return [path for path in originals if path_key(path) not in paired]

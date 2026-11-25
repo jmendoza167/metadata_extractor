@@ -122,9 +122,12 @@ def build_parser() -> argparse.ArgumentParser:
     verify_help = ("check that a cleaned file contains no metadata "
                    "(exit 0 = clean, 3 = not clean, 1 = error)")
     verify = subparsers.add_parser("verify", help=verify_help, description=verify_help)
-    verify.add_argument("path", help="cleaned file to check")
+    _add_paths(verify, "cleaned files or folders to check")
     verify.add_argument("--original", metavar="PATH",
-                        help="original file, to confirm the image data is unchanged")
+                        help="original file, to confirm the image data is unchanged; with "
+                             "folders or several files, the folder of the originals (files "
+                             "are paired by their path inside it, photo_clean.jpg also with "
+                             "photo.jpg)")
     verify.add_argument("--json", action="store_true", help="print the result as JSON")
     _add_common_options(verify)
     verify.set_defaults(handler=_cmd_verify)
@@ -239,7 +242,11 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     import json
 
     from metaex.commands.verify import result_lines, result_to_dict, verify_file
+    from metaex.core.batch import is_batch
 
+    if is_batch(args.paths):
+        return _batch_verify(args)
+    args.path = args.paths[0]
     result = verify_file(args.path, args.original, max_size=args.max_size)
     if args.json:
         write_text(json.dumps(result_to_dict(args.path, result), indent=2,
@@ -450,6 +457,82 @@ def _batch_strip(args: argparse.Namespace) -> int:
     if args.json:
         _batch_json("strip", run, lambda r: {"output": r.output, "strip": r.payload.to_dict()})
     return batch.exit_code(run)
+
+
+def _batch_verify(args: argparse.Namespace) -> int:
+    import os
+
+    from metaex.commands import batch
+    from metaex.commands.verify import (original_for, result_to_dict, unpaired_originals,
+                                        verify_file)
+    from metaex.core.batch import collect, display_path, native, path_key
+
+    original = native(args.original) if args.original is not None else None
+    if original is not None and not os.path.isdir(original):
+        return _usage_error("verify", "with folders or several files, --original must be the "
+                                      "folder of the originals (files are paired by their path "
+                                      "inside it)")
+    collection = _collect(args, skip_clean_outputs=False,
+                          exclude=[original] if original is not None else [])
+    pairs = {}
+    if original is not None:
+        pairs = {item.path: original_for(item.relative, original) for item in collection.items}
+
+    def work(item, result):
+        orig = pairs.get(item.path)
+        if original is not None and orig is None:
+            result.reason = (f"no original found in {original}; checked without comparing "
+                             "the content")
+        verified = verify_file(item.path, orig, max_size=args.max_size)
+        result.payload = (orig, verified)
+        return batch.CLEAN if verified.clean else batch.NOT_CLEAN
+
+    run = _run_batch(args, collection, work, refuse_unsupported=True,
+                     print_result=_print_verify_line)
+    if original is not None and not run.interrupted:
+        # Originals no cleaned file was paired with: reported, not checked.
+        inputs = [p for p in args.paths if os.path.isdir(p)]
+        originals = collect([original], recursive=args.recursive,
+                            include_hidden=args.include_hidden, exclude=inputs)
+        paired = {path_key(p) for p in pairs.values() if p is not None}
+        for path in unpaired_originals([i.path for i in originals.items], paired):
+            result = batch.FileResult(display_path(path), batch.SKIPPED,
+                                      reason="original without a cleaned copy (not checked)")
+            run.results.append(result)
+            if not args.json:
+                _print_verify_line(result)
+    if args.json:
+        _batch_json("verify", run, lambda r: {
+            "original": r.payload[0], "verify": result_to_dict(r.path, r.payload[1])})
+    return batch.exit_code(run, not_clean_code=EXIT_NOT_CLEAN)
+
+
+MAX_DETAIL_LINES = 5
+
+
+def _print_verify_line(result) -> None:
+    """One line per file (outcome and path), then why it is not clean."""
+    from metaex.commands import batch
+    from metaex.core.verify import verdict
+
+    line = f"{result.outcome}: {result.path}"
+    if result.outcome in batch.FAILURES or result.outcome == batch.SKIPPED:
+        line += f": {batch.reason_text(result)}"
+    lines = [line]
+    if result.payload is not None:
+        _, verified = result.payload
+        if not verified.clean and verdict(verified) != "NOT CLEAN":
+            lines.append(f"  {verdict(verified)}")
+        details = ([f"Leftover: {f}" for f in verified.leftovers]
+                   + [f"Problem: {p}" for p in verified.problems])
+        if verified.image_data_match is False:
+            details.append(f"{verified.image_label} DIFFERS from the original")
+        lines += [f"  {d}" for d in details[:MAX_DETAIL_LINES]]
+        if len(details) > MAX_DETAIL_LINES:
+            lines.append(f"  ... and {len(details) - MAX_DETAIL_LINES} more")
+        if result.reason:
+            lines.append(f"  Note: {result.reason}")
+    write_text("\n".join(sanitize(line) for line in lines) + "\n")
 
 
 def _not_a_folder(path: str) -> bool:
