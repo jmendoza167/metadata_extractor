@@ -116,6 +116,11 @@ def build_parser() -> argparse.ArgumentParser:
     risk.add_argument("--no-color", action="store_true", help="never use colors")
     _add_common_options(risk)
     risk.set_defaults(handler=_cmd_risk)
+
+    formats_help = "list the supported formats, what strip removes, and the refused formats"
+    formats = subparsers.add_parser("formats", help=formats_help, description=formats_help)
+    formats.add_argument("--json", action="store_true", help="print the list as JSON")
+    formats.set_defaults(handler=_cmd_formats)
     return parser
 
 
@@ -231,6 +236,18 @@ def _cmd_risk(args: argparse.Namespace) -> int:
         lines = risk_lines(args.path, report, findings, strippable,
                            color=use_color(args.no_color))
         write_text("\n".join(lines) + "\n")
+    return EXIT_OK
+
+
+def _cmd_formats(args: argparse.Namespace) -> int:
+    import json
+
+    from metaex.commands.formats import formats_lines, formats_to_dict
+
+    if args.json:
+        write_text(json.dumps(formats_to_dict(), indent=2, ensure_ascii=True) + "\n")
+    else:
+        write_text("\n".join(formats_lines()) + "\n")
     return EXIT_OK
 
 
