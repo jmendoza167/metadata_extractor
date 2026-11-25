@@ -140,7 +140,8 @@ src/metaex/
 tests/               # pytest tests
     helpers/         # builders that generate test files in memory
     samples/         # committed sample files (see "Sample files" below)
-scripts/             # dev tools: install_hooks.py, make_samples.py, check_wheel.py
+scripts/             # dev tools: install_hooks.py, make_samples.py, check_wheel.py,
+                     #   release_notes.py
 ```
 
 What belongs where:
@@ -265,6 +266,50 @@ python -m pytest
   1. run `git log -i --grep="co-authored-by" --oneline` (must print nothing),
   2. run the full-history gitleaks scan with `--redact` (see "Secrets"),
   3. if both are clean, report that the milestone is ready to push.
+
+## Releases and publishing
+
+- **Only GitHub Actions publishes**, through `.github/workflows/release.yml`
+  with PyPI **Trusted Publishing** (OIDC). There is no API token anywhere,
+  ever: never add one, never use `twine upload` from a computer, never add
+  a `password:` or a PyPI secret to a workflow (`tests/test_workflows.py`
+  checks this).
+- **Claude Code never tags, publishes or pushes.** Javier does, following
+  RELEASING.md.
+- A pushed tag `vX.Y.Z` runs `tests.yml` (full matrix, the build into the
+  `dist` artifact, the installed-wheel check on every OS), then
+  `scripts/release_notes.py` (tag equals `__version__`, both files of that
+  version, CHANGELOG section dated), publishes to PyPI (environment
+  `pypi`), then creates the GitHub Release with the CHANGELOG section as
+  notes and the files attached. Running the workflow by hand
+  (workflow_dispatch) is a dry run that publishes to TestPyPI (environment
+  `testpypi`); the CHANGELOG may still say "Unreleased" then.
+- The packages are built **once**, by the `package` job, and the same
+  files are checked, installed and published.
+- Third-party actions are pinned to full commit SHAs with the version in a
+  comment (`# v5.1.0`); update the SHA and the comment together.
+- The version lives only in `src/metaex/__init__.py` (`__version__`);
+  pyproject reads it from there.
+
+What has to be set up by hand (once), exactly as the workflow expects:
+
+| Where | Setting | Value |
+|-------|---------|-------|
+| PyPI: Account > Publishing > Add a new pending publisher (GitHub) | PyPI project name | `metaex` |
+| | Owner | `jmendoza167` |
+| | Repository name | `metadata_extractor` |
+| | Workflow name | `release.yml` |
+| | Environment name | `pypi` |
+| TestPyPI: the same page on test.pypi.org | PyPI project name | `metaex` |
+| | Owner | `jmendoza167` |
+| | Repository name | `metadata_extractor` |
+| | Workflow name | `release.yml` |
+| | Environment name | `testpypi` |
+| GitHub: Settings > Environments | environments | `pypi` and `testpypi` (recommended: Javier as required reviewer; for `pypi`, deployment tags `v*` only) |
+| GitHub: Settings > Security | Private vulnerability reporting | enabled (SECURITY.md links to it) |
+
+A pending publisher turns into a normal one when the first upload creates
+the project; nothing else changes.
 
 ## Secrets
 
