@@ -75,14 +75,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     strip_help = "write a verified copy of a file with its metadata removed"
     strip = subparsers.add_parser("strip", help=strip_help, description=strip_help)
-    strip.add_argument("path", help="file to clean (never modified unless --in-place)")
+    _add_paths(strip, "files or folders to clean (never modified unless --in-place)")
     target = strip.add_mutually_exclusive_group()
     target.add_argument("-o", "--output", metavar="OUTPUT",
-                        help="where to write the cleaned copy (default: <name>_clean.<ext>)")
+                        help="one file only: where to write the cleaned copy (default: "
+                             "<name>_clean.<ext> next to the original)")
+    target.add_argument("--output-dir", metavar="DIR",
+                        help="write the cleaned copies into DIR (created if missing), with "
+                             "their original names and folder structure")
     target.add_argument("--in-place", action="store_true",
-                        help="replace the original file (asks for confirmation)")
+                        help="replace the original files (asks for confirmation)")
     target.add_argument("--rename", action="store_true",
                         help="write to a random name like img_8f3a2c1d.jpg in the same folder")
+    strip.add_argument("--overwrite", action="store_true",
+                       help="replace cleaned copies that already exist (never the originals; "
+                            "without this option they are skipped)")
     strip.add_argument("--yes", action="store_true",
                        help="don't ask for confirmation with --in-place")
     strip.add_argument("--paranoid", action="store_true",
@@ -200,15 +207,27 @@ def _cmd_show(args: argparse.Namespace) -> int:
 def _cmd_strip(args: argparse.Namespace) -> int:
     import json
 
-    from metaex.commands.strip import strip_file, summary_lines
+    from metaex.commands.strip import strip_file, strip_into_folder, summary_lines
+    from metaex.core.batch import is_batch
 
+    if is_batch(args.paths):
+        return _batch_strip(args)
+    args.path = args.paths[0]
     if args.in_place and not args.yes:
         _confirm_overwrite(args.path)
-    outcome = strip_file(args.path, args.output, paranoid=args.paranoid,
-                         keep_orientation=not args.no_orientation, max_size=args.max_size,
-                         in_place=args.in_place, fixed_time=args.fixed_time,
-                         rename=args.rename, rebuild_image_data=args.rebuild_image_data,
-                         remove_comments=args.remove_comments, deep=args.deep)
+    options = dict(paranoid=args.paranoid, keep_orientation=not args.no_orientation,
+                   max_size=args.max_size, fixed_time=args.fixed_time,
+                   rebuild_image_data=args.rebuild_image_data,
+                   remove_comments=args.remove_comments, deep=args.deep,
+                   overwrite=args.overwrite)
+    if args.output_dir is not None:
+        if _not_a_folder(args.output_dir):
+            return _usage_error("strip", f"--output-dir {args.output_dir}: exists and is not "
+                                         "a folder")
+        outcome = strip_into_folder(args.path, args.output_dir, **options)
+    else:
+        outcome = strip_file(args.path, args.output, in_place=args.in_place, rename=args.rename,
+                             **options)
     if args.json:
         write_text(json.dumps(outcome.to_dict(), indent=2, ensure_ascii=True) + "\n")
     else:
@@ -237,6 +256,19 @@ def _confirm_overwrite(path: str) -> None:
         raise MetaexError("--in-place needs confirmation, but input is not a terminal; "
                           "pass --yes to overwrite without asking. Nothing changed.")
     write_text(f"Type 'yes' to overwrite {sanitize(path)}: ", sys.stderr)
+    answer = stdin.readline()
+    if answer.strip() != "yes":
+        raise MetaexError("not confirmed; nothing changed")
+
+
+def _confirm_overwrite_many(count: int) -> None:
+    """One confirmation for a whole --in-place batch."""
+    stdin = sys.stdin
+    if stdin is None or not stdin.isatty():
+        raise MetaexError("--in-place needs confirmation, but input is not a terminal; "
+                          "pass --yes to overwrite without asking. Nothing changed.")
+    noun = "file" if count == 1 else "files"
+    write_text(f"Type 'yes' to overwrite {count} {noun}: ", sys.stderr)
     answer = stdin.readline()
     if answer.strip() != "yes":
         raise MetaexError("not confirmed; nothing changed")
@@ -373,6 +405,81 @@ def _batch_risk(args: argparse.Namespace) -> int:
     if args.json:
         _batch_json("risk", run, lambda r: {"risk": risk_to_dict(r.path, *r.payload)})
     return batch.exit_code(run)
+
+
+def _batch_strip(args: argparse.Namespace) -> int:
+    import os
+
+    from metaex.commands import batch
+    from metaex.commands.strip import BatchStripper
+    from metaex.core.batch import native, path_key, same_path
+
+    if args.output is not None:
+        return _usage_error("strip", "-o/--output names one output file; with folders or "
+                                     "several files use --output-dir DIR")
+    out = native(args.output_dir) if args.output_dir is not None else None
+    if out is not None:
+        if _not_a_folder(out):
+            return _usage_error("strip", f"--output-dir {out}: exists and is not a folder")
+        for path in args.paths:
+            if os.path.isdir(path) and same_path(path, out):
+                return _usage_error("strip", f"--output-dir {out} is an input folder; choose "
+                                             "another folder (it may be inside the input "
+                                             "folder)")
+    collection = _collect(args, exclude=[out] if out is not None else [])
+    if args.in_place and not args.yes and collection.items:
+        _confirm_overwrite_many(len(collection.items))
+    stripper = BatchStripper(
+        inputs={path_key(item.path) for item in collection.items}, output_dir=out,
+        in_place=args.in_place, rename=args.rename, overwrite=args.overwrite,
+        paranoid=args.paranoid, keep_orientation=not args.no_orientation,
+        max_size=args.max_size, fixed_time=args.fixed_time,
+        rebuild_image_data=args.rebuild_image_data, remove_comments=args.remove_comments,
+        deep=args.deep)
+
+    def work(item, result):
+        outcome, value = stripper.strip(item.path, item.relative, result.filetype)
+        if outcome == batch.SKIPPED:
+            result.reason = value
+        else:
+            result.payload, result.output = value, value.output
+        return outcome
+
+    run = _run_batch(args, collection, work, refuse_unsupported=True,
+                     print_result=_print_strip_line)
+    if args.json:
+        _batch_json("strip", run, lambda r: {"output": r.output, "strip": r.payload.to_dict()})
+    return batch.exit_code(run)
+
+
+def _not_a_folder(path: str) -> bool:
+    import os
+
+    return os.path.lexists(path) and not os.path.isdir(path)
+
+
+def _print_strip_line(result) -> None:
+    """One line per file: outcome, path and output (or the reason), then the
+    file's warnings and, if not CLEAN, the verification verdict."""
+    from metaex.commands import batch
+    from metaex.core.report import CRITICAL_PREFIX
+    from metaex.core.verify import verdict
+
+    line = f"{result.outcome}: {result.path}"
+    if result.output is not None:
+        line += f" -> {result.output}"
+    if result.reason:
+        line += f": {batch.reason_text(result)}"
+    lines = [line]
+    outcome = result.payload
+    if outcome is not None:
+        for warning in outcome.warnings:
+            if warning.startswith(CRITICAL_PREFIX):
+                warning = "*** " + warning[len(CRITICAL_PREFIX):]
+            lines.append(f"  Warning: {warning}")
+        if outcome.verify is not None and not outcome.verify.clean:
+            lines.append(f"  Verification: {verdict(outcome.verify)}")
+    write_text("\n".join(sanitize(line) for line in lines) + "\n")
 
 
 def _usage_error(command: str, message: str) -> int:

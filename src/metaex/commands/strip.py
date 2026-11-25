@@ -13,6 +13,7 @@ from typing import Any
 from metaex.core import filetype as ft
 from metaex.core import icc
 from metaex.core.archive import DeepSession, deep_cleaning, deep_warnings, scan_inner, some
+from metaex.core.batch import same_path
 from metaex.core.errors import (CannotCleanError, MalformedFileError, MetaexError,
                                 UnsupportedFormatError)
 from metaex.core.generic import mark_of_the_web_section
@@ -126,7 +127,7 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
                max_size: int = DEFAULT_MAX_SIZE, in_place: bool = False,
                fixed_time: bool = False, rename: bool = False,
                rebuild_image_data: bool = False, remove_comments: bool = False,
-               deep: bool = False) -> StripOutcome:
+               deep: bool = False, overwrite: bool = False) -> StripOutcome:
     """load -> detect -> strip -> temp file -> verify -> move into place.
 
     With ``in_place`` the original is replaced (still via a verified temp
@@ -140,10 +141,13 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     instead of being refused. With ``remove_comments`` (Office documents)
     comments are removed completely instead of being kept with "Author" as
     their author. With ``deep`` (archives) the files inside are cleaned too,
-    each with its own format's stripper, and verified.
+    each with its own format's stripper, and verified. With ``overwrite`` an
+    existing output file is replaced (never the original itself: that
+    needs ``in_place``).
 
     Raises (and writes nothing) for unsupported types, malformed input, an
-    existing output file, or a failed verification.
+    existing output file (without ``overwrite``), an output that is the
+    original file, or a failed verification.
     """
     source = os.fspath(path)
     data = load_file(source, max_size)
@@ -167,13 +171,14 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
         return _strip(source, data, detected, module, output, session,
                       keep_orientation=keep_orientation, paranoid=paranoid, in_place=in_place,
                       fixed_time=fixed_time, rename=rename,
-                      rebuild_image_data=rebuild_image_data, remove_comments=remove_comments)
+                      rebuild_image_data=rebuild_image_data, remove_comments=remove_comments,
+                      overwrite=overwrite)
 
 
 def _strip(source: str, data: bytes, detected: ft.FileType, module, output,
            session: DeepSession | None, *, keep_orientation: bool, paranoid: bool,
            in_place: bool, fixed_time: bool, rename: bool, rebuild_image_data: bool,
-           remove_comments: bool) -> StripOutcome:
+           remove_comments: bool, overwrite: bool = False) -> StripOutcome:
     if sum((in_place, output is not None, rename)) > 1:
         raise MetaexError("choose only one of --in-place, -o and --rename")
     if in_place:
@@ -182,9 +187,13 @@ def _strip(source: str, data: bytes, detected: ft.FileType, module, output,
         target = random_output_path(source, detected)
     else:
         target = os.fspath(output) if output is not None else default_output_path(source, detected)
-        if os.path.lexists(target):
-            hint = "" if output is not None else " Use -o to choose another name."
-            raise MetaexError(f"{target}: already exists; refusing to overwrite it.{hint} "
+        if same_path(target, source):
+            raise MetaexError(f"{target}: is the original file; refusing to write over it "
+                              "(use --in-place to replace the original). No file written.")
+        if os.path.lexists(target) and not overwrite:
+            hint = ("Use --overwrite to replace it." if output is not None else
+                    "Use -o to choose another name, or --overwrite to replace it.")
+            raise MetaexError(f"{target}: already exists; refusing to overwrite it. {hint} "
                               "No file written.")
     options: dict[str, bool] = {}
     if rebuild_image_data:
@@ -215,7 +224,7 @@ def _strip(source: str, data: bytes, detected: ft.FileType, module, output,
         mode = stat.S_IMODE(os.stat(source).st_mode)
         result = write_verified(target, cleaned, check, overwrite=True, mode=mode, times=times)
     else:
-        result = write_verified(target, cleaned, check, times=times)
+        result = write_verified(target, cleaned, check, overwrite=overwrite, times=times)
     outcome = StripOutcome(source, target, detected, len(data), len(cleaned),
                            kept_by_design=result.kept_by_design, verify=result)
     if getattr(module, "CAN_DEEP", False):
@@ -508,3 +517,147 @@ def _kept_by_section(findings: list[Finding]) -> dict[str, str]:
             result[section] = ", ".join(f"{f.label} = {f.value}" for f in items
                                         if f.label != "Byte order")
     return result
+
+
+# -- many files ----------------------------------------------------------------------
+
+
+@dataclass
+class BatchStripper:
+    """Strips the files of a batch one by one, each with strip_file().
+
+    Where each cleaned copy goes: next to its original as <name>_clean.<ext>
+    (the default), under ``output_dir`` at the same relative path and with
+    the original's name, over the original (``in_place``) or under a random
+    name (``rename``). Outputs never land on an input file of the batch or on
+    an output already written in this run; an existing output file is
+    skipped (the work function returns "skipped") unless ``overwrite``.
+    The options that exist only for some formats (--deep, --rebuild-image-data,
+    --remove-comments) are applied to the files of those formats.
+    """
+
+    inputs: set[str]
+    """path_key() of every file of the batch."""
+    output_dir: str | None = None
+    in_place: bool = False
+    rename: bool = False
+    overwrite: bool = False
+    paranoid: bool = False
+    keep_orientation: bool = True
+    max_size: int = DEFAULT_MAX_SIZE
+    fixed_time: bool = False
+    rebuild_image_data: bool = False
+    remove_comments: bool = False
+    deep: bool = False
+    written: dict[str, str] = field(default_factory=dict)
+    """path_key() of each output written in this run -> its original."""
+
+    def target(self, item_path: str, relative: tuple[str, ...],
+               filetype: ft.FileType) -> str | None:
+        """Where the cleaned copy goes (None: a random name, chosen by strip_file)."""
+        if self.in_place:
+            return item_path
+        if self.rename:
+            return None
+        if self.output_dir is not None:
+            return os.path.join(self.output_dir, *relative)
+        return default_output_path(item_path, filetype)
+
+    def strip(self, item_path: str, relative: tuple[str, ...],
+              filetype: ft.FileType) -> tuple[str, StripOutcome | str]:
+        """("skipped", reason) or (outcome, StripOutcome); raises like strip_file."""
+        from metaex.core.batch import path_key
+
+        target = self.target(item_path, relative, filetype)
+        if target is not None and not self.in_place:
+            key = path_key(target)
+            if key in self.inputs:
+                raise MetaexError(f"{target}: is an input file of this run; refusing to write "
+                                  "over it. No file written.")
+            if key in self.written:
+                raise MetaexError(f"{target}: already written in this run (for "
+                                  f"{self.written[key]}); no file written")
+            if os.path.lexists(target) and not self.overwrite:
+                return "skipped", (f"output already exists: {target} (use --overwrite to "
+                                   "replace it)")
+        module = format_module(filetype)
+        was_clean = self._is_clean(item_path)
+        created = make_folders(os.path.dirname(target)) if target is not None else []
+        try:
+            outcome = strip_file(
+                item_path, None if self.in_place else target, in_place=self.in_place,
+                rename=self.rename, overwrite=self.overwrite, paranoid=self.paranoid,
+                keep_orientation=self.keep_orientation, max_size=self.max_size,
+                fixed_time=self.fixed_time,
+                rebuild_image_data=(self.rebuild_image_data
+                                    and getattr(module, "CAN_REBUILD_IMAGE_DATA", False)),
+                remove_comments=(self.remove_comments
+                                 and getattr(module, "CAN_REMOVE_COMMENTS", False)),
+                deep=self.deep and getattr(module, "CAN_DEEP", False))
+        except BaseException:
+            remove_empty_folders(created)
+            raise
+        self.written[path_key(outcome.output)] = item_path
+        return ("already clean" if was_clean else "cleaned"), outcome
+
+    def _is_clean(self, path: str) -> bool:
+        """True if the original already passes verify (nothing to remove)."""
+        try:
+            with scan_inner(True):
+                return verify(load_file(path, self.max_size), filename=path).clean
+        except MetaexError:
+            return False
+
+
+def make_folders(folder: str) -> list[str]:
+    """Create ``folder`` and its missing parents; return those created (deepest first)."""
+    missing: list[str] = []
+    current = os.path.abspath(folder) if folder else ""
+    while current and not os.path.isdir(current):
+        missing.append(current)
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+    created: list[str] = []
+    for path in reversed(missing):
+        try:
+            os.mkdir(path)
+        except FileExistsError:
+            if os.path.isdir(path):  # made by someone else meanwhile
+                continue
+            remove_empty_folders(created[::-1])
+            raise MetaexError(f"{path}: exists and is not a folder; no file written") from None
+        except OSError as exc:
+            remove_empty_folders(created[::-1])
+            raise MetaexError(f"{path}: cannot create the folder ({exc.strerror or exc}); "
+                              "no file written") from None
+        created.append(path)
+    return created[::-1]
+
+
+def remove_empty_folders(folders: list[str]) -> None:
+    """Remove folders created for an output that was not written (deepest first)."""
+    for path in folders:
+        try:
+            os.rmdir(path)
+        except OSError:
+            return
+
+
+def strip_into_folder(path: str | os.PathLike[str], output_dir: str | os.PathLike[str],
+                      **options: Any) -> StripOutcome:
+    """strip_file() writing the cleaned copy into ``output_dir`` (created if
+    missing) under the original's name; folders created for a file that is
+    not written are removed again."""
+    folder = os.fspath(output_dir)
+    if os.path.lexists(folder) and not os.path.isdir(folder):
+        raise MetaexError(f"--output-dir {folder}: exists and is not a folder; "
+                          "no file written")
+    source = os.fspath(path)
+    created = make_folders(folder)
+    try:
+        return strip_file(source, os.path.join(folder, os.path.basename(source)), **options)
+    except BaseException:
+        remove_empty_folders(created)
+        raise
