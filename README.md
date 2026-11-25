@@ -129,7 +129,8 @@ entries, and TAR archives with sparse files.
 
 `metaex show` recognizes these (and others) by their content, but does not
 read their embedded metadata; `metaex strip` refuses them and writes
-nothing.
+nothing. Every command says which type it detected and that metaex doesn't
+support it yet; `metaex formats` lists the supported and refused formats.
 
 ## Install
 
@@ -151,7 +152,11 @@ metaex show photo.jpg              # list all metadata, with sensitive fields ma
 metaex risk photo.jpg              # what the metadata reveals, by risk level
 metaex strip photo.jpg             # write photo_clean.jpg without metadata
 metaex verify photo_clean.jpg --original photo.jpg   # check the result
+metaex formats                     # the supported formats and what strip removes
 ```
+
+All four commands also work on several files and whole folders; see
+[Many files and folders](#many-files-and-folders).
 
 PNG, GIF, WebP, SVG, office documents, audio files and archives work the
 same way (`metaex strip report.docx` writes `report_clean.docx`, `metaex
@@ -340,8 +345,9 @@ How it works, and what is guaranteed:
   for leftovers and unchanged image data. Only then is it moved into place.
   If anything fails, nothing is written.
 - **Never overwrites.** The default output is `<name>_clean.<ext>`; if that
-  exists, metaex refuses (use `-o` to choose a name). `--in-place` replaces
-  the original, after typing `yes` (or with `--yes`).
+  exists, metaex refuses (use `-o` to choose a name, or `--overwrite` to
+  replace it; the original itself is never replaced that way). `--in-place`
+  replaces the original, after typing `yes` (or with `--yes`).
 - **Malformed files are refused**, never partly cleaned. For PNG that
   includes any chunk with a bad CRC, a missing IEND, critical chunks metaex
   doesn't know and image data that is too short or invalid; for GIF a
@@ -349,7 +355,8 @@ How it works, and what is guaranteed:
   with more or fewer than one bitstream; for SVG anything that is not
   well-formed XML.
 
-Other options: `-o OUTPUT`, `--rename` (random name like
+Other options: `-o OUTPUT` (one file), `--output-dir DIR` (write the
+cleaned copy into `DIR` under its original name), `--overwrite`, `--rename` (random name like
 `img_8f3a2c1d.jpg`), `--fixed-time` (sets the file's modified/accessed time
 to 2000-01-01T00:00:00Z; the creation time is set by the operating system),
 `--remove-comments` (office documents: remove comments completely instead
@@ -1082,6 +1089,146 @@ ZIP archives with encrypted entries or that are signed (JAR, APK and other
 signed archives), TAR archives with sparse files, xz files with anything
 but padding after their data, and archives that would expand to more than
 1 GiB or over 200 times their size (a "zip bomb").
+
+## Many files and folders
+
+`show`, `risk`, `strip` and `verify` accept several files and folders at
+once:
+
+```
+metaex risk photos --recursive --quiet                     # what a whole folder reveals
+metaex strip photos --recursive --output-dir clean         # clean copies in another folder
+metaex verify clean --original photos --recursive          # check them all
+metaex risk photos --recursive --csv > findings.csv        # every finding, for a spreadsheet
+metaex strip a.jpg b.png report.docx                       # a_clean.jpg, b_clean.png, ...
+```
+
+**Which files.** Files you name are always processed. Folders are searched
+one level deep; `--recursive` (`-r`) also searches their subfolders. Inside
+folders metaex leaves out, and lists in the summary:
+
+- hidden files and folders (names starting with `.`, and files with the
+  Windows "hidden" attribute); `--include-hidden` includes them;
+- `.git`, `.hg`, `.svn`, `node_modules`, `__pycache__` and Python virtual
+  environments, always (even with `--include-hidden`);
+- symbolic links and Windows junctions: they are never followed;
+- metaex's own cleaned copies (`*_clean.*`), so running `strip` twice never
+  cleans a cleaned copy again (`verify` does check them). Copies made with
+  `--rename` have random names, so a later run can't tell them apart from
+  originals;
+- the `--output-dir` folder, when it is inside a folder being cleaned;
+- files metaex doesn't support ("unsupported format"; see `metaex formats`).
+  A file you name yourself that metaex doesn't support is refused by
+  `strip` and `verify`, as for a single file.
+
+Every file is processed once, even if two arguments reach it, in an order
+sorted by path, so the output is the same on every system.
+
+**Where cleaned copies go.** Next to each original (`photo.jpg` ->
+`photo_clean.jpg`), as for a single file. With `--output-dir DIR` they go
+into `DIR` instead (created if missing), with their original names and the
+same folder structure (`photos/2024/beach.jpg` -> `clean/2024/beach.jpg`).
+`-o`/`--output` names a single output file, so it only works with one
+file. A cleaned copy that already exists is skipped and listed; add
+`--overwrite` to replace it. metaex never writes a cleaned copy over an
+original, refuses an `--output-dir` that is one of the folders being
+cleaned, and compares paths the way the system does (ignoring case on
+Windows and macOS). `--in-place` replaces the originals after one
+confirmation for the whole run ("Type 'yes' to overwrite 6 files"), or
+without asking with `--yes`. `--rename`, `--deep`, `--paranoid` and
+`--fixed-time` work per file; options for some formats only
+(`--deep`, `--rebuild-image-data`, `--remove-comments`) apply to the files
+of those formats. Each file is still written to a temp file, verified and
+only then moved into place.
+
+**One bad file never stops the run.** Each file gets an outcome:
+`cleaned`, `already clean` (it had nothing to remove; the verified copy is
+still written), `skipped`, `refused` (damaged, unsupported or not safe to
+clean) or `error` (could not be read or written). `verify` reports `clean`
+or `not clean` per file, and `show` and `risk` report `examined`. Pressing
+Ctrl+C stops after the current file, leaves no temp files and prints the
+summary so far, marked as partial.
+
+Real output (the files are samples from the test suite; on Windows the
+paths are printed with `\`):
+
+```
+$ metaex strip photos --recursive --output-dir clean
+[1/7] cleaned: photos/2024/beach.jpg -> clean/2024/beach.jpg
+  Warning: ICC profile names a device (ACME X100); use --paranoid to remove it (colors may shift)
+[2/7] cleaned: photos/2024/report.docx -> clean/2024/report.docx
+  Warning: *** the document still contains tracked changes, and 14 characters of DELETED TEXT are still stored in the file, where anyone can read them. Accept or reject all changes in Word (Review > Accept > Accept All Changes) or LibreOffice (Edit > Track Changes > Accept All), save, and run metaex again.
+  Warning: kept 1 comment(s) (their authors are now "Author"); use --remove-comments to remove them
+  ... (three more warnings about this document)
+[3/7] cleaned: photos/gps_camera.jpg -> clean/gps_camera.jpg
+[4/7] skipped: photos/notes.txt: unsupported format (detected type: unknown)
+[5/7] already clean: photos/orientation_6.jpg -> clean/orientation_6.jpg
+[6/7] cleaned: photos/text_chunks.png -> clean/text_chunks.png
+[7/7] refused: photos/truncated.jpg: missing end-of-image (EOI) marker; the file may be truncated; no file written
+
+Summary: 8 entries
+  cleaned        4
+  already clean  1
+  skipped        2
+  refused        1
+  error          0
+
+By format:
+  DOCX        1 (1 cleaned)
+  JPEG        4 (2 cleaned, 1 already clean, 1 refused)
+  PNG         1 (1 cleaned)
+  unknown     1 (1 skipped)
+  (not read)  1 (1 skipped)
+
+Refused (1):
+  photos/truncated.jpg: missing end-of-image (EOI) marker; the file may be truncated; no file written
+
+Skipped (2):
+  photos/.DS_Store: hidden (use --include-hidden to include it)
+  photos/notes.txt: unsupported format (detected type: unknown)
+
+Run "metaex formats" to see the supported formats.
+```
+
+**The summary** after every run with several files counts the files per
+outcome and per format, then lists each refused, failed and skipped file
+with the reason. For `risk` it also counts the findings per risk level and
+lists the files with critical findings, so `metaex risk photos -r --quiet`
+is a quick overview of a whole folder. `--quiet` (`-q`) prints only the
+summary (and the files that were refused or failed, on stderr) instead of
+a line or a report per file. Without `--quiet`, `show` and `risk` print each
+file's report under a `==> [3/7] path` header, and `strip` and `verify` one
+line per file.
+
+**Checking a folder of cleaned copies.** `metaex verify clean --original
+photos --recursive` pairs each cleaned file with the original at the same
+path inside `photos` (`photo_clean.jpg` is also paired with `photo.jpg`),
+compares their image or document data, and lists the files without a pair:
+originals that have no cleaned copy (for example because `strip` refused
+them) and cleaned files without an original (checked for metadata only).
+
+**Exit codes** for a run with several files: **1** if any file was refused
+or failed (or the run was interrupted), else **3** if `verify` found a file
+that is not clean, else **0**. For a single file they are the same as
+before.
+
+**JSON and CSV.** `--json` prints one object with every file (its path,
+outcome, format, reason and the same details as for a single file) and the
+summary. `--csv` (for `show`, `risk` and `verify`) prints one row per
+finding: path, format, section, field, value and risk level (`show` lists
+every field, including file system information and hashes, which have no
+risk level; `verify` lists what was left and the problems found). The file
+is UTF-8 with a byte order mark, so Excel opens it with the right
+characters, and cells are quoted where needed. Metadata and file names come
+from untrusted files, so any cell that starts with `=`, `+`, `-`, `@`, a
+tab or a carriage return gets a leading `'`, which makes Excel, LibreOffice
+and Google Sheets show it as text instead of running it as a formula. With
+several files the summary goes to stderr, so the output stays a valid CSV
+file. With `--json` or `--csv` the per-file lines also go to stderr.
+
+**Supported formats.** `metaex formats` lists the formats metaex
+supports, with their extensions and what `strip` removes from each, and the
+formats it refuses, with the reason (`--json` too).
 
 ## Limitations
 

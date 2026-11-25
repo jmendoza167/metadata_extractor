@@ -103,6 +103,28 @@ These hold for every format metaex strips:
   inside archives is bounded: 3 levels of nesting, 1000 files, and one
   decompression budget shared by everything read from the file.
 
+## Many files (batch runs)
+
+- **Batch runs reuse the single-file code**: every file goes through
+  `build_report`, `assess_file`, `strip_file` or `verify_file` exactly as
+  when it is named alone (same temp file, verification and rename). A run
+  with one path that is not a folder keeps the single-file output and exit
+  codes.
+- **One bad file never stops a run**: each file gets an outcome (cleaned,
+  already clean, clean, not clean, examined, skipped, refused, error) and
+  the run goes on; Ctrl+C stops after the current file with a partial
+  summary. Exit codes: 1 if any file was refused or failed, else 3 if
+  `verify` found a file not clean, else 0.
+- **Never write over an input**: outputs are checked against every input
+  file of the run and earlier outputs of the run (`core/batch.path_key`:
+  resolved, case-folded on Windows and macOS); `--output-dir` may not be an
+  input folder; `--overwrite` never replaces an original.
+- **Never follow links** (symbolic links, Windows junctions) and keep the
+  skip rules in `core/batch.py` (hidden files, `.git`, `node_modules`,
+  virtual environments, `*_clean.*`, the output folder). Files are processed
+  in sorted order so output is the same on every system.
+- **CSV cells are untrusted**: every cell goes through `csvout.protect()`.
+
 ## Layout
 
 ```
@@ -143,8 +165,13 @@ What belongs where:
   AppleDouble files and binary property lists (`appledouble.py`), the TAR
   reader and writer (`tar.py`, `tarwriter.py`), and gzip, bzip2 and xz
   files (`compress.py`, shared by `formats/gzip.py`, `bzip2.py` and `xz.py`).
+  For many files: collecting the files from paths and folders, the skip
+  rules and path comparisons (`batch.py`); CSV output with formula
+  protection (`csvout.py`).
 - **`commands/`**: the logic of each subcommand (`show.py`, ...). Builds a
-  report from `core/` and `formats/`; no argparse here.
+  report from `core/` and `formats/`; no argparse here. `batch.py` runs a
+  command on many files (outcomes, summary, exit codes); `formats.py` is
+  `metaex formats`.
 - **`formats/`**: one module per file format (`jpeg.py`, ...), each
   exposing `parse(data) -> dict` and `strip(data) -> bytes`. A format
   module may use `core/`, never `commands/` or `cli.py`.
