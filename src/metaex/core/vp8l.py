@@ -40,6 +40,9 @@ CODE_TO_PLANE = bytes((
 ))
 """The 120 short distance codes: (y offset << 4) | (8 - x offset)."""
 _FAST_BITS = 8
+MAX_ENTROPY_PIXELS = 1 << 20
+"""Largest entropy image (the image that chooses prefix codes by position)
+read; encoders keep it to a few thousand pixels."""
 
 
 class _OverBudget(Exception):
@@ -80,6 +83,11 @@ class _Bits:
             raise MalformedFileError("the lossless bitstream is truncated")
         self.acc >>= k
         self.n -= k
+
+    @property
+    def at(self) -> int:
+        """Bits read so far (from the start of the data)."""
+        return self.pos * 8 - self.n
 
     @property
     def end(self) -> int:
@@ -217,12 +225,34 @@ class _Walker:
         if top_level and bits.read(1):
             prefix_bits = bits.read(3) + 2
             prefix_width = _divide_up(width, prefix_bits)
-            entropy = self.image(prefix_width, _divide_up(height, prefix_bits), False, True)
+            prefix_height = _divide_up(height, prefix_bits)
+            if prefix_width * prefix_height > MAX_ENTROPY_PIXELS:
+                raise MalformedFileError("the entropy image of the lossless bitstream is "
+                                         "larger than metaex reads")
+            entropy = self.image(prefix_width, prefix_height, False, True)
             meta = [(p >> 8) & 0xFFFF for p in entropy]
             groups_count = max(meta) + 1
         alphabets = (256 + NUM_LENGTH_CODES + cache_size, 256, 256, 256, NUM_DISTANCE_CODES)
         groups = [[_read_code(bits, a) for a in alphabets] for _ in range(groups_count)]
         total = width * height
+        # A group whose codes all have one symbol, a color, reads no bits at
+        # all: its pixels are skipped in one step (a flat image can be all of them).
+        free = [all(c.single is not None for c in g[:4]) and g[0].single < 256 for g in groups]
+        stops: dict[int, list[int]] = {}
+
+        def next_stop(row: int, block: int) -> int:
+            """The first block from ``block`` on in this row of the entropy
+            image whose group reads bits (prefix_width if none)."""
+            if row not in stops:
+                line = meta[row * prefix_width:(row + 1) * prefix_width]
+                out, stop = [prefix_width] * prefix_width, prefix_width
+                for b in range(prefix_width - 1, -1, -1):
+                    if not free[line[b]]:
+                        stop = b
+                    out[b] = stop
+                stops[row] = out
+            return stops[row][block]
+
         pixels: list[int] | None = [] if want_pixels else None
         cache = [0] * cache_size if want_pixels and cache_size else None
         shift = 32 - cache_bits
@@ -231,12 +261,24 @@ class _Walker:
         group = groups[0]
         refresh = meta is not None
         while pos < total:
-            if meta is not None and (refresh or not x & mask):
-                group = groups[meta[(y >> prefix_bits) * prefix_width + (x >> prefix_bits)]]
-                refresh = False
             self.budget -= 1
             if self.budget < 0:
                 raise _OverBudget
+            if pixels is None and meta is None and free[0]:
+                break  # every pixel left reads no bits
+            if meta is not None and (refresh or not x & mask):
+                index = meta[(y >> prefix_bits) * prefix_width + (x >> prefix_bits)]
+                group = groups[index]
+                refresh = False
+                if pixels is None and free[index]:
+                    stop = next_stop(y >> prefix_bits, x >> prefix_bits) << prefix_bits
+                    skip = min(stop, width) - x
+                    pos += skip
+                    x += skip
+                    if x >= width:
+                        y, x = y + 1, 0
+                    continue
+            before = bits.at
             green = group[0].read(bits)
             if green < 256:
                 red, blue, alpha = group[1].read(bits), group[2].read(bits), group[3].read(bits)
@@ -273,6 +315,13 @@ class _Walker:
             if x >= width:
                 y += x // width
                 x %= width
+            if pixels is None and meta is None and bits.at == before and pos < total:
+                # It read no bits, so every symbol left is this same copy (a
+                # color is handled above): it must fill the image exactly.
+                if (total - pos) % count:
+                    raise MalformedFileError("a backward reference in the lossless "
+                                             "bitstream points outside the image")
+                break
         return pixels
 
     def stream(self, width: int, height: int) -> None:

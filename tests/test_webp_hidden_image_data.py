@@ -63,7 +63,18 @@ def test_truncated_bitstream_is_malformed():
 
 def test_too_many_symbols_to_check_is_refused(monkeypatch):
     monkeypatch.setattr(webp, "MAX_VP8L_SYMBOLS", 3)
-    data = riff(chunk("VP8L", vp8l(4, 4)))
+    data = riff(chunk("VP8L", vp8l(4, 4, green2=7)))  # one bit per pixel
     with pytest.raises(CannotCleanError, match="not checked for hidden data"):
         webp.strip(data)
     assert not verify(data).clean
+
+
+@pytest.mark.parametrize("width, height", [(16384, 16384), (16136, 1024)])
+def test_a_huge_flat_image_reads_no_bits_per_pixel(width, height):
+    """Regression test (found by fuzzing): when every prefix code has one
+    symbol, pixels read no bits, and a 34-byte file could make metaex count
+    millions of them one by one. Such runs are now skipped in one step."""
+    stream = vp8l(width, height)
+    result = vp8l_reader.bitstream_end(stream, 1000)  # a tiny budget is enough
+    assert result.end == len(stream)
+    assert verify(webp.strip(riff(chunk("VP8L", stream)))).clean
