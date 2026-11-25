@@ -7,6 +7,7 @@ import sys
 from typing import Any
 
 from metaex.core.loader import DEFAULT_MAX_SIZE
+from metaex.core.registry import FORMATS_HINT
 from metaex.core.report import Report, sanitize
 from metaex.core.risk import CRITICAL, HIGH, LEVELS, LOW, MEDIUM, RiskFinding, assess, counts
 
@@ -94,7 +95,7 @@ def risk_lines(path: str, report: Report, findings: list[RiskFinding], strippabl
     elif strippable:
         lines.append(f'Run "metaex strip {sanitize(path)}" to remove these.')
     else:
-        lines.append("metaex can't strip this type of file yet.")
+        lines.append(f"metaex can't strip this type of file yet; {FORMATS_HINT}.")
     return lines
 
 

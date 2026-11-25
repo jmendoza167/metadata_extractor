@@ -9,7 +9,7 @@ from metaex.core import filetype as ft
 from metaex.core.errors import MalformedFileError, MetaexError, UnsupportedFormatError
 from metaex.core.generic import file_system_section, hashes_section, mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, load_file
-from metaex.core.registry import can_strip, format_module
+from metaex.core.registry import can_strip, format_module, unsupported_message
 from metaex.core.report import Report, unique_warnings
 from metaex.core.result import Section
 from metaex.core.writer import write_new_file
@@ -110,15 +110,5 @@ def _type_section(detected: ft.FileType, module: ModuleType | None, examined: st
 
 
 def _not_examined_warning(detected: ft.FileType) -> str:
-    reason = ft.refusal(detected)
-    if reason is not None:
-        return (f"{reason}. Embedded metadata (tags, document properties, authors, ...) was NOT "
-                "examined. Only file system information is shown.")
-    if detected.key == ft.UNKNOWN.key:
-        what = "file type not recognized"
-    elif not detected.supported:
-        what = f"metaex does not support {detected.name} files"
-    else:
-        what = f"metaex has no {detected.name} parser yet"
-    return (f"{what}; embedded metadata (EXIF, document properties, tags, ...) "
-            "was NOT examined. Only file system information is shown.")
+    return (f"{unsupported_message(detected)}. Embedded metadata (EXIF, tags, document "
+            "properties, authors, ...) was NOT examined. Only file system information is shown.")

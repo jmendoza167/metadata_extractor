@@ -83,7 +83,8 @@ def test_unsupported_type_writes_nothing(tmp_path):
     p.write_bytes(PDF)
     result = run("strip", str(p))
     assert result.returncode == 1
-    assert "metaex can't strip PDF files yet; no file written" in result.stderr
+    assert "detected type: PDF. metaex doesn't support this format yet" in result.stderr
+    assert "no file written" in result.stderr
     assert listing(tmp_path) == ["paper.pdf"]
 
 

@@ -65,7 +65,7 @@ def test_malformed_file_is_not_clean():
 
 
 def test_unsupported_type_raises():
-    with pytest.raises(UnsupportedFormatError, match="can't verify PDF"):
+    with pytest.raises(UnsupportedFormatError, match="detected type: PDF. metaex doesn't support"):
         verify(b"%PDF-1.7\n")
 
 

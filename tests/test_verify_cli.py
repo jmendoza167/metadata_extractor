@@ -64,7 +64,7 @@ def test_errors_exit_1(tmp_path):
     paper = write(tmp_path, "a.pdf", b"%PDF-1.7\n")
     result = run(str(paper))
     assert result.returncode == 1
-    assert "can't verify PDF" in result.stderr
+    assert "detected type: PDF. metaex doesn't support this format yet" in result.stderr
 
 
 def test_json_keys(tmp_path):

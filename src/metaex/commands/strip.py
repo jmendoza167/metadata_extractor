@@ -17,7 +17,7 @@ from metaex.core.errors import (CannotCleanError, MalformedFileError, MetaexErro
                                 UnsupportedFormatError)
 from metaex.core.generic import mark_of_the_web_section
 from metaex.core.loader import DEFAULT_MAX_SIZE, format_size, load_file
-from metaex.core.registry import can_strip, format_module
+from metaex.core.registry import can_strip, format_module, unsupported_message
 from metaex.core.report import CRITICAL_PREFIX, format_value
 from metaex.core.verify import Finding, VerifyResult, verdict, verify
 from metaex.core.writer import write_verified
@@ -150,13 +150,8 @@ def strip_file(path: str | os.PathLike[str], output: str | os.PathLike[str] | No
     detected = ft.detect(data, source)
     module = format_module(detected)
     if not can_strip(module):
-        reason = ft.refusal(detected)
-        if reason is not None:
-            raise UnsupportedFormatError(f"metaex can't strip this file: {reason}; "
-                                         "no file written")
-        what = ("this file: its type was not recognized" if detected.key == ft.UNKNOWN.key
-                else f"{detected.name} files yet")
-        raise UnsupportedFormatError(f"metaex can't strip {what}; no file written")
+        raise UnsupportedFormatError(f"{source}: {unsupported_message(detected)}; "
+                                     "no file written")
 
     if rebuild_image_data and not getattr(module, "CAN_REBUILD_IMAGE_DATA", False):
         raise MetaexError(f"--rebuild-image-data is not available for {detected.name} files; "

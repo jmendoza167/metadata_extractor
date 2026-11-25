@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 from metaex.core.errors import UnsupportedFormatError
 from metaex.core.filetype import FileType, detect
-from metaex.core.registry import can_strip, format_module
+from metaex.core.registry import can_strip, format_module, unsupported_message
 from metaex.core.report import format_value
 from metaex.core.result import Field
 
@@ -98,7 +98,8 @@ def verify(cleaned: bytes, original: bytes | None = None,
     detected = detect(cleaned, filename)
     module = format_module(detected)
     if not can_strip(module):
-        raise UnsupportedFormatError(f"metaex can't verify {detected.name} files yet")
+        prefix = f"{filename}: " if filename is not None else ""
+        raise UnsupportedFormatError(prefix + unsupported_message(detected))
 
     result = VerifyResult(filetype=detected)
     result.notes.extend(detected.warnings)
