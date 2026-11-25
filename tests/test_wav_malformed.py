@@ -8,7 +8,7 @@ import sys
 import pytest
 
 from helpers import wav as w
-from metaex.core.errors import MalformedFileError
+from metaex.core.errors import CannotCleanError, MalformedFileError
 from metaex.core.report import Report, render_json, render_text
 from metaex.core.verify import verify
 from metaex.formats import wav
@@ -164,8 +164,8 @@ def test_mutations_either_raise_or_produce_clean_output():
         paranoid = bool(i % 2)
         try:
             cleaned = strip(data, paranoid=paranoid)
-        except MalformedFileError:
-            continue
+        except (MalformedFileError, CannotCleanError):
+            continue  # damaged, or bytes in the fmt chunk that could hide data
         stripped += 1
         result = verify(cleaned, data)
         assert result.clean, (i, result.leftovers, result.problems)

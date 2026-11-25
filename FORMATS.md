@@ -383,7 +383,10 @@ Extensions: `.wav`, `.wave`.
   `wave` module and compares them.
 - **Refused**: damaged files (a wrong RIFF size, a truncated chunk), data
   hidden inside the `fmt` chunk (it is copied byte for byte, so it can't
-  be cleaned), WAV files over 4 GiB (RF64, BW64).
+  be cleaned): bytes after the format description, and format-specific
+  bytes a format doesn't define (PCM, IEEE float, A-law and mu-law have
+  none; extensible has 22) or that metaex can't check (other codecs), WAV
+  files over 4 GiB (RF64, BW64).
 - **Known limits**: see [all audio](#known-limits-for-all-audio).
 
 ### FLAC

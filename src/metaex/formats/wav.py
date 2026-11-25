@@ -234,6 +234,30 @@ class Format:
         return FORMAT_NAMES.get(self.tag, f"format 0x{self.tag:04x}")
 
 
+EXTENSION_SIZES = {0x0001: 0, 0x0003: 0, 0x0006: 0, 0x0007: 0, 0x0002: 32, 0x0011: 2,
+                   0x0055: 12, 0xFFFE: 22}
+"""Format code -> the size of its format-specific extension (cbSize): none
+for PCM, IEEE float, A-law and mu-law; Microsoft ADPCM's 7 coefficients,
+IMA ADPCM's samples per block, MPEG Layer III's MPEGLAYER3WAVEFORMAT and
+WAVE_FORMAT_EXTENSIBLE's 22 bytes."""
+
+
+def extension_problem(fmt: Format) -> str | None:
+    """Why the format-specific bytes of the fmt chunk could hide data, or
+    None. The fmt chunk is copied byte for byte, so bytes a format doesn't
+    define (or that metaex can't check) can't be removed."""
+    expected = EXTENSION_SIZES.get(fmt.tag)
+    if expected is None:
+        if fmt.extension:
+            return (f"the fmt chunk holds {len(fmt.extension)} format-specific bytes for "
+                    f"{fmt.name}, which metaex can't check")
+        return None
+    if len(fmt.extension) != expected:
+        return (f"the fmt chunk holds {len(fmt.extension)} format-specific bytes; {fmt.name} "
+                f"has {expected}")
+    return None
+
+
 def parse_format(chunk: Chunk) -> Format:
     d = chunk.data
     if len(d) < 16:
@@ -295,12 +319,18 @@ def format_section(structure: WavStructure, warnings: list[str]) -> list[Section
     if data is not None:
         section.add("data_size", "Audio data", f"{data.size} bytes")
     out = [section]
+    hidden = Section("hidden_chunk_data", "Hidden data in chunks")
     if fmt.extra and fmt.extra.count(0) != len(fmt.extra):
         warnings.append(f"CRITICAL: the fmt chunk holds {len(fmt.extra)} bytes after the "
                         "format description (not part of the format)")
-        hidden = Section("hidden_chunk_data", "Hidden data in chunks")
         hidden.add("fmt_extra", "After the format description in the fmt chunk",
                    f"{len(fmt.extra)} bytes", sensitive=True)
+    problem = extension_problem(fmt)
+    if problem is not None:
+        warnings.append(f"CRITICAL: {problem} (they can hide data)")
+        hidden.add("fmt_extension", "Format-specific bytes in the fmt chunk",
+                   f"{len(fmt.extension)} bytes", sensitive=True)
+    if hidden.fields:
         out.append(hidden)
     return out
 
@@ -783,6 +813,10 @@ def checked_structure(data: bytes) -> WavStructure:
         raise HiddenDataError(f"the fmt chunk holds {len(fmt.extra)} bytes after the format "
                               "description; the fmt chunk is copied byte for byte, so they "
                               "can't be removed")
+    problem = extension_problem(fmt)
+    if problem is not None:
+        raise HiddenDataError(f"{problem}; the fmt chunk is copied byte for byte, so they "
+                              "can't be removed")
     for chunk in structure.all("fact"):
         if len(chunk.data) < 4:
             raise MalformedFileError("fact chunk is too short")
@@ -972,6 +1006,9 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
                  "image_label": IMAGE_LABEL}
     try:
         structure = checked_structure(bytes(cleaned))
+    except HiddenDataError as exc:
+        out["problems"].append(str(exc))
+        return out
     except MalformedFileError as exc:
         out["problems"].append(f"not a complete, well-formed WAV: {exc}")
         return out
