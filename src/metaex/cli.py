@@ -41,6 +41,9 @@ def _add_paths(sub: argparse.ArgumentParser, what: str) -> None:
     sub.add_argument("--include-hidden", action="store_true",
                      help="also include hidden files and folders inside folders (never .git, "
                           "node_modules, virtual environments or symbolic links)")
+    sub.add_argument("-q", "--quiet", action="store_true",
+                     help="with several files: print only the summary (and the files that "
+                          "were refused or failed), not a line or report per file")
 
 
 def _add_json_csv(sub: argparse.ArgumentParser, json_help: str) -> None:
@@ -361,9 +364,10 @@ def _collect(args: argparse.Namespace, *, skip_clean_outputs: bool = True,
 
 def _run_batch(args: argparse.Namespace, collection, work, *, refuse_unsupported: bool,
                print_result, csv_rows=None) -> BatchRun:
-    """Process the files; print each result as it comes (text), or write its
-    CSV rows (--csv; one header for the whole run, rows as each file is
-    done), or nothing (--json)."""
+    """Process the files and show each result as it comes: as text with an
+    [i/N] counter, or with --json/--csv as one short line on stderr (stdout
+    carries the JSON or CSV; CSV rows are written as each file is done).
+    --quiet shows only the files that were refused or failed, on stderr."""
     from metaex.commands import batch
 
     csv_writer = None
@@ -377,11 +381,9 @@ def _run_batch(args: argparse.Namespace, collection, work, *, refuse_unsupported
                              refuse_unsupported=refuse_unsupported, debug=args.debug)
 
     def on_result(result, index, total):
-        if csv_writer is not None:
-            if result.payload is not None:
-                csv_writer.write(csv_rows(result))
-        elif not args.json:
-            print_result(result)
+        if csv_writer is not None and result.payload is not None:
+            csv_writer.write(csv_rows(result))
+        _show_progress(args, result, index, total, print_result)
 
     run = batch.run(collection, process_item, on_result)
     if csv_writer is not None and not csv_writer.started:
@@ -391,15 +393,30 @@ def _run_batch(args: argparse.Namespace, collection, work, *, refuse_unsupported
     return run
 
 
+def _show_progress(args: argparse.Namespace, result, index: int, total: int,
+                   print_result) -> None:
+    from metaex.commands import batch
+
+    counter = f"[{index}/{total}] " if index else ""
+    if args.quiet:
+        if result.outcome in batch.FAILURES:
+            write_text(sanitize(f"metaex: {result.outcome}: {result.path}: "
+                                f"{batch.reason_text(result)}") + "\n", sys.stderr)
+    elif args.json or getattr(args, "csv", False):
+        write_text(sanitize(f"{counter}{result.outcome}: {result.path}") + "\n", sys.stderr)
+    else:
+        print_result(result, counter)
+
+
 def _report_printer(render):
     """show and risk: each file's report under a header with its path;
     failures under the header too; skipped files only in the summary."""
     from metaex.commands import batch
 
-    def print_result(result):
+    def print_result(result, counter=""):
         if result.outcome == batch.SKIPPED:
             return
-        write_text(batch.file_header(sanitize(result.path)))
+        write_text(batch.file_header(sanitize(counter + result.path)))
         if result.outcome in batch.FAILURES:
             write_text(sanitize(f"{result.outcome.capitalize()}: {batch.reason_text(result)}")
                        + "\n\n")
@@ -568,8 +585,7 @@ def _batch_verify(args: argparse.Namespace) -> int:
             result = batch.FileResult(display_path(path), batch.SKIPPED,
                                       reason="original without a cleaned copy (not checked)")
             run.results.append(result)
-            if not args.json and not args.csv:
-                _print_verify_line(result)
+            _show_progress(args, result, 0, 0, _print_verify_line)
     return _finish_batch(args, "verify", run, lambda r: {
         "original": r.payload[0], "verify": result_to_dict(r.path, r.payload[1])},
         not_clean_code=EXIT_NOT_CLEAN)
@@ -578,12 +594,12 @@ def _batch_verify(args: argparse.Namespace) -> int:
 MAX_DETAIL_LINES = 5
 
 
-def _print_verify_line(result) -> None:
+def _print_verify_line(result, counter: str = "") -> None:
     """One line per file (outcome and path), then why it is not clean."""
     from metaex.commands import batch
     from metaex.core.verify import verdict
 
-    line = f"{result.outcome}: {result.path}"
+    line = f"{counter}{result.outcome}: {result.path}"
     if result.outcome in batch.FAILURES or result.outcome == batch.SKIPPED:
         line += f": {batch.reason_text(result)}"
     lines = [line]
@@ -609,14 +625,14 @@ def _not_a_folder(path: str) -> bool:
     return os.path.lexists(path) and not os.path.isdir(path)
 
 
-def _print_strip_line(result) -> None:
+def _print_strip_line(result, counter: str = "") -> None:
     """One line per file: outcome, path and output (or the reason), then the
     file's warnings and, if not CLEAN, the verification verdict."""
     from metaex.commands import batch
     from metaex.core.report import CRITICAL_PREFIX
     from metaex.core.verify import verdict
 
-    line = f"{result.outcome}: {result.path}"
+    line = f"{counter}{result.outcome}: {result.path}"
     if result.output is not None:
         line += f" -> {result.output}"
     if result.reason:

@@ -3,6 +3,7 @@ and refusals per file, never stopping at a bad file."""
 
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -30,7 +31,9 @@ def folder(tmp_path):
 
 
 def headers(text):
-    return [line[4:] for line in text.splitlines() if line.startswith("==> ")]
+    """The paths in the "==> [i/N] path" headers."""
+    return [re.sub(r"^\[\d+/\d+\] ", "", line[4:]) for line in text.splitlines()
+            if line.startswith("==> ")]
 
 
 @pytest.mark.parametrize("command", ["show", "risk"])

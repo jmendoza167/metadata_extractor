@@ -3,6 +3,7 @@ without a pair, outcomes and exit codes."""
 
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -19,6 +20,11 @@ CLEAN = jpeg.strip(JPEG)
 def run(*args):
     return subprocess.run([sys.executable, "-m", "metaex", *map(str, args)], input="",
                           capture_output=True, text=True, encoding="utf-8", timeout=180)
+
+
+def lines_of(r):
+    """stdout lines without the "[i/N] " progress counter."""
+    return [re.sub(r"^\[\d+/\d+\] ", "", line) for line in r.stdout.splitlines()]
 
 
 def results(r):
@@ -53,8 +59,8 @@ def test_changed_image_data_is_not_clean(pair):
     (cleaned / "a.jpg").write_bytes(bytes(other))
     r = run("verify", cleaned, "--original", original, "--recursive")
     assert r.returncode == 3
-    assert f"not clean: {cleaned / 'a.jpg'}" in r.stdout.splitlines()
-    assert "  Image data DIFFERS from the original" in r.stdout.splitlines()
+    assert f"not clean: {cleaned / 'a.jpg'}" in lines_of(r)
+    assert "  Image data DIFFERS from the original" in lines_of(r)
 
 
 def test_leftovers_are_listed_and_exit_3(tmp_path):
@@ -62,7 +68,7 @@ def test_leftovers_are_listed_and_exit_3(tmp_path):
     (tmp_path / "b.jpg").write_bytes(CLEAN)
     r = run("verify", tmp_path)
     assert r.returncode == 3
-    lines = r.stdout.splitlines()
+    lines = lines_of(r)
     assert f"not clean: {tmp_path / 'a.jpg'}" in lines
     assert f"clean: {tmp_path / 'b.jpg'}" in lines
     assert any(line.startswith("  Leftover: ") for line in lines)
@@ -155,7 +161,7 @@ def test_errors_win_over_not_clean(tmp_path):
     (tmp_path / "a.jpg").write_bytes(JPEG)
     r = run("verify", tmp_path / "a.jpg", tmp_path / "missing.jpg")
     assert r.returncode == 1
-    lines = r.stdout.splitlines()
+    lines = lines_of(r)
     assert f"not clean: {tmp_path / 'a.jpg'}" in lines
     assert f"error: {tmp_path / 'missing.jpg'}: no such file or folder" in lines
 

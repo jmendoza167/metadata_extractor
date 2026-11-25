@@ -4,6 +4,7 @@
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -54,7 +55,7 @@ def test_cleaned_copies_go_next_to_the_originals(folder):
                              "sub/b_clean.jpg"]
     assert verify((folder / "a_clean.jpg").read_bytes()).clean
     assert (folder / "a.jpg").read_bytes() == JPEG
-    lines = r.stdout.splitlines()
+    lines = [re.sub(r"^\[\d+/\d+\] ", "", line) for line in r.stdout.splitlines()]
     assert f"cleaned: {folder / 'a.jpg'} -> {folder / 'a_clean.jpg'}" in lines
     assert (f"skipped: {folder / 'notes.txt'}: unsupported format (detected type: unknown)"
             in lines)
