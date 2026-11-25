@@ -1,3 +1,9 @@
 # Sample files must keep their exact bytes: never convert line endings
 # (SVGs included), so the generator check and snapshots stay valid.
 tests/samples/** -text
+
+# The damaged samples are binary for every diff, so git never runs a
+# converter on them (Git for Windows turns *.docx into text with
+# docx2txt, which prints errors for these files into gitleaks scans).
+# Only this folder: every other sample is still scanned as before.
+tests/samples/malformed/** -diff

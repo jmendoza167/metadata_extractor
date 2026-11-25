@@ -277,6 +277,11 @@ python -m pytest
   so that no literal token pattern exists anywhere in the source.
 - gitleaks runs before every commit (pre-commit hook, installed with
   `python scripts/install_hooks.py`) and in CI.
+- `tests/samples/malformed/` is marked `-diff` in `.gitattributes`: git
+  shows those files as binary, so gitleaks doesn't scan them (and Git for
+  Windows doesn't run its docx2txt converter on the broken ones, which
+  printed ERR lines in scans). Keep that rule to this one folder; everything
+  else is scanned (`tests/test_gitleaks_scope.py` checks both).
 - **Before every push**: run gitleaks on the full history with `--redact`;
   if anything is found, don't push.
 - **If a secret is ever found** in the repo or its history: stop and tell
