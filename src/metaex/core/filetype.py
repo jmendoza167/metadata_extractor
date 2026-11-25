@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import dataclasses
 import io
+import lzma
 import os
 import re
 import struct
 import zipfile
+import zlib
 from dataclasses import dataclass
 
 from metaex.core.errors import MalformedFileError
@@ -329,10 +331,12 @@ _ZIP_MIMETYPES = {
     "application/vnd.oasis.opendocument.presentation-template": ODP,
     "application/epub+zip": EPUB,
 }
-# zipfile can raise a variety of exceptions on hostile input.
+# zipfile can raise a variety of exceptions on hostile input, including the
+# decompressors' own when it reads the mimetype entry (bz2 raises OSError).
 _ZIP_ERRORS = (
     zipfile.BadZipFile, zipfile.LargeZipFile, OSError, EOFError, ValueError,
     KeyError, IndexError, NotImplementedError, RuntimeError, struct.error,
+    zlib.error, lzma.LZMAError,
 )
 
 
