@@ -43,6 +43,15 @@ def _add_paths(sub: argparse.ArgumentParser, what: str) -> None:
                           "node_modules, virtual environments or symbolic links)")
 
 
+def _add_json_csv(sub: argparse.ArgumentParser, json_help: str) -> None:
+    group = sub.add_mutually_exclusive_group()
+    group.add_argument("--json", action="store_true", help=json_help)
+    group.add_argument("--csv", action="store_true",
+                       help="print one row per finding as CSV (path, format, section, field, "
+                            "value, risk level; UTF-8 for Excel; with several files the "
+                            "summary goes to stderr)")
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the top-level argument parser."""
     parser = argparse.ArgumentParser(
@@ -59,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     show_help = "show the metadata found in a file"
     show = subparsers.add_parser("show", help=show_help, description=show_help)
     _add_paths(show, "files or folders to examine")
-    show.add_argument("--json", action="store_true", help="print the report as JSON")
+    _add_json_csv(show, "print the report as JSON")
     show.add_argument(
         "--structure",
         action="store_true",
@@ -128,14 +137,14 @@ def build_parser() -> argparse.ArgumentParser:
                              "folders or several files, the folder of the originals (files "
                              "are paired by their path inside it, photo_clean.jpg also with "
                              "photo.jpg)")
-    verify.add_argument("--json", action="store_true", help="print the result as JSON")
+    _add_json_csv(verify, "print the result as JSON")
     _add_common_options(verify)
     verify.set_defaults(handler=_cmd_verify)
 
     risk_help = "summarize what a file's metadata reveals, by risk level"
     risk = subparsers.add_parser("risk", help=risk_help, description=risk_help)
     _add_paths(risk, "files or folders to examine")
-    risk.add_argument("--json", action="store_true", help="print the findings as JSON")
+    _add_json_csv(risk, "print the findings as JSON")
     risk.add_argument("--no-color", action="store_true", help="never use colors")
     _add_common_options(risk)
     risk.set_defaults(handler=_cmd_risk)
@@ -199,7 +208,12 @@ def _cmd_show(args: argparse.Namespace) -> int:
     saved = None
     if args.extract_thumbnail:
         saved = extract_thumbnail(args.path, args.extract_thumbnail, max_size=args.max_size)
-    write_text(render_json(report) if args.json else render_text(report))
+    if args.csv:
+        from metaex.core.csvout import CsvWriter, report_rows
+
+        CsvWriter().write(report_rows(args.path, report))
+    else:
+        write_text(render_json(report) if args.json else render_text(report))
     if saved is not None:
         # stderr, so --json output on stdout stays valid JSON
         write_text(f"metaex: saved embedded thumbnail ({saved} bytes) to "
@@ -248,12 +262,29 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         return _batch_verify(args)
     args.path = args.paths[0]
     result = verify_file(args.path, args.original, max_size=args.max_size)
-    if args.json:
+    if args.csv:
+        from metaex.core.csvout import CsvWriter
+
+        CsvWriter().write(_verify_csv_rows(args.path, result, args.max_size))
+    elif args.json:
         write_text(json.dumps(result_to_dict(args.path, result), indent=2,
                               ensure_ascii=True) + "\n")
     else:
         write_text("\n".join(sanitize(line) for line in result_lines(args.path, result)) + "\n")
     return EXIT_OK if result.clean else EXIT_NOT_CLEAN
+
+
+def _verify_csv_rows(path: str, result, max_size: int) -> list:
+    """verify's CSV rows; each leftover gets the risk level `metaex risk`
+    gives the same field of the cleaned file."""
+    from metaex.commands.risk import assess_file
+    from metaex.core.csvout import risk_levels, verify_rows
+
+    try:
+        levels = risk_levels(assess_file(path, max_size=max_size)[1])
+    except MetaexError:
+        levels = {}
+    return verify_rows(path, result, levels)
 
 
 def _confirm_overwrite(path: str) -> None:
@@ -291,7 +322,11 @@ def _cmd_risk(args: argparse.Namespace) -> int:
         return _batch_risk(args)
     args.path = args.paths[0]
     report, findings, strippable = assess_file(args.path, max_size=args.max_size)
-    if args.json:
+    if args.csv:
+        from metaex.core.csvout import CsvWriter, risk_rows
+
+        CsvWriter().write(risk_rows(args.path, report, findings))
+    elif args.json:
         write_text(json.dumps(risk_to_dict(args.path, report, findings, strippable), indent=2,
                               ensure_ascii=True) + "\n")
     else:
@@ -325,18 +360,32 @@ def _collect(args: argparse.Namespace, *, skip_clean_outputs: bool = True,
 
 
 def _run_batch(args: argparse.Namespace, collection, work, *, refuse_unsupported: bool,
-               print_result) -> BatchRun:
+               print_result, csv_rows=None) -> BatchRun:
+    """Process the files; print each result as it comes (text), or write its
+    CSV rows (--csv; one header for the whole run, rows as each file is
+    done), or nothing (--json)."""
     from metaex.commands import batch
+
+    csv_writer = None
+    if getattr(args, "csv", False):
+        from metaex.core.csvout import CsvWriter
+
+        csv_writer = CsvWriter()
 
     def process_item(item):
         return batch.process(item, lambda result: work(item, result), max_size=args.max_size,
                              refuse_unsupported=refuse_unsupported, debug=args.debug)
 
     def on_result(result, index, total):
-        if not args.json:
+        if csv_writer is not None:
+            if result.payload is not None:
+                csv_writer.write(csv_rows(result))
+        elif not args.json:
             print_result(result)
 
     run = batch.run(collection, process_item, on_result)
+    if csv_writer is not None and not csv_writer.started:
+        csv_writer.write([])  # the header, even without findings
     if run.interrupted:
         _print_error("interrupted")
     return run
@@ -363,14 +412,16 @@ def _report_printer(render):
 def _finish_batch(args: argparse.Namespace, command: str, run, file_data, *,
                   not_clean_code: int | None = None) -> int:
     """Print the summary (or the JSON with every file and the summary) and
-    return the exit code."""
+    return the exit code. With --csv the summary goes to stderr, so stdout
+    stays a valid CSV file."""
     from metaex.commands import batch
 
     if args.json:
         _batch_json(command, run, file_data)
     else:
         lines = batch.summary_lines(command, run)
-        write_text("\n".join(sanitize(line) for line in lines) + "\n")
+        stream = sys.stderr if getattr(args, "csv", False) else sys.stdout
+        write_text("\n".join(sanitize(line) for line in lines) + "\n", stream)
     return batch.exit_code(run, not_clean_code=not_clean_code)
 
 
@@ -400,8 +451,11 @@ def _batch_show(args: argparse.Namespace) -> int:
                                       structure=args.structure)
         return batch.EXAMINED
 
+    from metaex.core.csvout import report_rows
+
     run = _run_batch(args, _collect(args), work, refuse_unsupported=False,
-                     print_result=_report_printer(lambda r: render_text(r.payload) + "\n"))
+                     print_result=_report_printer(lambda r: render_text(r.payload) + "\n"),
+                     csv_rows=lambda r: report_rows(r.path, r.payload))
     return _finish_batch(args, "show", run, lambda r: {"report": report_to_data(r.payload)})
 
 
@@ -420,8 +474,11 @@ def _batch_risk(args: argparse.Namespace) -> int:
         return "\n".join(risk_lines(result.path, report, findings, strippable,
                                     color=color)) + "\n\n"
 
+    from metaex.core.csvout import risk_rows
+
     run = _run_batch(args, _collect(args), work, refuse_unsupported=False,
-                     print_result=_report_printer(render))
+                     print_result=_report_printer(render),
+                     csv_rows=lambda r: risk_rows(r.path, r.payload[0], r.payload[1]))
     return _finish_batch(args, "risk", run,
                          lambda r: {"risk": risk_to_dict(r.path, *r.payload)})
 
@@ -499,7 +556,8 @@ def _batch_verify(args: argparse.Namespace) -> int:
         return batch.CLEAN if verified.clean else batch.NOT_CLEAN
 
     run = _run_batch(args, collection, work, refuse_unsupported=True,
-                     print_result=_print_verify_line)
+                     print_result=_print_verify_line,
+                     csv_rows=lambda r: _verify_csv_rows(r.path, r.payload[1], args.max_size))
     if original is not None and not run.interrupted:
         # Originals no cleaned file was paired with: reported, not checked.
         inputs = [p for p in args.paths if os.path.isdir(p)]
@@ -510,7 +568,7 @@ def _batch_verify(args: argparse.Namespace) -> int:
             result = batch.FileResult(display_path(path), batch.SKIPPED,
                                       reason="original without a cleaned copy (not checked)")
             run.results.append(result)
-            if not args.json:
+            if not args.json and not args.csv:
                 _print_verify_line(result)
     return _finish_batch(args, "verify", run, lambda r: {
         "original": r.payload[0], "verify": result_to_dict(r.path, r.payload[1])},
