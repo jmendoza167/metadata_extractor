@@ -9,7 +9,7 @@ import traceback
 from typing import TYPE_CHECKING, Sequence
 
 from metaex import __version__
-from metaex.core.errors import MetaexError
+from metaex.core.errors import MetaexError, OutputClosedError
 from metaex.core.loader import DEFAULT_MAX_SIZE, MIB
 from metaex.core.report import render_json, render_text, sanitize, write_text
 
@@ -180,6 +180,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     debug = getattr(args, "debug", False)
     try:
         return args.handler(args)
+    except OutputClosedError:
+        _silence_stdout()
+        return EXIT_ERROR
     except MetaexError as exc:
         if debug:
             traceback.print_exc()
@@ -668,6 +671,18 @@ def _size_in_mib(text: str) -> int:
 
 def _print_error(message: str) -> None:
     write_text(f"metaex: error: {sanitize(message)}\n", sys.stderr)
+
+
+def _silence_stdout() -> None:
+    """Point stdout at the null device, so Python doesn't fail again while
+    flushing it at exit (the reader of the pipe is gone)."""
+    import os
+
+    try:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+    except (OSError, ValueError, AttributeError):
+        pass
 
 
 def _exit_code(code: object) -> int:

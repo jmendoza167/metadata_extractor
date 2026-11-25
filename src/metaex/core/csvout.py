@@ -92,14 +92,21 @@ class CsvWriter:
         if not self.started:
             text = BOM + text
             self.started = True
+        from metaex.core.errors import OutputClosedError, is_closed_output
+
         buffer: BinaryIO | None = getattr(self.stream, "buffer", None)
-        if buffer is not None:
-            self.stream.flush()
-            buffer.write(text.encode("utf-8"))
-            buffer.flush()
-        else:
-            self.stream.write(text)
-            self.stream.flush()
+        try:
+            if buffer is not None:
+                self.stream.flush()
+                buffer.write(text.encode("utf-8"))
+                buffer.flush()
+            else:
+                self.stream.write(text)
+                self.stream.flush()
+        except OSError as exc:
+            if is_closed_output(exc):
+                raise OutputClosedError from None
+            raise
 
 
 def _report_format(report: Report) -> str:

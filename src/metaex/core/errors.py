@@ -33,3 +33,17 @@ class FileTooLargeError(MetaexError):
 
 class FileAccessError(MetaexError):
     """The file could not be opened: missing, a directory, no permission..."""
+
+
+class OutputClosedError(Exception):
+    """The output was closed by the program reading it (``metaex show x |
+    head``): there is nobody left to tell anything, so metaex stops quietly.
+    Not a MetaexError: it is not a problem with a file."""
+
+
+def is_closed_output(exc: OSError) -> bool:
+    """True for the errors a write to a closed pipe raises: EPIPE, and on
+    Windows EINVAL."""
+    import errno
+
+    return isinstance(exc, (BrokenPipeError, ConnectionResetError)) or exc.errno == errno.EINVAL

@@ -145,15 +145,23 @@ def write_text(text: str, stream: TextIO | None = None) -> None:
 
     If the stream's encoding (e.g. cp1252 when output is redirected on
     Windows) can't represent a character, it is written as an escape
-    sequence instead of raising UnicodeEncodeError.
+    sequence instead of raising UnicodeEncodeError. Raises OutputClosedError
+    if the reader has closed the stream (a pipe into ``head``).
     """
+    from metaex.core.errors import OutputClosedError, is_closed_output
+
     stream = stream if stream is not None else sys.stdout
     try:
-        stream.write(text)
-    except UnicodeEncodeError:
-        encoding = getattr(stream, "encoding", None) or "ascii"
-        stream.write(text.encode(encoding, "backslashreplace").decode(encoding))
-    stream.flush()
+        try:
+            stream.write(text)
+        except UnicodeEncodeError:
+            encoding = getattr(stream, "encoding", None) or "ascii"
+            stream.write(text.encode(encoding, "backslashreplace").decode(encoding))
+        stream.flush()
+    except OSError as exc:
+        if is_closed_output(exc):
+            raise OutputClosedError from None
+        raise
 
 
 def _escape(ch: str) -> str:
