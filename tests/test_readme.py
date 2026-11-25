@@ -47,15 +47,54 @@ def test_examples_are_real_output(tmp_path, command, args, lines):
                        capture_output=True, check=True, timeout=120)
     r = subprocess.run([sys.executable, "-m", "metaex", *args], cwd=tmp_path,
                        capture_output=True, text=True, encoding="utf-8", timeout=120)
-    real = r.stdout.splitlines()
-    for line in lines:
+    missing = missing_lines(lines, r.stdout.splitlines(), sys.platform)
+    assert missing == [], f"{command}: not in the real output: {missing}"
+
+
+# The README examples are real Windows output. These exact lines are printed
+# only on Windows (strip reports the NTFS Zone.Identifier stream there, see
+# commands/strip.py), so they are required on Windows and optional elsewhere.
+# An explicit list, not a pattern: any other missing line still fails.
+WINDOWS_ONLY_LINES = frozenset({
+    "Windows Zone.Identifier stream: none (no download origin attached)",
+})
+
+
+def missing_lines(shown: list[str], real: list[str], platform: str) -> list[str]:
+    """The lines of a README example that the real output doesn't have."""
+    missing = []
+    for line in shown:
         if line.strip() == "..." or not line.strip():
+            continue
+        if line in WINDOWS_ONLY_LINES and platform != "win32":
             continue
         if line.endswith("..."):  # shortened in the README
             start = line[:-3].rstrip(" ,")
-            assert any(o.startswith(start) for o in real), f"{command}: {line!r}"
-        else:
-            assert line in real, f"{command}: {line!r} is not in the real output"
+            if not any(o.startswith(start) for o in real):
+                missing.append(line)
+        elif line not in real:
+            missing.append(line)
+    return missing
+
+
+def test_windows_only_lines_are_used_in_the_examples():
+    """Every entry of the list is in an example (so the list can't go stale)."""
+    shown = {line for _, _, lines in EXAMPLES for line in lines}
+    assert WINDOWS_ONLY_LINES <= shown
+
+
+@pytest.mark.parametrize("platform", ["win32", "linux", "darwin"])
+def test_windows_only_lines_are_optional_elsewhere(platform):
+    zone = "Windows Zone.Identifier stream: none (no download origin attached)"
+    shown = ["Verification: CLEAN", "File timestamps: new (not copied from the original)", zone]
+    real_elsewhere = ["Verification: CLEAN", "File timestamps: new (not copied from the original)"]
+    expected = [zone] if platform == "win32" else []
+    assert missing_lines(shown, real_elsewhere, platform) == expected
+    assert missing_lines(shown, real_elsewhere + [zone], platform) == []
+    # any other line stays required on every platform
+    assert missing_lines(shown + ["Result: CLEAN"], real_elsewhere + [zone], platform) == [
+        "Result: CLEAN"]
+    assert missing_lines(["Removed: ..."], ["Kept by design:"], platform) == ["Removed: ..."]
 
 
 def test_install_and_badges():
