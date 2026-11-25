@@ -164,10 +164,14 @@ Extension: `.webp`.
   `--no-orientation` as for JPEG.
 - **verify** compares the canvas size, the image chunks and the frames.
 - **Refused**: a RIFF size larger than the file, images with more or fewer
-  than one bitstream.
-- **Known limits**: the VP8/VP8L bitstreams and alpha data are not
-  decoded, so data hidden inside them is not detected. The canvas size and
-  alpha flag are copied from the original VP8X chunk.
+  than one bitstream, and data after the end of a lossless bitstream (VP8L,
+  or alpha data in ALPH), which viewers never read: metaex reads lossless
+  bitstreams to their end (without building the pixels) and refuses
+  invalid ones, and files with more than 16 million lossless symbols, which
+  it doesn't check.
+- **Known limits**: lossy VP8 bitstreams are not decoded, so data hidden
+  at the end of one, or in any image's pixels, is not detected. The canvas
+  size and alpha flag are copied from the original VP8X chunk.
 
 ### SVG
 

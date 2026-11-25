@@ -5,7 +5,7 @@ import random
 import pytest
 
 from helpers.webp import chunk, kitchen_sink_webp, riff, variants, vp8l
-from metaex.core.errors import MalformedFileError
+from metaex.core.errors import CannotCleanError, MalformedFileError
 from metaex.core.report import Report, render_json, render_text
 from metaex.core.verify import verify
 from metaex.formats import webp
@@ -161,8 +161,8 @@ def test_mutations_either_raise_or_produce_clean_output():
         paranoid = bool(i % 2)
         try:
             cleaned = webp.strip(data, paranoid=paranoid)
-        except MalformedFileError:
-            continue
+        except (MalformedFileError, CannotCleanError):
+            continue  # damaged, or data after the end of a lossless bitstream
         stripped += 1
         result = verify(cleaned, data)
         assert result.clean, (i, result.leftovers, result.problems)

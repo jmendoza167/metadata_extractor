@@ -15,8 +15,8 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 
-from metaex.core import exif, filetype, icc, xmp
-from metaex.core.errors import MalformedFileError
+from metaex.core import exif, filetype, icc, vp8l, xmp
+from metaex.core.errors import CannotCleanError, HiddenDataError, MalformedFileError
 from metaex.core.result import Section
 
 MAX_CHUNKS = 100_000
@@ -202,6 +202,134 @@ def canvas_size(chunk: Chunk) -> tuple[int, int] | None:
         bits = int.from_bytes(d[1:5], "little")
         return ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1)
     return None
+
+
+# -- data after the end of a lossless bitstream ------------------------------------------
+
+MAX_VP8L_SYMBOLS = 16_000_000
+"""Symbols read from lossless bitstreams per file at most (several seconds);
+larger files are not checked for hidden data, and such files are refused."""
+STREAM_CACHE_SIZE = 8
+
+
+@dataclass
+class StreamCheck:
+    chunk: Chunk
+    where: str
+    trailing: bytes | None = None
+    """Bytes after the end of the bitstream (None: too large to check)."""
+    problem: str | None = None
+    """Why the bitstream is invalid."""
+
+    @property
+    def hidden(self) -> bool:
+        return bool(self.trailing) and self.trailing.count(0) != len(self.trailing)
+
+
+def _alpha_check(check: StreamCheck, width: int, height: int, budget: int) -> int:
+    """Check an ALPH chunk; returns the budget left."""
+    d = check.chunk.data
+    if not d:
+        check.problem = "the ALPH chunk is empty"
+        return budget
+    method = d[0] & 0x03
+    if method == 0:  # raw alpha values, one byte per pixel
+        if len(d) < 1 + width * height:
+            check.problem = "the ALPH chunk is shorter than the image"
+        check.trailing = d[1 + width * height:]
+    elif method == 1:  # compressed with the lossless format
+        try:
+            result = vp8l.stream_end(d, 1, width, height, budget)
+        except MalformedFileError as exc:
+            check.problem = str(exc)
+            return budget
+        budget -= result.symbols
+        if result.end is not None:
+            check.trailing = d[result.end:]
+    else:
+        check.problem = f"the ALPH chunk uses the unknown compression method {method}"
+    return budget
+
+
+def check_streams(structure: WebpStructure) -> list[StreamCheck]:
+    """Every lossless bitstream (VP8L chunks, and ALPH chunks, raw or
+    lossless) checked for data after its end, which decoders never read.
+    Lossy VP8 bitstreams can't be checked without decoding them. Cached by
+    content (each file is read once per command); treat the result as
+    read-only."""
+    canvas = _canvas(structure) if structure.chunks else None
+    items: list[tuple[str, Chunk, tuple[int, int] | None]] = []
+    for c in structure.chunks:
+        if c.fourcc in ("VP8L", "ALPH"):
+            items.append((c.fourcc, c, canvas))
+        elif c.fourcc == "ANMF" and len(c.data) >= ANMF_HEADER_SIZE:
+            size = (1 + int.from_bytes(c.data[6:9], "little"),
+                    1 + int.from_bytes(c.data[9:12], "little"))
+            n = sum(1 for x in structure.chunks[:structure.chunks.index(c) + 1]
+                    if x.fourcc == "ANMF")
+            items += [(f"frame {n} {child.fourcc}", child, size) for child in c.children
+                      if child.fourcc in ("VP8L", "ALPH")]
+    h = hashlib.sha256(str(MAX_VP8L_SYMBOLS).encode("ascii"))
+    for where, c, size in items:
+        h.update(f"{where}|{size}|{len(c.data)}|".encode("ascii") + c.data)
+    key = h.digest()
+    cached = _STREAM_CACHE.pop(key, None)
+    if cached is None:
+        cached = []
+        budget = MAX_VP8L_SYMBOLS
+        for where, c, size in items:
+            check = StreamCheck(c, where)
+            cached.append(check)
+            if budget <= 0:
+                continue
+            if c.fourcc == "ALPH":
+                if size is None:
+                    check.problem = "the image size for the ALPH chunk is unknown"
+                else:
+                    budget = _alpha_check(check, size[0], size[1], budget)
+                continue
+            try:
+                result = vp8l.bitstream_end(c.data, budget)
+            except MalformedFileError as exc:
+                check.problem = str(exc)
+                continue
+            budget -= result.symbols
+            if result.end is not None:
+                check.trailing = c.data[result.end:]
+    _STREAM_CACHE[key] = cached
+    while len(_STREAM_CACHE) > STREAM_CACHE_SIZE:
+        del _STREAM_CACHE[next(iter(_STREAM_CACHE))]
+    return cached
+
+
+_STREAM_CACHE: dict[bytes, list[StreamCheck]] = {}
+
+
+def stream_problems(checks: list[StreamCheck]) -> list[str]:
+    out = []
+    for s in checks:
+        where = f"{s.where} at offset {s.chunk.offset}"
+        if s.problem is not None:
+            out.append(f"{where} is invalid: {s.problem}")
+        elif s.trailing is None:
+            out.append(f"{where} was not checked for hidden data: the file has more than "
+                       f"{MAX_VP8L_SYMBOLS} lossless symbols")
+    return out
+
+
+def hidden_stream_sections(structure: WebpStructure, warnings: list[str]) -> list[Section]:
+    section = Section("hidden_image_data", "Hidden data in image data")
+    checks = check_streams(structure)
+    for s in checks:
+        if s.hidden:
+            section.add(f"{s.where}@{s.chunk.offset}", f"{s.where} at offset {s.chunk.offset}",
+                        f"{len(s.trailing)} bytes after the end of the bitstream",
+                        sensitive=True)
+    if section.fields:
+        warnings.append(f"CRITICAL: the image data hides data that viewers don't show "
+                        f"({section.fields[0].label}: {section.fields[0].value})")
+    warnings += stream_problems(checks)
+    return [section] if section.fields else []
 
 
 def _image_value(chunk: Chunk) -> str:
@@ -499,6 +627,17 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     """
     data = bytes(data)
     structure = checked_structure(data)
+    for s in check_streams(structure):
+        if s.problem is not None:
+            raise MalformedFileError(stream_problems([s])[0])
+        if s.trailing is None:
+            raise CannotCleanError(f"{stream_problems([s])[0]}, so data hidden in it can't "
+                                   "be ruled out")
+        if s.hidden:
+            raise HiddenDataError(f"the {s.where} chunk at offset {s.chunk.offset} hides "
+                                  f"{len(s.trailing)} bytes after the end of its bitstream, "
+                                  "which viewers don't show; the image data is copied byte "
+                                  "for byte, so this file can't be cleaned")
     chunks = structure.chunks
     extended_input = chunks[0].fourcc == "VP8X"
     orientation = original_orientation(structure)
@@ -587,6 +726,8 @@ def verify_details(cleaned: bytes, original: bytes | None = None) -> dict:
         return out
     out["image_sha256"] = hashlib.sha256(image).hexdigest()
     structure = walk_chunks(cleaned)
+    # Data after a lossless bitstream is reported by parse() as a leftover section.
+    out["problems"] += stream_problems(check_streams(structure))
     if structure.riff_size + 8 != len(cleaned):
         out["problems"].append(f"RIFF size {structure.riff_size} does not match the file "
                                f"size ({len(cleaned)} bytes)")
@@ -654,6 +795,7 @@ def parse(data: bytes | bytearray | memoryview) -> dict:
     sections += icc_sections(structure, warnings)
     sections += animation_sections(structure, warnings)
     sections += unknown_sections(structure)
+    sections += hidden_stream_sections(structure, warnings)
     sections += trailing_sections(structure, data, warnings)
     return {
         "warnings": warnings,
