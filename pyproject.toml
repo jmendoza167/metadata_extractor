@@ -43,7 +43,9 @@ Changelog = "https://github.com/jmendoza167/metadata_extractor/blob/main/CHANGEL
 
 [project.optional-dependencies]
 dev = ["pytest", "Pillow>=11.0", "python-docx>=1.1", "openpyxl>=3.1", "python-pptx>=1.0",
-       "mutagen>=1.47"]
+       "mutagen>=1.47",
+       # building and checking the packages (tests/test_packaging.py, CI)
+       "build>=1.2", "twine>=6.1", "setuptools>=77"]
 
 [project.scripts]
 metaex = "metaex.cli:main"
@@ -56,3 +58,4 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: builds the packages (deselect with -m \"not slow\")"]

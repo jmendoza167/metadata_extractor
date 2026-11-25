@@ -1,0 +1,10 @@
+# The sdist holds src/, README.md, LICENSE, CHANGELOG.md and pyproject.toml
+# only (tests/test_packaging.py checks the exact file lists). Tests and
+# samples stay out: the damaged samples include a zip bomb.
+include CHANGELOG.md
+exclude MANIFEST.in
+prune tests
+prune scripts
+prune private_samples
+prune .github
+global-exclude *.py[cod] __pycache__

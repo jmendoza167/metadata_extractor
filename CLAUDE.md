@@ -9,8 +9,10 @@ files (photos, documents, audio, archives) for privacy. It is written in
 Python and uses **only the standard library at runtime**. The only dev
 dependencies are pytest, Pillow, python-docx, openpyxl, python-pptx and
 mutagen: independent readers for the tests' pixel checks, Office content
-checks and audio tag checks. metaex itself must never import them (or
-lxml, which some of them use); a test enforces this.
+checks and audio tag checks, plus build, twine and setuptools for building
+and checking the packages (`tests/test_packaging.py`, marked `slow`).
+metaex itself must never import them (or lxml, which some of them use); a
+test enforces this.
 
 It is used for real privacy work and published as a public repo, so
 **correctness and honesty matter more than features**. Never claim a file is
