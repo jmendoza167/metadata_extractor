@@ -45,6 +45,8 @@ class StripOutcome:
     """How the output's file times were set."""
     zone_identifier: str | None = None
     """Windows only: whether the output has a Zone.Identifier stream."""
+    deep: bool = False
+    """True if the files inside an archive were cleaned too (--deep)."""
 
     def to_dict(self) -> dict[str, Any]:
         v = self.verify
@@ -62,7 +64,7 @@ class StripOutcome:
             ],
             "verify": None if v is None else {
                 "clean": v.clean,
-                "verdict": verdict(v),
+                "verdict": verdict(v, deep=self.deep),
                 "leftovers": [str(f) for f in v.leftovers],
                 "problems": v.problems,
                 "unchecked": v.unchecked,
@@ -230,7 +232,8 @@ def _strip(source: str, data: bytes, detected: ft.FileType, module, output,
     else:
         result = write_verified(target, cleaned, check, overwrite=overwrite, times=times)
     outcome = StripOutcome(source, target, detected, len(data), len(cleaned),
-                           kept_by_design=result.kept_by_design, verify=result)
+                           kept_by_design=result.kept_by_design, verify=result,
+                           deep=session is not None)
     if getattr(module, "CAN_DEEP", False):
         # The check above looked at the archive itself (files inside that
         # were not cleaned are warned about, not refused). Report what
@@ -511,7 +514,7 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
     lines.append("")
     v = outcome.verify
     if v is not None:
-        lines.append(f"Verification: {verdict(v)}")
+        lines.append(f"Verification: {verdict(v, deep=outcome.deep)}")
         for item in v.unchecked[:MAX_UNCHECKED_LINES]:
             lines.append(f"  Not checked: {item}")
         if len(v.unchecked) > MAX_UNCHECKED_LINES:

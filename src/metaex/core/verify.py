@@ -66,12 +66,13 @@ class VerifyResult:
         return not self.leftovers and not self.problems
 
 
-def verdict(result: VerifyResult) -> str:
+def verdict(result: VerifyResult, deep: bool = False) -> str:
     """The one-line verdict on a file, worded the same by strip and verify:
     "CLEAN", "NOT CLEAN", or for an archive whose own metadata is clean
     while files inside still hold theirs, "NOT CLEAN: archive metadata
     clean; N file(s) inside still contain metadata (not cleaned, use
-    --deep)"; "N item(s) metaex could not check" is added when something
+    --deep)", or after ``deep`` (strip --deep), "... (--deep could not clean
+    them)"; "N item(s) metaex could not check" is added when something
     could not be examined."""
     if result.clean:
         return "CLEAN"
@@ -83,8 +84,9 @@ def verdict(result: VerifyResult) -> str:
                    and len(result.leftovers) == len(result.inner_leftovers))
     text = "NOT CLEAN"
     if only_inside:
+        how = "--deep could not clean them" if deep else "not cleaned, use --deep"
         text = (f"NOT CLEAN: archive metadata clean; {len(result.inner_files)} file(s) inside "
-                "still contain metadata (not cleaned, use --deep)")
+                f"still contain metadata ({how})")
     return f"{text}; {unchecked}" if unchecked else text
 
 

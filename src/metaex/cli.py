@@ -649,7 +649,7 @@ def _print_strip_line(result, counter: str = "") -> None:
                 warning = "*** " + warning[len(CRITICAL_PREFIX):]
             lines.append(f"  Warning: {warning}")
         if outcome.verify is not None and not outcome.verify.clean:
-            lines.append(f"  Verification: {verdict(outcome.verify)}")
+            lines.append(f"  Verification: {verdict(outcome.verify, deep=outcome.deep)}")
     write_text("\n".join(sanitize(line) for line in lines) + "\n")
 
 
