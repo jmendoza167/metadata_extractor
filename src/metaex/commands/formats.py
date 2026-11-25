@@ -18,8 +18,9 @@ SUPPORTED: tuple[tuple[str, ft.FileType, str], ...] = (
     ("Images", ft.GIF, "comments, plain text, XMP and other application extensions, data after "
                        "the image"),
     ("Images", ft.WEBP, "EXIF, XMP, unknown chunks, data after the image"),
-    ("Images", ft.SVG, "<metadata>, comments, processing instructions, editor data, local file "
-                       "paths; embedded images are stripped by their own rules"),
+    ("Images", ft.SVG, "<metadata>, comments, processing instructions, editor data, everything "
+                       "that is not drawn (unknown elements and attributes, hidden text); "
+                       "embedded images are stripped by their own rules"),
     ("Office documents", ft.DOCX, "document, application and custom properties, authors, "
                                   "revision IDs, thumbnail, printer settings, unused parts"),
     ("Office documents", ft.XLSX, "document, application and custom properties, authors, "

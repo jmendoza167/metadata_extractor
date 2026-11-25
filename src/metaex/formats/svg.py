@@ -98,6 +98,162 @@ def editor_tool(uri: str | None) -> str | None:
     return None
 
 
+# -- what is part of the drawing (strip keeps only this) --------------------------------
+
+XHTML_NS = "http://www.w3.org/1999/xhtml"
+
+SVG_ELEMENTS = frozenset("""
+    a altGlyph altGlyphDef altGlyphItem animate animateColor animateMotion animateTransform
+    circle clipPath color-profile cursor defs desc discard ellipse feBlend feColorMatrix
+    feComponentTransfer feComposite feConvolveMatrix feDiffuseLighting feDisplacementMap
+    feDistantLight feDropShadow feFlood feFuncA feFuncB feFuncG feFuncR feGaussianBlur feImage
+    feMerge feMergeNode feMorphology feOffset fePointLight feSpecularLighting feSpotLight feTile
+    feTurbulence filter font font-face font-face-format font-face-name font-face-src
+    font-face-uri foreignObject g glyph glyphRef hatch hatchpath hkern image line
+    linearGradient marker mask mesh meshgradient meshpatch meshrow metadata missing-glyph
+    mpath path pattern polygon polyline radialGradient rect script set solidcolor stop style
+    svg switch symbol text textPath title tref tspan unknown use view vkern
+""".split())
+"""Elements of SVG 1.1 and SVG 2 (with the mesh and hatch paints Inkscape writes).
+Any other element is not drawn, so strip() removes it (it can only carry data)."""
+
+SVG_ATTRIBUTES = frozenset("""
+    accent-height accumulate additive alignment-baseline alphabetic amplitude arabic-form
+    ascent attributeName attributeType azimuth baseFrequency baseProfile baseline-shift bbox
+    begin bias by calcMode cap-height class clip clip-path clip-rule clipPathUnits color
+    color-interpolation color-interpolation-filters color-profile color-rendering
+    contentScriptType contentStyleType crossorigin cursor cx cy d decoding descent
+    diffuseConstant direction display divisor dominant-baseline dur dx dy edgeMode elevation
+    enable-background end exponent externalResourcesRequired fill fill-opacity fill-rule
+    filter filterRes filterUnits flood-color flood-opacity font font-family font-feature-settings
+    font-kerning font-size font-size-adjust font-stretch font-style font-variant
+    font-variant-caps font-variant-ligatures font-variant-numeric font-weight format fr from
+    fx fy g1 g2 glyph-name glyph-orientation-horizontal glyph-orientation-vertical glyphRef
+    gradientTransform gradientUnits hanging height horiz-adv-x horiz-origin-x horiz-origin-y
+    href id ideographic image-rendering in in2 inline-size intercept isolation k k1 k2 k3 k4
+    kernelMatrix kernelUnitLength kerning keyPoints keySplines keyTimes lang lengthAdjust
+    letter-spacing lighting-color limitingConeAngle local marker marker-end marker-mid
+    marker-start markerHeight markerUnits markerWidth mask mask-type maskContentUnits
+    maskUnits mathematical max media method min mix-blend-mode mode name numOctaves offset
+    opacity operator order orient orientation origin overflow overline-position
+    overline-thickness paint-order panose-1 path pathLength patternContentUnits
+    patternTransform patternUnits pitch pointer-events points pointsAtX pointsAtY pointsAtZ
+    preserveAlpha preserveAspectRatio primitiveUnits r radius refX refY rendering-intent
+    repeatCount repeatDur requiredExtensions requiredFeatures restart result rotate rx ry
+    scale seed shape-inside shape-margin shape-padding shape-rendering shape-subtract side
+    slope spacing specularConstant specularExponent spreadMethod startOffset stdDeviation
+    stemh stemv stitchTiles stop-color stop-opacity strikethrough-position
+    strikethrough-thickness string stroke stroke-dasharray stroke-dashoffset stroke-linecap
+    stroke-linejoin stroke-miterlimit stroke-opacity stroke-width style surfaceScale
+    systemLanguage tabindex tableValues target targetX targetY text-anchor text-decoration
+    text-decoration-color text-decoration-line text-decoration-style text-indent
+    text-orientation text-rendering text-transform textLength title to transform
+    transform-box transform-origin type u1 u2 underline-position underline-thickness unicode
+    unicode-bidi unicode-range units-per-em v-alphabetic v-hanging v-ideographic
+    v-mathematical values vector-effect version vert-adv-y vert-origin-x vert-origin-y
+    viewBox viewTarget visibility white-space width widths word-spacing writing-mode x
+    x-height x1 x2 xChannelSelector y y1 y2 yChannelSelector z zoomAndPan
+""".split())
+"""Attributes (without a namespace) of SVG elements. Event handlers (on...),
+role and aria-* are kept too: they are part of how the drawing behaves and
+is read aloud. Any other attribute (data-*, an application's own) is not
+used to draw, so strip() removes it."""
+
+XLINK_ATTRIBUTES = frozenset({"href", "title", "show", "actuate", "type", "role", "arcrole"})
+XML_ATTRIBUTES = frozenset({"space", "lang", "base"})
+
+HTML_ELEMENTS = frozenset("""
+    a abbr address article aside b bdi bdo big blockquote br caption center cite code col
+    colgroup dd del dfn div dl dt em figcaption figure font footer h1 h2 h3 h4 h5 h6 header
+    hr i ins kbd label li main mark nav nobr ol p pre q rp rt ruby s samp section small span
+    strike strong sub sup table tbody td tfoot th thead time tr tt u ul var wbr
+""".split())
+"""HTML elements inside <foreignObject> (text labels, as draw.io writes them)
+that metaex keeps: they only lay out text. Others (images, frames, forms,
+scripts, ...) load or run something metaex can't check: such files are refused."""
+
+HTML_ATTRIBUTES = frozenset("""
+    align bgcolor border cellpadding cellspacing class color colspan dir face height href id
+    lang rowspan size span style target title valign width
+""".split())
+
+
+def in_foreign_object(element: Element) -> bool:
+    """True if the element is inside (not itself) an SVG <foreignObject>."""
+    e = element.parent
+    while e is not None:
+        if e.is_svg("foreignObject"):
+            return True
+        e = e.parent
+    return False
+
+
+def not_drawn(element: Element) -> str | None:
+    """Why an element is not part of the drawing (strip removes it with its
+    contents), or None if it is. <metadata> and editor elements are handled
+    (and reported) separately and are not covered here."""
+    if element.parent is None or element.is_svg("metadata") or editor_tool(element.uri):
+        return None
+    if element.uri == SVG_NS:
+        return None if element.local in SVG_ELEMENTS else "not an SVG element"
+    if element.uri == XHTML_NS and in_foreign_object(element):
+        return None  # HTML text in <foreignObject>; see foreign_object_problem()
+    if in_foreign_object(element):
+        return None  # refused by foreign_object_problem()
+    return "not in the SVG namespace" if element.uri else "in no namespace"
+
+
+def foreign_object_problem(element: Element) -> str | None:
+    """Why strip() can't keep an element inside <foreignObject>, or None.
+    Content there is displayed, so it can't be removed without changing
+    the drawing, and only plain HTML text layout is checked."""
+    if not in_foreign_object(element) or element.uri == SVG_NS:
+        return None
+    if element.uri == XHTML_NS and element.local in HTML_ELEMENTS:
+        return None
+    return (f"<{element.name}> at line {element.line} inside <foreignObject> is content "
+            "metaex can't check")
+
+
+def unknown_attribute(element: Element, name: str) -> bool:
+    """True for an attribute that is not used to draw (strip removes it).
+    Namespace declarations and editor attributes are handled separately."""
+    if is_namespace_declaration(name):
+        return False
+    uri = element.attr_uri(name)
+    if editor_tool(uri):
+        return False
+    local = name.split(":", 1)[-1]
+    if uri == XLINK_NS:
+        return local not in XLINK_ATTRIBUTES
+    if uri == XML_NS:
+        return local not in XML_ATTRIBUTES
+    if uri is not None:
+        return True
+    if local.startswith("on") or local.startswith("aria-") or local == "role":
+        return False
+    if element.uri == XHTML_NS:
+        return local not in HTML_ATTRIBUTES
+    return local not in SVG_ATTRIBUTES
+
+
+TEXT_ELEMENTS = {"text", "style", "script", "title", "desc", "foreignObject"}
+"""Elements whose text is displayed or used (with everything inside them)."""
+
+
+def hidden_text(element: Element, node: Text) -> bool:
+    """True for text that is not displayed: anything but whitespace outside
+    the text elements (strip removes it)."""
+    if not node.value.strip():
+        return False
+    e: Element | None = element
+    while e is not None:
+        if e.local in TEXT_ELEMENTS and (e.uri == SVG_NS or in_foreign_object(e)):
+            return False
+        e = e.parent
+    return True
+
+
 # -- document model ----------------------------------------------------------------
 
 
@@ -650,6 +806,46 @@ def editor_sections(doc: Document) -> list[Section]:
     return [section] if section.fields else []
 
 
+def other_data_sections(doc: Document) -> list[Section]:
+    """Everything else that is not part of the drawing and that strip()
+    removes: elements that are not drawn (unknown elements, elements in
+    other namespaces), attributes not used to draw (data-*, an application's
+    own) and text outside the text elements. <metadata>, comments and
+    editor data have sections of their own."""
+    section = Section("svg_other", "Data that is not part of the drawing")
+    if doc.root.uri != SVG_NS:
+        section.add("root", "Root element", f"<{doc.root.name}> is not in the SVG namespace "
+                    f"({doc.root.uri or 'none'}): no element of the file is an SVG element",
+                    sensitive=True)
+    found = 0
+
+    def add(key: str, label: str, value: str, element: Element) -> None:
+        nonlocal found
+        found += 1
+        if found <= MAX_LISTED:
+            section.add(f"{key}@{element.line}:{found}", label, value, sensitive=True,
+                        note=f"line {element.line}")
+
+    def skip(e: Element) -> bool:
+        return e.is_svg("metadata") or editor_tool(e.uri) is not None or bool(not_drawn(e))
+
+    for element in iter_elements(doc.root, skip=skip):
+        for name, value in element.attrs:
+            if unknown_attribute(element, name):
+                add(name, f"{name} on <{element.name}>", value, element)
+        for child in element.children:
+            if isinstance(child, Element) and not_drawn(child):
+                text = " ".join(text_of(child).split())
+                add(child.name, f"<{child.name}> ({not_drawn(child)})",
+                    text or f"{len(child.attrs)} attributes, no text", child)
+            elif isinstance(child, Text) and hidden_text(element, child):
+                add("text", f"text in <{element.name}> (not displayed)",
+                    " ".join(child.value.split()), element)
+    if found > MAX_LISTED:
+        section.add("more", "More", f"{found - MAX_LISTED} more not listed")
+    return [section] if section.fields else []
+
+
 def path_attributes(doc: Document) -> list[tuple[Element, str, str, list[str]]]:
     """(element, attribute, value, paths) for every attribute holding a local path."""
     out = []
@@ -915,6 +1111,7 @@ def _parse(data: bytes, depth: int) -> dict:
     sections += comment_sections(doc)
     sections += pi_sections(doc)
     sections += editor_sections(doc)
+    sections += other_data_sections(doc)
     sections += local_path_sections(doc, warnings)
     sections += embedded_sections(doc, warnings, depth)
     active_content_warnings(doc, warnings)
@@ -939,12 +1136,13 @@ def in_text_context(element: Element | None) -> bool:
 
 def dropped_by_strip(node: Node, paranoid: bool) -> bool:
     """True for the nodes strip() removes, with their contents: comments,
-    processing instructions, <metadata>, elements in editor namespaces and,
-    with ``paranoid``, <title> and <desc>."""
+    processing instructions, <metadata>, elements in editor namespaces,
+    elements that are not drawn (see not_drawn()) and, with ``paranoid``,
+    <title> and <desc>."""
     if isinstance(node, (Comment, PI)):
         return True
     if isinstance(node, Element):
-        if node.is_svg("metadata") or editor_tool(node.uri):
+        if node.is_svg("metadata") or editor_tool(node.uri) or not_drawn(node):
             return True
         if paranoid and (node.is_svg("title") or node.is_svg("desc")):
             return True
@@ -961,7 +1159,8 @@ def _drop_plan(doc: Document, paranoid: bool) -> set[int]:
     for element in iter_elements(doc.root, skip=lambda e: id(e) in drop):
         previous = None
         for child in element.children:
-            if dropped_by_strip(child, paranoid):
+            if dropped_by_strip(child, paranoid) or (isinstance(child, Text)
+                                                     and hidden_text(element, child)):
                 drop.add(id(child))
                 if (isinstance(previous, Text) and not previous.cdata
                         and not previous.value.strip() and not in_text_context(element)):
@@ -971,9 +1170,10 @@ def _drop_plan(doc: Document, paranoid: bool) -> set[int]:
 
 
 def _kept_attributes(element: Element) -> list[tuple[str, str]]:
-    """Attributes outside editor namespaces (declarations are decided later)."""
+    """Attributes used to draw (declarations are decided later)."""
     return [(name, value) for name, value in element.attrs
-            if is_namespace_declaration(name) or not editor_tool(element.attr_uri(name))]
+            if is_namespace_declaration(name)
+            or not (editor_tool(element.attr_uri(name)) or unknown_attribute(element, name))]
 
 
 def _strip_embedded(item: Embedded, n: int, keep_orientation: bool, paranoid: bool,
@@ -1016,8 +1216,9 @@ def strip(data: bytes | bytearray | memoryview, *, keep_orientation: bool = True
     no effect on the drawing), <metadata>, comments, processing
     instructions (the XML declaration stays), every element and
     attribute in an editor namespace (sodipodi:namedview, inkscape:*,
-    Illustrator i:*, ...) and the declarations of those namespaces and of
-    any other namespace no longer used. <title> and <desc> are kept (they
+    Illustrator i:*, ...), everything else that is not drawn (a whitelist:
+    see not_drawn(), unknown_attribute() and hidden_text()) and the
+    declarations of namespaces no longer used. <title> and <desc> are kept (they
     are for accessibility) unless ``paranoid``. Embedded data: URI images
     are stripped with their own format's rules (``keep_orientation`` and
     ``paranoid`` apply to them) and written back as base64.
@@ -1034,9 +1235,17 @@ def _strip(data: bytes, keep_orientation: bool, paranoid: bool, depth: int) -> b
     from metaex.core.errors import CannotCleanError
 
     doc = parse_document(data)
+    if doc.root.uri != SVG_NS:
+        raise CannotCleanError(f"the root element <{doc.root.name}> is not in the SVG "
+                               f"namespace ({doc.root.uri or 'none'}), so nothing in the file "
+                               "is an SVG drawing that metaex can tell apart from other data")
     drop = _drop_plan(doc, paranoid)
     kept = [e for e in iter_elements(doc.root, skip=lambda e: id(e) in drop)]
     kept_ids = {id(e) for e in kept}
+    for e in kept:
+        problem = foreign_object_problem(e)
+        if problem is not None:
+            raise CannotCleanError(problem)
     css = [e for e in css_data_uris(doc) if id(e) in kept_ids]
     if css:
         raise CannotCleanError(f"the CSS of <{css[0].name}> at line {css[0].line} contains a "
@@ -1179,7 +1388,8 @@ def drawing(doc: Document, depth: int = 0) -> bytes:
         attrs = []
         for name, value in element.attrs:
             uri = element.attr_uri(name)
-            if is_namespace_declaration(name) or editor_tool(uri):
+            if is_namespace_declaration(name) or editor_tool(uri) or unknown_attribute(element,
+                                                                                       name):
                 continue
             if is_href(element, name) and value.lstrip()[:5].lower() == "data:":
                 value = "embedded:" + _embedded_digest(value, depth)
@@ -1198,7 +1408,8 @@ def drawing(doc: Document, depth: int = 0) -> bytes:
 
         for child in element.children:
             if isinstance(child, Text):
-                buffer += child.value
+                if not hidden_text(element, child):
+                    buffer += child.value
             elif isinstance(child, Element) and not dropped_by_strip(child, True):
                 flush(buffer)
                 buffer = ""
@@ -1242,6 +1453,13 @@ def _details(cleaned: bytes, original: bytes | None, depth: int) -> dict:
         out["problems"].append(f"not an SVG metaex accepts: {exc}")
         return out
     out["leftovers"] += _structure_leftovers(doc)
+    if doc.root.uri != SVG_NS:
+        out["problems"].append("the root element is not in the SVG namespace, so the file "
+                               "is not an SVG drawing")
+    for element in iter_elements(doc.root, skip=lambda e: dropped_by_strip(e, False)):
+        problem = foreign_object_problem(element)
+        if problem is not None:
+            out["problems"].append(problem)
     for element in css_data_uris(doc):
         out["problems"].append(f"CSS of <{element.name}> at line {element.line} contains a "
                                "data: URI that can't be checked")

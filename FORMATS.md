@@ -184,11 +184,18 @@ Extension: `.svg`.
   namespace prefixes stay exactly as written (never `ns0:`), but
   formatting inside tags can change: quoting, `<a></a>` written as `<a/>`,
   the indentation left by removed elements.
-- **strip removes** the standard DOCTYPE line, `<metadata>`, comments,
-  processing instructions (the XML declaration stays), every element and
-  attribute in an editor namespace, and declarations of namespaces no
-  longer used. Embedded images are stripped with their own format's rules
-  and written back as base64. Paths in editor attributes
+- **strip removes** everything that is not part of the drawing (a
+  whitelist: it keeps SVG elements, the attributes used to draw plus
+  `role`, `aria-*` and event handlers, `xlink:` and `xml:` attributes, and
+  text inside text elements). That is: the standard DOCTYPE line,
+  `<metadata>`, comments, processing instructions (the XML declaration
+  stays), every element and attribute in an editor namespace, elements in
+  other namespaces or that are not SVG elements, attributes no renderer
+  uses (`data-*`, a program's own, such as draw.io's `content`), text
+  outside text elements, and declarations of namespaces no longer used.
+  show and risk list these under "Data that is not part of the drawing",
+  and verify reports them as leftovers. Embedded images are stripped with
+  their own format's rules and written back as base64. Paths in editor attributes
   (`inkscape:export-filename`, `sodipodi:absref`) are removed.
 - **Kept by design**: `<title>` and `<desc>`, because screen readers use
   them (the summary shows what they say).
@@ -204,15 +211,15 @@ Extension: `.svg`.
   any encoding other than UTF-8; files that link to local files (an
   `<image>` pointing into `C:\Users\<name>\...`: removing it would break the
   drawing); embedded data that can't be stripped (unsupported or damaged
-  images, data: URIs inside CSS). The DTD a DOCTYPE points to is never
-  downloaded.
+  images, data: URIs inside CSS); files whose root element is not in the
+  SVG namespace (nothing in them is an SVG drawing); inside
+  `<foreignObject>`, anything but HTML text layout (images, frames, other
+  namespaces). The DTD a DOCTYPE points to is never downloaded.
 - **Known limits**: a byte comparison with the original no longer matches.
   Visible text, element `id`s and class names are kept, and so are scripts
   and external references (metaex warns). `<?xml-stylesheet?>` is removed
   with the other processing instructions, so a drawing that takes its
-  styles from an external stylesheet will look different. Only the editor
-  namespaces listed above are recognized; data a program writes without
-  its own namespace (such as `data-*` attributes) is kept. Embedded SVGs
+  styles from an external stylesheet will look different. Embedded SVGs
   are read at most 3 levels deep.
 
 ## Office documents

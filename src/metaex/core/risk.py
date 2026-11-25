@@ -104,7 +104,9 @@ HIGH_SECTIONS = {"mark_of_the_web", "comments",
                  "plain_text", "app_extensions",
                  # SVG: <metadata> (RDF / Dublin Core), processing instructions,
                  # editor namespaces and attributes
-                 "svg_metadata", "processing_instructions", "editor"}
+                 "svg_metadata", "processing_instructions", "editor",
+                 # SVG: elements, attributes and text that are not part of the drawing
+                 "svg_other"}
 HIGH_NAMES = {
     # device
     "Make", "Model", "UniqueCameraModel", "MakerNote", "ImageUniqueID", "CameraFirmware",

@@ -80,8 +80,11 @@ def test_unused_namespace_declarations_are_removed():
     data = simple_svg("<rect/>", attrs='xmlns:foo="http://example.com/foo"')
     cleaned = svg.strip(data)
     assert b"xmlns:foo" not in cleaned and b"xmlns:xlink" in cleaned
-    used = simple_svg('<foo:thing xmlns:foo="http://example.com/foo"/>')
-    assert b"xmlns:foo" in svg.strip(used)
+    used = simple_svg('<use xmlns:l="http://www.w3.org/1999/xlink" l:href="#a"/>')
+    assert b'xmlns:l="http://www.w3.org/1999/xlink"' in svg.strip(used)
+    # an element in another namespace is not drawn: removed with its declaration
+    foreign = simple_svg('<foo:thing xmlns:foo="http://example.com/foo"/>')
+    assert b"foo" not in svg.strip(foreign)
 
 
 def test_whitespace_in_text_is_never_changed():
