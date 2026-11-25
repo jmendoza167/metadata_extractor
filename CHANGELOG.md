@@ -6,7 +6,7 @@ All notable changes to metaex are listed here. The format follows
 
 ## [Unreleased]
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-11-25
 
 The first release. metaex shows and removes metadata from photos,
 documents, audio files and archives, using only the Python standard library
