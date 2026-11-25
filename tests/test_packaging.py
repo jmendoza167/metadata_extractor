@@ -129,3 +129,25 @@ def test_twine_check_passes(dist):
                        capture_output=True, text=True, timeout=300)
     assert r.returncode == 0, r.stdout + r.stderr
     assert r.stdout.count("PASSED") == 2, r.stdout
+
+
+def test_the_wheel_works_in_a_fresh_venv(dist):
+    """scripts/check_wheel.py (used by CI): install the wheel alone in a new
+    venv and strip + verify samples with the installed program."""
+    _, wheel = dist
+    r = subprocess.run([sys.executable, str(ROOT / "scripts" / "check_wheel.py"), str(wheel),
+                        str(ROOT / "tests" / "samples")],
+                       capture_output=True, text=True, encoding="utf-8", timeout=900)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert f"all checks passed for {wheel.name}" in r.stdout
+
+
+def test_check_wheel_fails_on_a_broken_wheel(tmp_path):
+    fake = tmp_path / "metaex-9.9.9-py3-none-any.whl"
+    with zipfile.ZipFile(fake, "w") as z:
+        z.writestr("nothing.txt", "not a package")
+    r = subprocess.run([sys.executable, str(ROOT / "scripts" / "check_wheel.py"), str(fake),
+                        str(ROOT / "tests" / "samples")],
+                       capture_output=True, text=True, encoding="utf-8", timeout=900)
+    assert r.returncode == 1
+    assert "check_wheel: FAILED: " in r.stderr

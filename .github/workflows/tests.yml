@@ -18,9 +18,11 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -29,3 +31,62 @@ jobs:
 
       - name: Run tests
         run: python -m pytest
+
+  package:
+    name: build and check the packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.13"
+
+      - name: Install build tools
+        run: python -m pip install "build==1.6.1" "twine==7.0.0"
+
+      - name: Build sdist and wheel
+        run: python -m build --outdir dist .
+
+      - name: twine check
+        run: python -m twine check --strict dist/*
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  package-install:
+    name: installed wheel on ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    needs: package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.14"]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # only for scripts/check_wheel.py and the samples; the check runs the
+      # installed program from a temporary folder and fails if metaex is
+      # imported from anywhere but the new venv
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install the wheel in a fresh venv and try it
+        run: python scripts/check_wheel.py dist/metaex-*-py3-none-any.whl tests/samples

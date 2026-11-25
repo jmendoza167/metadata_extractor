@@ -140,7 +140,7 @@ src/metaex/
 tests/               # pytest tests
     helpers/         # builders that generate test files in memory
     samples/         # committed sample files (see "Sample files" below)
-scripts/             # dev tools: install_hooks.py, make_samples.py
+scripts/             # dev tools: install_hooks.py, make_samples.py, check_wheel.py
 ```
 
 What belongs where:
