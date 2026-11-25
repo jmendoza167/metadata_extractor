@@ -16,7 +16,7 @@ import sys
 from collections.abc import Iterable
 from typing import Any, BinaryIO
 
-from metaex.core.report import Report, format_value
+from metaex.core.report import Report, format_value, sanitize
 from metaex.core.risk import NOT_METADATA_SECTIONS, RiskFinding, classify
 
 HEADER = ("path", "format", "section", "field", "value", "risk level")
@@ -25,8 +25,11 @@ BOM = "﻿"
 
 
 def protect(cell: Any) -> str:
-    """The cell as text, with a leading ' if a spreadsheet would treat it as a formula."""
-    text = "" if cell is None else str(cell)
+    """The cell as text, safe to show: control characters (terminal escape
+    sequences, bidi overrides) escaped like everywhere else metaex prints
+    (CSV often goes straight to a terminal), and a leading ' if a
+    spreadsheet would treat it as a formula."""
+    text = "" if cell is None else sanitize(str(cell))
     return "'" + text if text.startswith(FORMULA_STARTS) else text
 
 

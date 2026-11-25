@@ -30,10 +30,21 @@ def parse(raw: bytes):
 # -- protection and quoting --------------------------------------------------------------
 
 
-@pytest.mark.parametrize("value", ["=1+1", "+1", "-1", "@SUM(A1)", "\tx", "\rx",
+@pytest.mark.parametrize("value", ["=1+1", "+1", "-1", "@SUM(A1)",
                                    '=HYPERLINK("http://evil","x")', "=cmd|' /C calc'!A0"])
 def test_formula_starts_get_an_apostrophe(value):
     assert protect(value) == "'" + value
+
+
+@pytest.mark.parametrize("value, shown", [
+    ("\tx", r"\tx"), ("\rx", r"\rx"),
+    ("Au\x1b]0;title\x07\x1b[2Jthor", r"Au\x1b]0;title\x07\x1b[2Jthor"),
+    ("gpj.exe\u202e", r"gpj.exe\u202e"),
+])
+def test_control_characters_are_escaped(value, shown):
+    """CSV often goes straight to a terminal: escape sequences and bidi
+    controls in file data must not reach it (regression test)."""
+    assert protect(value) == shown
 
 
 @pytest.mark.parametrize("value", ["plain", "1=1", " =1", "a+b", "", "'quoted", "€uro"])
@@ -50,8 +61,9 @@ def test_quoting_of_commas_quotes_and_newlines():
     lines = out.split("\r\n")
     assert lines[0] == ",".join(HEADER)
     rows = list(csv.reader(io.StringIO(out, newline="")))
-    assert rows[1] == ["a,b", 'say "hi"', "line1\nline2", "'=1", "x", "low"]
-    assert '"a,b","say ""hi""","line1\nline2"' in out
+    # a newline is shown escaped, as in the text output: one line per row
+    assert rows[1] == ["a,b", 'say "hi"', r"line1\nline2", "'=1", "x", "low"]
+    assert '"a,b","say ""hi""",line1\\nline2' in out
 
 
 def test_writer_writes_utf8_bytes_with_one_bom_and_one_header():
@@ -165,3 +177,17 @@ def test_csv_and_json_exclude_each_other(tmp_path):
     p.write_bytes(JPEG)
     r = run("risk", p, "--csv", "--json")
     assert r.returncode == 2 and b"not allowed with argument" in r.stderr
+
+
+@pytest.mark.parametrize("command", ["show", "risk"])
+def test_no_escape_sequences_reach_the_terminal(tmp_path, command):
+    """Regression test: a PNG text keyword (a field label) with terminal
+    escape sequences was written raw by --csv (text and JSON escaped it)."""
+    keyword = "Au\x1b]0;PWNED\x07\x1b[2Jthor"
+    path = tmp_path / "photo.png"
+    path.write_bytes(make_png(text(keyword, "value\x1b[31mred")))
+    r = run(command, "--csv", path)
+    assert r.returncode == 0, r.stderr
+    assert b"\x1b" not in r.stdout and b"\x07" not in r.stdout
+    assert any(r"Au\x1b]0;PWNED\x07\x1b[2Jthor" in cell for row in parse(r.stdout)
+               for cell in row)
