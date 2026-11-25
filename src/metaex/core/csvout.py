@@ -58,6 +58,7 @@ def verify_rows(path: str, result: Any,
     rows = [(path, kind, f.section, f.label, f.value,
              levels.get((f.section, f.label, f.value), "")) for f in result.leftovers]
     rows += [(path, kind, "", "Problem", problem, "") for problem in result.problems]
+    rows += [(path, kind, "", "Not checked", item, "") for item in result.unchecked]
     return rows
 
 

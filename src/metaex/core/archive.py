@@ -434,13 +434,36 @@ class InnerFile:
     """"examined", "partly examined" or why it was not examined."""
     leftovers: int = 0
     """Metadata fields a cleaned file of its type must not have."""
+    unchecked: list[str] = field(default_factory=list)
+    """What metaex could not examine inside this file (files inside a
+    nested archive, embedded objects in a document)."""
+
+
+UNRECOGNIZED = "not examined: type not recognized"
+
+
+def is_unchecked(status: str) -> bool:
+    """True if a file inside was not examined although it may hold metadata:
+    past the limits, of a type metaex doesn't read, or unreadable (a file
+    whose type isn't recognized at all is plain content)."""
+    return status.startswith("not examined") and status != UNRECOGNIZED
+
+
+def unchecked_files(found: list[InnerFile]) -> list[str]:
+    """Every file inside (at any depth) that metaex could not examine."""
+    out: list[str] = []
+    for f in found:
+        if is_unchecked(f.status):
+            out.append(f"{f.path} ({f.kind}): {f.status}")
+        out += [f"{f.path} > {item}" for item in f.unchecked]
+    return out
 
 
 def _not_examined(state: Scan, detected) -> str | None:
     from metaex.core import filetype
 
     if detected.key == filetype.UNKNOWN.key:
-        return "not examined: type not recognized"
+        return UNRECOGNIZED
     if detected.key in ARCHIVE_KEYS and state.depth + 1 > MAX_NESTING:
         return f"not examined: archives are read only {MAX_NESTING} levels deep"
     if state.counter.left <= 0:
@@ -465,6 +488,7 @@ def inner_sections(files: list[tuple[str, bytes]], warnings: list[str]
         return [], []
     sections: list[Section] = []
     found: list[InnerFile] = []
+    not_read: list[str] = []
     for path, data in files:
         detected = filetype.detect(data)
         kind = detected.name if detected.key != filetype.UNKNOWN.key else "unrecognized"
@@ -474,6 +498,8 @@ def inner_sections(files: list[tuple[str, bytes]], warnings: list[str]
             reason = f"not examined: metaex doesn't read {detected.name} files"
         if reason is not None:
             found.append(InnerFile(path, kind, reason))
+            if is_unchecked(reason):
+                not_read.append(f"{path} ({kind}; {reason[len('not examined: '):]})")
             continue
         state.counter.left -= 1
         try:
@@ -498,7 +524,11 @@ def inner_sections(files: list[tuple[str, bytes]], warnings: list[str]
             else:
                 warnings.append(f"{path}: {w}")
         status = "examined" if parsed.get("complete", True) else "partly examined"
-        found.append(InnerFile(path, kind, status, count))
+        nested = list(parsed.get("unchecked", [])) + unchecked_files(parsed.get("inner", []))
+        found.append(InnerFile(path, kind, status, count, nested))
+    if not_read:
+        warnings.append(f"{len(not_read)} file(s) inside were not examined and may contain "
+                        f"metadata: {some(not_read)}")
     return sections, found
 
 
@@ -625,7 +655,9 @@ def clean_inner(path: str, data: bytes, *, keep_orientation: bool = True,
                 result = verify(cleaned, data)
     except MetaexError as exc:
         return copied(str(exc))
-    if not result.clean or result.image_data_match is not True:
+    # What could not be checked inside it (an embedded object, a nested
+    # archive past the limits) is reported when the archive is verified.
+    if not result.checked_clean or result.image_data_match is not True:
         reasons = result.problems + [str(f) for f in result.leftovers]
         return copied("the cleaned copy could not be verified (" + "; ".join(reasons[:2]) + ")")
     if cleaned != data and session is not None:
@@ -652,7 +684,7 @@ def compare_inner(pairs: list[tuple[str, bytes, bytes]]) -> tuple[list[str], lis
             problems.append(f"{path} differs from the original and is not a cleaned copy of "
                             f"it ({exc})")
             continue
-        if not result.clean or result.image_data_match is not True:
+        if not result.checked_clean or result.image_data_match is not True:
             reasons = result.problems + [str(f) for f in result.leftovers]
             if result.image_data_match is False:
                 reasons.insert(0, f"{result.image_label.lower()} differs")

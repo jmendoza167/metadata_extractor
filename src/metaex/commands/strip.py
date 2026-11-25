@@ -65,6 +65,7 @@ class StripOutcome:
                 "verdict": verdict(v),
                 "leftovers": [str(f) for f in v.leftovers],
                 "problems": v.problems,
+                "unchecked": v.unchecked,
                 "image_data_match": v.image_data_match,
                 "image_data_rebuilt": v.image_data_rebuilt,
                 "image_sha256": v.image_sha256,
@@ -213,7 +214,9 @@ def _strip(source: str, data: bytes, detected: ft.FileType, module, output,
         # not cleaned are listed in a warning (see kept_warnings), not refused.
         with scan_inner(False):
             result = verify(on_disk, data, filename=target)
-        if not result.clean or result.image_data_match is not True:
+        # Items metaex could not examine are warned about and make the
+        # verdict NOT CLEAN, but don't stop the cleaned copy being written.
+        if not result.checked_clean or result.image_data_match is not True:
             reasons = result.problems + [str(f) for f in result.leftovers]
             raise MetaexError("verification of the cleaned file failed ("
                               + "; ".join(reasons[:3]) + "); no file written")
@@ -445,6 +448,9 @@ def removed_groups(parsed: dict, kept: list[Finding]) -> dict[str, list[str]]:
 
 # -- text summary --------------------------------------------------------------------
 
+MAX_UNCHECKED_LINES = 5
+
+
 def summary_lines(outcome: StripOutcome) -> list[str]:
     """Human-readable summary (unsanitized; the caller sanitizes and prints)."""
     lines = [f"metaex strip: {outcome.source}",
@@ -482,6 +488,10 @@ def summary_lines(outcome: StripOutcome) -> list[str]:
     v = outcome.verify
     if v is not None:
         lines.append(f"Verification: {verdict(v)}")
+        for item in v.unchecked[:MAX_UNCHECKED_LINES]:
+            lines.append(f"  Not checked: {item}")
+        if len(v.unchecked) > MAX_UNCHECKED_LINES:
+            lines.append(f"  ... and {len(v.unchecked) - MAX_UNCHECKED_LINES} more not checked")
         if v.image_data_match and v.image_data_rebuilt:
             lines.append("  Image data rebuilt, pixels identical (SHA-256 of the "
                          f"decompressed image data {v.image_sha256})")

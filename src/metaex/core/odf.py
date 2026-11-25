@@ -494,12 +494,26 @@ def object_folders(pkg: OdfPackage) -> list[str]:
                   if p.endswith("/") and p != "/" and "opendocument" in t)
 
 
+def ole_objects(pkg: OdfPackage) -> list[str]:
+    """Embedded OLE objects (not OpenDocument: metaex can't clean them)."""
+    return [n for n in pkg.names() if pkg.entries.get(n, "").startswith(
+        ("application/vnd.sun.star.oleobject", "application/x-openoffice"))]
+
+
+def unchecked_items(pkg: OdfPackage, sections: list[Section]) -> list[str]:
+    """What the document holds that metaex can't examine: OLE objects and
+    images metaex can't read (embedded OpenDocument objects are cleaned)."""
+    from metaex.core.ooxml import unexamined_images
+
+    return ([f"{name}: embedded object (its contents are not checked)"
+             for name in ole_objects(pkg)] + unexamined_images(sections))
+
+
 def embedded_section(pkg: OdfPackage) -> Section | None:
     section = Section("office_embedded", "Embedded objects")
     for folder in object_folders(pkg):
         section.add(folder, folder.rstrip("/"), pkg.entries[folder] or "unknown type")
-    others = [n for n in pkg.names() if pkg.entries.get(n, "").startswith(
-        ("application/vnd.sun.star.oleobject", "application/x-openoffice"))]
+    others = ole_objects(pkg)
     for name in others[:MAX_LISTED]:
         section.add(name, name, f"{pkg.entries[name]}, {pkg.archive.get(name).size} bytes",
                     sensitive=True)
@@ -629,7 +643,7 @@ def parse_package(data: bytes | bytearray | memoryview, kind: str) -> dict:
     if pkg.template:
         warnings.append(f"this is a {pkg.description.lower()}")
     return {"warnings": warnings, "sections": sections, "structure": structure_section(pkg),
-            "complete": complete, "package": pkg}
+            "complete": complete, "package": pkg, "unchecked": unchecked_items(pkg, sections)}
 
 
 # -- stripping ---------------------------------------------------------------------------------

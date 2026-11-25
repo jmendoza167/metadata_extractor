@@ -52,6 +52,18 @@ class VerifyResult:
     """Archives: the leftovers that belong to files inside (also in ``leftovers``)."""
     inner_files: list[str] = field(default_factory=list)
     """Archives: the files inside that still contain metadata."""
+    unchecked: list[str] = field(default_factory=list)
+    """What the file holds that metaex could not examine (files inside an
+    archive past the limits or of a type metaex doesn't read, embedded
+    objects and media in documents): it may hold metadata, so the file is
+    not called clean."""
+
+    @property
+    def checked_clean(self) -> bool:
+        """No leftovers and no problems in everything that could be checked
+        (what strip requires before writing; ``unchecked`` items are warned
+        about and make the verdict NOT CLEAN)."""
+        return not self.leftovers and not self.problems
 
 
 def verdict(result: VerifyResult) -> str:
@@ -59,15 +71,21 @@ def verdict(result: VerifyResult) -> str:
     "CLEAN", "NOT CLEAN", or for an archive whose own metadata is clean
     while files inside still hold theirs, "NOT CLEAN: archive metadata
     clean; N file(s) inside still contain metadata (not cleaned, use
-    --deep)"."""
+    --deep)"; "N item(s) metaex could not check" is added when something
+    could not be examined."""
     if result.clean:
         return "CLEAN"
+    unchecked = (f"{len(result.unchecked)} item(s) metaex could not check"
+                 if result.unchecked else "")
+    if result.checked_clean:
+        return f"NOT CLEAN: {unchecked}"
     only_inside = (result.inner_files and not result.problems
                    and len(result.leftovers) == len(result.inner_leftovers))
+    text = "NOT CLEAN"
     if only_inside:
-        return (f"NOT CLEAN: archive metadata clean; {len(result.inner_files)} file(s) inside "
+        text = (f"NOT CLEAN: archive metadata clean; {len(result.inner_files)} file(s) inside "
                 "still contain metadata (not cleaned, use --deep)")
-    return "NOT CLEAN"
+    return f"{text}; {unchecked}" if unchecked else text
 
 
 def kept_rule(module) -> Callable[[str, Field], bool]:
@@ -117,6 +135,10 @@ def verify(cleaned: bytes, original: bytes | None = None,
                 if section.kept is not None:  # a file inside an archive
                     result.inner_leftovers.append(finding)
     result.inner_files = [f.path for f in parsed.get("inner", []) if f.leftovers]
+    from metaex.core.archive import unchecked_files
+
+    result.unchecked += parsed.get("unchecked", [])
+    result.unchecked += unchecked_files(parsed.get("inner", []))
     if not parsed.get("complete", True):
         result.problems.append("the file structure is malformed, so it could not be "
                                "checked completely")
@@ -129,11 +151,12 @@ def verify(cleaned: bytes, original: bytes | None = None,
         result.leftovers.extend(Finding(*item) for item in details.get("leftovers", []))
         result.problems.extend(details.get("problems", []))
         result.notes.extend(details.get("notes", []))
+        result.unchecked.extend(details.get("unchecked", []))
         result.image_sha256 = details.get("image_sha256")
         result.original_image_sha256 = details.get("original_image_sha256")
         result.image_data_match = details.get("image_data_match")
         result.image_data_rebuilt = bool(details.get("image_data_rebuilt", False))
         result.image_label = details.get("image_label", result.image_label)
 
-    result.clean = not result.leftovers and not result.problems
+    result.clean = result.checked_clean and not result.unchecked
     return result

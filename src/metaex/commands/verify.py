@@ -35,6 +35,7 @@ def result_to_dict(path: str, result: VerifyResult) -> dict[str, Any]:
         "verdict": verdict(result),
         "leftovers": findings(result.leftovers),
         "problems": result.problems,
+        "unchecked": result.unchecked,
         "kept_by_design": findings(result.kept_by_design),
         "image_data_match": result.image_data_match,
         "image_data_rebuilt": result.image_data_rebuilt,
@@ -54,6 +55,10 @@ def result_lines(path: str, result: VerifyResult) -> list[str]:
     if result.problems:
         lines.append("Problems:")
         lines += [f"  {p}" for p in result.problems]
+        lines.append("")
+    if result.unchecked:
+        lines.append(f"Not checked ({len(result.unchecked)}; they may contain metadata):")
+        lines += [f"  {item}" for item in result.unchecked]
         lines.append("")
     lines.append("Kept by design:")
     lines += [f"  {f}" for f in result.kept_by_design] or ["  (nothing)"]

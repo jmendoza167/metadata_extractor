@@ -608,7 +608,8 @@ def _print_verify_line(result, counter: str = "") -> None:
         if not verified.clean and verdict(verified) != "NOT CLEAN":
             lines.append(f"  {verdict(verified)}")
         details = ([f"Leftover: {f}" for f in verified.leftovers]
-                   + [f"Problem: {p}" for p in verified.problems])
+                   + [f"Problem: {p}" for p in verified.problems]
+                   + [f"Not checked: {u}" for u in verified.unchecked])
         if verified.image_data_match is False:
             details.append(f"{verified.image_label} DIFFERS from the original")
         lines += [f"  {d}" for d in details[:MAX_DETAIL_LINES]]

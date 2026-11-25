@@ -270,7 +270,9 @@ templates: `.docx`, `.docm`, `.dotx`, `.dotm`; `.xlsx`, `.xlsm`, `.xltx`,
   says so loudly), macros, hidden text, hidden sheets and slides, speaker
   notes, the glossary, comments (with "Author" as their author), links,
   data connections, embedded objects and images metaex can't clean (EMF,
-  WMF, TIFF, ...).
+  WMF, TIFF, ...). metaex can't check what embedded objects and those
+  images contain, so `strip` and `verify` list them as "not checked" and
+  say NOT CLEAN.
 - **Options**: `--remove-comments` removes comments completely, with their
   marks in the text. `--paranoid` and `--no-orientation` apply to embedded
   images.
@@ -452,6 +454,12 @@ the other options apply to them as well) and checked against the original
 file inside. Files metaex can't clean (other formats, damaged files,
 archives nested deeper than 3 levels) are copied unchanged and listed,
 never dropped.
+
+**Files metaex could not examine** (past the 1000 files or 3 levels of
+nesting, of a format metaex doesn't read, or damaged) may still hold
+metadata: show and risk warn about them, and `strip` and `verify` list them
+as "not checked" and say NOT CLEAN. Files whose type isn't recognized at
+all (such as plain text) are content, not metadata, and don't count.
 
 **verify** checks that no metadata is left in the archive (or, with
 `--deep` output, in the files inside), that the entries are the same (names,

@@ -755,6 +755,21 @@ def object_parts(pkg: Package) -> list[str]:
     return found
 
 
+def unexamined_images(sections: list[Section]) -> list[str]:
+    """Embedded images (and media) listed as not examined or only partly
+    examined (shared with OpenDocument)."""
+    return [f"{f.label}: {f.value}" for s in sections if s.key == "embedded_images"
+            for f in s.fields if f.key == "more" or "examined" in str(f.value)]
+
+
+def unchecked_items(pkg: Package, sections: list[Section]) -> list[str]:
+    """What the document holds that metaex can't examine: embedded objects
+    (their contents, such as an embedded workbook's author, are not
+    cleaned) and images or media metaex can't read."""
+    return ([f"{name}: embedded object (its contents are not checked)"
+             for name in object_parts(pkg)] + unexamined_images(sections))
+
+
 def embedded_image_sections(pkg: Package, warnings: list[str]) -> list[Section]:
     """A list of the images (and other media) in the package, then the
     metadata sections of each image, found with its own format's parser."""
@@ -1030,7 +1045,7 @@ def parse_package(data: bytes | bytearray | memoryview, kind: str, format_builde
     if pkg.macro_enabled or pkg.template:
         warnings.append(f"this is a {pkg.description}")
     return {"warnings": warnings, "sections": sections, "structure": structure_section(pkg),
-            "complete": complete, "package": pkg}
+            "complete": complete, "package": pkg, "unchecked": unchecked_items(pkg, sections)}
 
 
 # -- stripping ---------------------------------------------------------------------------------
