@@ -71,7 +71,7 @@ def test_release_needs_a_date(repo):
     root = repo(date="Unreleased")
     with pytest.raises(release_notes.ReleaseError, match="write the release date"):
         run(root, "v1.2.0")
-    assert run(root, None) == "### Added\n\n- something new\n"  # dry run: fine
+    assert run(root, None) == "### Added\n\n- something new\n"  # before tagging: fine
 
 
 @pytest.mark.parametrize("date", ["2026-13-01", "2026-3-4", "soon"])

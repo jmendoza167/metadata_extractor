@@ -70,18 +70,19 @@ def jobs(text: str) -> dict[str, str]:
 
 
 def test_release_workflow_name_and_triggers():
-    """The Trusted Publishers on PyPI and TestPyPI are registered for this
-    exact file name and these environment names."""
+    """The Trusted Publisher on PyPI is registered for this exact file name
+    and environment name. Only a pushed tag starts it: there is no run by
+    hand and no TestPyPI dry run (removed: it was never used)."""
     assert RELEASE.name == "release.yml" and RELEASE.is_file()
     text = RELEASE.read_text(encoding="utf-8")
-    assert re.search(r'(?m)^  push:\n    tags: \["v\*"\]\n', text)
-    assert re.search(r"(?m)^  workflow_dispatch:\n", text)
+    assert re.search(r'(?m)^on:\n  push:\n    tags: \["v\*"\]\n\n', text)
+    assert "workflow_dispatch" not in text and "testpypi" not in text.lower()
     assert re.search(r"(?m)^permissions: \{\}\n", text)
 
 
 def test_release_jobs_and_permissions():
     j = jobs(RELEASE.read_text(encoding="utf-8"))
-    assert set(j) == {"tests", "check", "publish-pypi", "publish-testpypi", "github-release"}
+    assert set(j) == {"tests", "check", "publish-pypi", "github-release"}
     assert "uses: ./.github/workflows/tests.yml" in j["tests"]
     # least privilege: only the publish jobs get an OIDC token, only the
     # release job may write
@@ -91,19 +92,14 @@ def test_release_jobs_and_permissions():
         assert "permissions:" in body, f"{name}: no job permissions"
 
 
-def test_publish_jobs():
-    j = jobs(RELEASE.read_text(encoding="utf-8"))
-    pypi, testpypi = j["publish-pypi"], j["publish-testpypi"]
+def test_publish_job():
+    pypi = jobs(RELEASE.read_text(encoding="utf-8"))["publish-pypi"]
     assert re.search(r"environment:\n      name: pypi\n", pypi)
-    assert re.search(r"environment:\n      name: testpypi\n", testpypi)
     assert "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')" in pypi
-    assert "github.event_name == 'workflow_dispatch'" in testpypi
-    assert "repository-url: https://test.pypi.org/legacy/" in testpypi
     assert "repository-url" not in pypi
-    for body in (pypi, testpypi):
-        assert "needs: check" in body
-        assert "uses: pypa/gh-action-pypi-publish@" in body
-        assert "name: dist" in body  # the files built once by tests.yml
+    assert "needs: check" in pypi
+    assert "uses: pypa/gh-action-pypi-publish@" in pypi
+    assert "name: dist" in pypi  # the files built once by tests.yml
 
 
 def test_release_checks_tag_and_writes_notes():

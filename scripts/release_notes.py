@@ -3,7 +3,7 @@
 Usage (from the repository root):
 
     python scripts/release_notes.py --dist dist --tag v0.1.0 --out notes.md
-    python scripts/release_notes.py --dist dist --out notes.md      # TestPyPI dry run
+    python scripts/release_notes.py --dist dist --out notes.md      # before tagging
 
 Checks, and exits with 1 (and a clear message) if any fails:
 
@@ -11,7 +11,7 @@ Checks, and exits with 1 (and a clear message) if any fails:
 - dist/ holds exactly one sdist and one wheel, both of that version,
 - with --tag: the tag is exactly "v" + that version, and CHANGELOG.md has a
   section "## [X.Y.Z] - YYYY-MM-DD" with a real date (not "Unreleased"),
-- without --tag (dry run): the section may still say "Unreleased",
+- without --tag (a check before tagging): the section may still say "Unreleased",
 - the section is not empty.
 
 Then writes the section's text (without its heading) to --out, for the
@@ -97,7 +97,7 @@ def run(dist: Path, tag: str | None, out: Path, root: Path = ROOT) -> str:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Check a release and write its notes.")
     parser.add_argument("--dist", type=Path, required=True, help="folder with the built files")
-    parser.add_argument("--tag", help="the pushed tag (vX.Y.Z); omit for a dry run")
+    parser.add_argument("--tag", help="the pushed tag (vX.Y.Z); omit to check before tagging")
     parser.add_argument("--out", type=Path, required=True, help="where to write the notes")
     args = parser.parse_args(argv)
     try:
@@ -105,7 +105,7 @@ def main(argv: list[str]) -> int:
     except (ReleaseError, OSError) as e:
         print(f"release_notes: {e}", file=sys.stderr)
         return 1
-    kind = f"release {args.tag}" if args.tag else "dry run"
+    kind = f"release {args.tag}" if args.tag else "check before tagging"
     print(f"release_notes: {kind}: version {version} checked; notes written to {args.out}")
     return 0
 

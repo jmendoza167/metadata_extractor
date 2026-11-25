@@ -2,7 +2,7 @@
 
 Releases are published only by GitHub Actions (`.github/workflows/release.yml`)
 with PyPI Trusted Publishing: no API token is used anywhere. The one-time
-PyPI, TestPyPI and GitHub settings are listed in CLAUDE.md ("Releases and
+PyPI and GitHub settings are listed in CLAUDE.md ("Releases and
 publishing"). The commands below are for version **0.1.0**; change the
 version everywhere for later releases.
 
@@ -30,8 +30,7 @@ version everywhere for later releases.
    and strips and verifies samples with the installed `metaex`. Also run
    that installed `metaex` on a few of your own files in `private_samples/`
    (never commit them) and check the results by eye.
-4. Do the [TestPyPI dry run](#3-testpypi-dry-run) below.
-5. Write the release date into `CHANGELOG.md`: change
+4. Write the release date into `CHANGELOG.md`: change
    `## [0.1.0] - Unreleased` to `## [0.1.0] - YYYY-MM-DD`, with the date you
    will push the tag (UTC). Leave the empty `## [Unreleased]` section above
    it. Commit this on `main` (for example `docs: release 0.1.0`), push, and
@@ -71,32 +70,7 @@ Once a version is on PyPI it can never be uploaded again, even after it is
 deleted. If a published release is broken, yank it on PyPI (Manage project
 > Releases > Yank) and release 0.1.1.
 
-## 3. TestPyPI dry run
-
-Run the release workflow by hand on `main`: Actions > release > Run
-workflow, or
-
-```
-gh workflow run release.yml --ref main
-```
-
-It runs every check of a real release, except that the CHANGELOG may still
-say "Unreleased", and publishes to TestPyPI instead of PyPI (environment
-`testpypi`). It doesn't create a GitHub Release. Then try the uploaded
-package in a new virtual environment:
-
-```
-python -m venv metaex-test
-metaex-test/bin/pip install --index-url https://test.pypi.org/simple/ --no-deps metaex==0.1.0
-metaex-test/bin/metaex --version
-```
-
-(On Windows: `metaex-test\Scripts\pip` and `metaex-test\Scripts\metaex`.)
-TestPyPI, like PyPI, accepts each version only once: a second dry run of
-the same version fails at the upload step, after all the other checks have
-passed.
-
-## 4. After the release
+## 3. After the release
 
 New changes go under `## [Unreleased]` in `CHANGELOG.md`. For the next
 release, set the new version in `src/metaex/__init__.py`, the

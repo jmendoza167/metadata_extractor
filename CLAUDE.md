@@ -281,9 +281,8 @@ python -m pytest
   `scripts/release_notes.py` (tag equals `__version__`, both files of that
   version, CHANGELOG section dated), publishes to PyPI (environment
   `pypi`), then creates the GitHub Release with the CHANGELOG section as
-  notes and the files attached. Running the workflow by hand
-  (workflow_dispatch) is a dry run that publishes to TestPyPI (environment
-  `testpypi`); the CHANGELOG may still say "Unreleased" then.
+  notes and the files attached. Only a pushed tag starts it (there is no
+  run by hand and no TestPyPI dry run).
 - The packages are built **once**, by the `package` job, and the same
   files are checked, installed and published.
 - Third-party actions are pinned to full commit SHAs with the version in a
@@ -300,12 +299,7 @@ What has to be set up by hand (once), exactly as the workflow expects:
 | | Repository name | `metadata_extractor` |
 | | Workflow name | `release.yml` |
 | | Environment name | `pypi` |
-| TestPyPI: the same page on test.pypi.org | PyPI project name | `metaex` |
-| | Owner | `jmendoza167` |
-| | Repository name | `metadata_extractor` |
-| | Workflow name | `release.yml` |
-| | Environment name | `testpypi` |
-| GitHub: Settings > Environments | environments | `pypi` and `testpypi` (recommended: Javier as required reviewer; for `pypi`, deployment tags `v*` only) |
+| GitHub: Settings > Environments | environment | `pypi` (Javier as required reviewer; deployment tags `v*` only) |
 | GitHub: Settings > Security | Private vulnerability reporting | enabled (SECURITY.md links to it) |
 
 A pending publisher turns into a normal one when the first upload creates
