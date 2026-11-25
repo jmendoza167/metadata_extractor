@@ -39,6 +39,27 @@ MAX_SHOWN_CHARS = 256 * 1024
 MAX_FRAME_ATTEMPTS = 1000
 """Frame headers fully parsed while looking for the last frame."""
 MAX_SYNC_CANDIDATES = 10_000_000
+MAX_SEARCH_SAMPLES = 2_000_000
+"""Residual samples parsed at most while looking for the last frame (about
+a second): enough for the largest real frame (65,535 samples, 8 channels)
+after a few false starts, while a file full of decoy frame headers can't
+make the search take minutes."""
+
+
+class _Budget:
+    """Residual samples that may still be parsed."""
+
+    def __init__(self, samples: int) -> None:
+        self.samples = samples
+
+    def spend(self, samples: int) -> None:
+        self.samples -= samples
+        if self.samples < 0:
+            raise _OverBudget
+
+
+class _OverBudget(Exception):
+    pass
 
 STREAMINFO, PADDING, APPLICATION, SEEKTABLE, VORBIS_COMMENT, CUESHEET, PICTURE = range(7)
 BLOCK_NAMES = {STREAMINFO: "STREAMINFO", PADDING: "PADDING", APPLICATION: "APPLICATION",
@@ -224,7 +245,7 @@ class _Bits:
         raise MalformedFileError("the frame is truncated")
 
 
-def _residual(bits: _Bits, block_size: int, order: int) -> None:
+def _residual(bits: _Bits, block_size: int, order: int, budget: _Budget | None) -> None:
     method = bits.read(2)
     if method > 1:
         raise MalformedFileError("reserved residual coding method")
@@ -236,6 +257,8 @@ def _residual(bits: _Bits, block_size: int, order: int) -> None:
     for i in range(partitions):
         samples = (block_size >> partition_order) - (order if i == 0 else 0)
         param = bits.read(param_bits)
+        if budget is not None:
+            budget.spend(samples)
         if param == escape:
             bits.skip(samples * bits.read(5))
         else:
@@ -244,7 +267,8 @@ def _residual(bits: _Bits, block_size: int, order: int) -> None:
                 bits.skip(param)
 
 
-def _subframe(bits: _Bits, block_size: int, sample_bits: int) -> None:
+def _subframe(bits: _Bits, block_size: int, sample_bits: int,
+              budget: _Budget | None = None) -> None:
     if bits.read(1):
         raise MalformedFileError("subframe padding bit is set")
     kind = bits.read(6)
@@ -259,7 +283,7 @@ def _subframe(bits: _Bits, block_size: int, sample_bits: int) -> None:
     elif 8 <= kind <= 12:  # fixed predictor
         order = kind - 8
         bits.skip(order * sample_bits)
-        _residual(bits, block_size, order)
+        _residual(bits, block_size, order, budget)
     elif kind >= 32:  # linear predictor
         order = kind - 31
         bits.skip(order * sample_bits)
@@ -267,20 +291,22 @@ def _subframe(bits: _Bits, block_size: int, sample_bits: int) -> None:
         if precision == 15:
             raise MalformedFileError("invalid LPC precision")
         bits.skip(5 + order * (precision + 1))
-        _residual(bits, block_size, order)
+        _residual(bits, block_size, order, budget)
     else:
         raise MalformedFileError(f"reserved subframe type {kind}")
 
 
-def frame_end(data: bytes, header: FrameHeader, limit: int) -> int:
+def frame_end(data: bytes, header: FrameHeader, limit: int,
+              budget: _Budget | None = None) -> int:
     """Where the frame ends (just past its CRC-16), parsing its subframes;
-    raises MalformedFileError if it can't be parsed or its CRC-16 is wrong."""
+    raises MalformedFileError if it can't be parsed or its CRC-16 is wrong
+    (and _OverBudget when ``budget`` runs out)."""
     bits = _Bits(data, header.offset + header.length, limit)
     for channel in range(header.channels):
         side = ((header.assignment == 8 and channel == 1) or (header.assignment == 9
                                                               and channel == 0)
                 or (header.assignment == 10 and channel == 1))
-        _subframe(bits, header.block_size, header.bits + (1 if side else 0))
+        _subframe(bits, header.block_size, header.bits + (1 if side else 0), budget)
     end = (bits.pos + 7) // 8 + 2
     if end > limit:
         raise MalformedFileError("the frame is truncated")
@@ -351,6 +377,7 @@ def _last_frame(data: bytes, found: FlacLayout) -> None:
     limit = found.data_end
     pos = limit
     attempts = candidates = 0
+    budget = _Budget(MAX_SEARCH_SAMPLES)
     while True:
         pos = data.rfind(b"\xff", found.audio_start, pos)
         if pos < 0:
@@ -365,9 +392,12 @@ def _last_frame(data: bytes, found: FlacLayout) -> None:
             if attempts > MAX_FRAME_ATTEMPTS:
                 raise MalformedFileError("the end of the audio frames could not be found")
             try:
-                end = frame_end(data, header, limit)
+                end = frame_end(data, header, limit, budget)
             except MalformedFileError:
                 pass
+            except _OverBudget:
+                raise MalformedFileError("the end of the audio frames could not be found: "
+                                         "too many damaged frames near the end") from None
             else:
                 found.last_frame, found.audio_end = header, end
                 return
