@@ -6,7 +6,7 @@ All notable changes to metaex are listed here. The format follows
 
 ## [Unreleased]
 
-## [0.1.1] - Unreleased
+## [0.1.1] - 2026-11-26
 
 ### Security
 
