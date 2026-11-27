@@ -18,6 +18,12 @@ It is used for real privacy work and published as a public repo, so
 **correctness and honesty matter more than features**. Never claim a file is
 clean unless it is; never claim support for a format that isn't implemented.
 
+## Working with other agents
+
+You run inside Herdr alongside other agents. Run `hc --skill` to learn how
+to list, read, and message the other terminals with `hc`, and reply to other
+agents with `hc send`.
+
 ## Core principles
 
 1. **Stripping uses a whitelist.** Keep only what a format needs to render;
